@@ -3,22 +3,24 @@
 Air-gapped deployment toolkit for Jina AI models. Ship embedding, reranker, and reader models to fully disconnected environments.
 
 ```mermaid
-flowchart LR
-    subgraph Connected["Connected Machine"]
-        A["python jina-airgapped.py pack"] --> B["Select model\n& runtime"]
+flowchart TB
+    subgraph Connected["Phase 1: Pack (requires network)"]
+        A["python jina-airgapped.py pack"] --> B["Select model, runtime\n& API schema"]
         B --> C["Docker build\n(weights baked in)"]
-        C --> D["docker save\n→ .tar.gz"]
+        C --> D["docker save → .tar.gz"]
     end
 
-    D -- "USB / SCP / \nphysical media" --> E
+    Connected -->|"USB / SCP / physical media"| AirGapped
 
-    subgraph AirGapped["Air-Gapped Machine"]
-        E["docker load"] --> F["docker run\n--gpus all -p 8080:8080"]
-        F --> G["OpenAI-compatible API\n/v1/embeddings"]
+    subgraph AirGapped["Phase 2: Deploy (no network needed)"]
+        E["docker load < model.tar.gz"] --> F["docker run -p 8080:8080"]
+        F --> G["/v1/embeddings ready"]
     end
+
+    AirGapped --> ES
 
     subgraph ES["Elasticsearch"]
-        G --> H["inference service\ntype: openai"]
+        H["inference service type: openai"]
     end
 ```
 
