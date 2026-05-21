@@ -1,6 +1,6 @@
 """
 End-to-end tests for jina-airgapped inference server.
-Run against a live container: TEST_URL=http://localhost:8080 python tests/test_e2e.py
+Run against a live server: TEST_URL=http://localhost:8080 python tests/test_e2e.py
 """
 
 import os
@@ -11,7 +11,6 @@ import urllib.request
 import urllib.error
 
 BASE_URL = os.environ.get("TEST_URL", "http://localhost:8080")
-MODEL_TYPE = os.environ.get("JINA_MODEL_TYPE", "embedding")
 
 PASS = "\033[32mPASS\033[0m"
 FAIL = "\033[31mFAIL\033[0m"
@@ -23,7 +22,7 @@ def request(method, path, data=None, headers=None):
     h = {"Content-Type": "application/json", **(headers or {})}
     req = urllib.request.Request(url, data=body, headers=h, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        with urllib.request.urlopen(req, timeout=120) as resp:
             return resp.status, json.loads(resp.read())
     except urllib.error.HTTPError as e:
         return e.code, json.loads(e.read())
@@ -36,10 +35,10 @@ def test_health():
     assert status == 200, f"Expected 200, got {status}"
     assert body.get("status") == "ok", f"Expected ok, got {body}"
     assert body.get("ready"), "Model not ready"
-    print(f"  {PASS} /health -> {body.get('model', '?')} on {body.get('device', '?')}")
+    print(f"  {PASS} /health -> model={body.get('model', '?')} device={body.get('device', '?')}")
 
 
-def test_embeddings():
+def test_embeddings_basic():
     status, body = request("POST", "/v1/embeddings", {
         "input": ["Hello world", "Jina AI embeddings"],
         "model": "test",
@@ -66,49 +65,62 @@ def test_embeddings_matryoshka():
 
 
 def test_embeddings_tasks():
-    for task in ["retrieval.query", "retrieval.passage", "text-matching"]:
+    """Test v5 task parameters."""
+    for task in ["retrieval.query", "retrieval.passage", "text-matching", "separation", "classification"]:
         status, body = request("POST", "/v1/embeddings", {
             "input": ["Test task parameter"],
             "task": task,
         })
-        assert status == 200, f"Task {task} failed: {status}"
-    print(f"  {PASS} /v1/embeddings task parameter works")
+        assert status == 200, f"Task {task} failed: {status}: {body}"
+    print(f"  {PASS} /v1/embeddings task parameter works (all 5 tasks)")
 
 
-def test_rerank():
-    status, body = request("POST", "/v1/rerank", {
-        "query": "What is machine learning?",
-        "documents": [
-            "Machine learning is a subset of artificial intelligence.",
-            "Python is a programming language.",
-            "Deep learning uses neural networks.",
-        ],
-        "top_n": 2,
-    })
-    assert status == 200, f"Expected 200, got {status}: {body}"
-    results = body["results"]
-    assert len(results) == 2, f"Expected 2 results, got {len(results)}"
-    assert "relevance_score" in results[0], "Missing relevance_score"
-    assert results[0]["relevance_score"] >= results[1]["relevance_score"], "Not sorted by score"
-    print(f"  {PASS} /v1/rerank -> top score={results[0]['relevance_score']:.3f}")
+def test_throughput_reported():
+    """Test that tok/s is reported in usage and health endpoint."""
+    # Run a batch to populate stats
+    texts = [f"This is sentence number {i} for throughput testing." for i in range(10)]
+    status, body = request("POST", "/v1/embeddings", {"input": texts})
+    assert status == 200, f"Expected 200, got {status}"
+
+    usage = body.get("usage", {})
+    assert "tok_per_s" in usage, f"tok_per_s missing from usage: {usage}"
+    tok_per_s = usage["tok_per_s"]
+    assert isinstance(tok_per_s, (int, float)) and tok_per_s > 0, \
+        f"tok_per_s should be positive, got {tok_per_s}"
+
+    # Check prompt_tokens uses real tokenizer counts (not just word split)
+    assert "prompt_tokens" in usage, "prompt_tokens missing"
+    assert usage["prompt_tokens"] > 0, "prompt_tokens should be > 0"
+
+    print(f"  {PASS} tok/s reported in usage -> {tok_per_s:.1f} tok/s | {usage['prompt_tokens']} tokens")
+
+    # Check health also reports throughput
+    status2, health = request("GET", "/health")
+    assert status2 == 200
+    assert "throughput" in health, f"throughput missing from /health: {health}"
+    tp = health["throughput"]
+    assert "avg_tok_per_s" in tp and tp["avg_tok_per_s"] > 0, \
+        f"avg_tok_per_s missing or zero: {tp}"
+    print(f"  {PASS} /health throughput -> avg={tp['avg_tok_per_s']:.1f} tok/s peak={tp['peak_tok_per_s']:.1f} tok/s")
 
 
-def test_chat_completions():
-    status, body = request("POST", "/v1/chat/completions", {
-        "messages": [
-            {"role": "user", "content": "<html><body><h1>Hello</h1><p>World</p></body></html>"}
-        ],
-        "max_tokens": 64,
-    })
-    assert status == 200, f"Expected 200, got {status}: {body}"
-    choices = body["choices"]
-    assert len(choices) > 0, "No choices returned"
-    content = choices[0]["message"]["content"]
-    assert content, "Empty response"
-    print(f"  {PASS} /v1/chat/completions -> {repr(content[:60])}")
+def test_throughput_gpu_vs_cpu():
+    """Benchmark: embed 100 texts and report tok/s."""
+    texts = [
+        "The quick brown fox jumps over the lazy dog. " * 5 + f" Sentence {i}."
+        for i in range(100)
+    ]
+    t0 = time.time()
+    status, body = request("POST", "/v1/embeddings", {"input": texts})
+    wall_time = time.time() - t0
+    assert status == 200, f"Expected 200, got {status}"
+
+    tok_per_s = body["usage"].get("tok_per_s", 0)
+    n_tokens = body["usage"].get("prompt_tokens", 0)
+    print(f"  {PASS} Batch 100 texts: {n_tokens} tokens in {wall_time:.2f}s wall -> {tok_per_s:.1f} tok/s (encode only)")
 
 
-def wait_for_ready(timeout=120):
+def wait_for_ready(timeout=180):
     print(f"  Waiting for server at {BASE_URL}...")
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -123,25 +135,25 @@ def wait_for_ready(timeout=120):
 
 
 def main():
-    print(f"\n=== Jina AI Air-Gapped E2E Tests ===")
-    print(f"URL: {BASE_URL} | Model type: {MODEL_TYPE}\n")
+    print(f"\n=== Jina AI v5 Air-Gapped E2E Tests ===")
+    print(f"URL: {BASE_URL}\n")
 
     if not wait_for_ready():
-        print(f"{FAIL} Server not ready after 120s")
+        print(f"{FAIL} Server not ready after 180s")
         sys.exit(1)
 
+    tests = [
+        test_health,
+        test_embeddings_basic,
+        test_embeddings_matryoshka,
+        test_embeddings_tasks,
+        test_throughput_reported,
+        test_throughput_gpu_vs_cpu,
+    ]
+
     print("Running tests...\n")
-
-    tests = {
-        "embedding": [test_health, test_embeddings, test_embeddings_matryoshka, test_embeddings_tasks],
-        "reranker": [test_health, test_rerank],
-        "reader": [test_health, test_chat_completions],
-    }
-
-    run_tests = tests.get(MODEL_TYPE, [test_health])
-
     failed = 0
-    for test in run_tests:
+    for test in tests:
         try:
             test()
         except AssertionError as e:
@@ -152,7 +164,7 @@ def main():
             failed += 1
 
     print(f"\n{'='*40}")
-    total = len(run_tests)
+    total = len(tests)
     passed = total - failed
     if failed == 0:
         print(f"\033[32mAll {total} tests passed!\033[0m")

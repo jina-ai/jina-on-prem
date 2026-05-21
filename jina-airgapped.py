@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-jina-airgapped - Air-Gapped Deployment Toolkit for Jina AI Models
+jina-airgapped - Air-Gapped Deployment Toolkit for Jina AI v5 Embedding Models
 
 Zero external dependencies for the UI layer.
 
@@ -20,7 +20,6 @@ Usage:
 import os
 import sys
 import json
-import shutil
 import argparse
 import subprocess
 import textwrap
@@ -59,7 +58,7 @@ def print_banner():
     | | | | | | (_| |_|   | |  | ||  __/ (_| |  __/ \__ \
     |_|_|_| |_|\__,_(_)   \_|  |_/ \___|\__,_|\___|_|___/
 
-      Air-Gapped Deployment Toolkit for Jina AI Models
+      Air-Gapped Deployment Toolkit for Jina AI v5 Embedding Models
     """
     if sys.stdout.isatty():
         print(c(banner, CYAN))
@@ -70,16 +69,14 @@ def print_banner():
 def list_models(models, verbose=False):
     print(f"\n{c('Available Models', BOLD)}\n")
     for i, m in enumerate(models, 1):
-        type_badge = {
-            "embedding": c("[EMB]", GREEN),
-            "reranker": c("[RNK]", YELLOW),
-            "reader": c("[LLM]", CYAN),
-        }.get(m["type"], "[???]")
-
-        print(f"  {c(str(i).rjust(2), DIM)}. {type_badge} {c(m['id'], BOLD)}")
+        modality_badge = c("[OMNI]", CYAN) if m.get("modality") == "multimodal" else c("[TEXT]", GREEN)
+        print(f"  {c(str(i).rjust(2), DIM)}. {modality_badge} {c(m['id'], BOLD)}")
         print(f"       {m['description']}")
         if verbose:
-            print(f"       HF: {m['hf_repo']} | VRAM: ~{m['vram_gb']}GB | License: {m['license']}")
+            print(
+                f"       HF: {m['hf_repo']} | Params: {m['parameters']} "
+                f"| VRAM: ~{m['vram_gb']}GB | Dim: {m['output_dim']} | License: {m['license']}"
+            )
         print()
 
 
@@ -117,13 +114,7 @@ def select_runtime_interactive():
 
 
 def get_dockerfile_path(model):
-    family_map = {
-        "embeddings": "embeddings",
-        "reranker": "reranker",
-        "reader-lm": "reader-lm",
-    }
-    family_dir = family_map.get(model["family"], "embeddings")
-    return SCRIPT_DIR / "docker" / family_dir / "Dockerfile"
+    return SCRIPT_DIR / "docker" / "embeddings" / "Dockerfile"
 
 
 def cmd_list(args):
@@ -194,7 +185,6 @@ def cmd_pack(args):
         build_args += ["--build-arg", f"HF_TOKEN={args.hf_token}"]
 
     if runtime == "cpu":
-        # Override base image for CPU-only build
         build_args += ["--build-arg", "BASE_IMAGE=python:3.11-slim"]
 
     build_args.append(str(SCRIPT_DIR))
@@ -240,7 +230,6 @@ def cmd_load(args):
         print(c(f"Failed to load image:\n{result.stderr}", RED))
         sys.exit(1)
 
-    # Extract image name from load output
     image_name = None
     for line in result.stdout.splitlines():
         if "Loaded image:" in line:
@@ -267,19 +256,16 @@ def cmd_load(args):
 
 def cmd_serve(args):
     """Serve a model directly without Docker (requires local model files and deps)."""
-    import os
-
     models = load_catalog()
 
     if args.model:
         matches = [m for m in models if m["id"] == args.model]
         if not matches:
-            # Try treating as a local path or HF repo
             model_info = {
                 "id": args.model,
-                "type": args.type or "embedding",
+                "type": "embedding",
                 "hf_repo": args.model,
-                "family": args.type or "embedding",
+                "family": "embeddings",
             }
         else:
             model_info = matches[0]
@@ -290,7 +276,6 @@ def cmd_serve(args):
 
     env = os.environ.copy()
     env["JINA_MODEL_ID"] = args.local_path or model_info["hf_repo"]
-    env["JINA_MODEL_TYPE"] = model_info.get("type", "embedding")
     env["PORT"] = str(port)
 
     if args.cpu_only:
@@ -303,7 +288,6 @@ def cmd_serve(args):
 
     print(f"\n{c('Starting server:', CYAN)}")
     print(f"  Model: {env['JINA_MODEL_ID']}")
-    print(f"  Type:  {env['JINA_MODEL_TYPE']}")
     print(f"  Port:  {port}\n")
 
     subprocess.run([sys.executable, str(server_script)], env=env)
@@ -319,19 +303,16 @@ def main():
           python jina-airgapped.py pack
 
           # Pack specific model
-          python jina-airgapped.py pack --model jina-embeddings-v3 --output jina-emb-v3.tar.gz
-
-          # Pack with HuggingFace token (for gated models)
-          python jina-airgapped.py pack --model jina-embeddings-v4 --hf-token hf_xxx
+          python jina-airgapped.py pack --model jina-embeddings-v5-text-nano --output jina-v5-nano.tar.gz
 
           # CPU-only pack (no GPU needed at runtime)
-          python jina-airgapped.py pack --model jina-embeddings-v3 --cpu-only
+          python jina-airgapped.py pack --model jina-embeddings-v5-text-small --cpu-only
 
           # Load and run on air-gapped machine
-          python jina-airgapped.py load --image jina-emb-v3.tar.gz --gpu
+          python jina-airgapped.py load --image jina-v5-nano.tar.gz --gpu
 
           # Serve directly (no Docker)
-          python jina-airgapped.py serve --model /path/to/model --type embedding
+          python jina-airgapped.py serve --model jinaai/jina-embeddings-v5-text-nano --port 8080
 
           # List available models
           python jina-airgapped.py list
@@ -358,13 +339,11 @@ def main():
     serve_p = subparsers.add_parser("serve", help="Serve model directly (no Docker)")
     serve_p.add_argument("--model", help="Model ID or HuggingFace repo")
     serve_p.add_argument("--local-path", dest="local_path", help="Local path to model files")
-    serve_p.add_argument("--type", dest="type", choices=["embedding", "reranker", "reader"],
-                         help="Model type (auto-detected from catalog)")
     serve_p.add_argument("--port", "-p", type=int, default=8080, help="Port (default: 8080)")
     serve_p.add_argument("--cpu-only", action="store_true", help="Force CPU inference")
 
     # list
-    list_p = subparsers.add_parser("list", help="List available models")
+    subparsers.add_parser("list", help="List available models")
 
     args = parser.parse_args()
 

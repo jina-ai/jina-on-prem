@@ -1,28 +1,27 @@
 """
 Jina AI Air-Gapped Inference Server
-OpenAI-compatible API for embedding, reranking, and reading.
+OpenAI-compatible embedding API with real tok/s throughput measurement.
 """
 
 import os
 import json
 import time
 import logging
+import threading
 from typing import Optional, Union
 
 import torch
 import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # --- Config from env ---
 MODEL_ID = os.environ.get("JINA_MODEL_ID", "")
-MODEL_TYPE = os.environ.get("JINA_MODEL_TYPE", "embedding")  # embedding | reranker | reader
 # Enforce offline mode only if explicitly set (e.g., inside Docker with baked-in weights)
-# When JINA_OFFLINE=1 is set, lock down all network access
 if os.environ.get("JINA_OFFLINE", "0") == "1":
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
@@ -36,13 +35,47 @@ else:
     DEVICE = "cpu"
 logger.info(f"Using device: {DEVICE}")
 
-app = FastAPI(title="Jina AI Air-Gapped Server", version="1.0.0")
+app = FastAPI(title="Jina AI Air-Gapped Server", version="2.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # --- Global model holder ---
 MODEL = None
-TOKENIZER = None
+TOKENIZER = None  # for real token counting
 MODEL_INFO = {}
+
+# --- Throughput stats (thread-safe) ---
+_stats_lock = threading.Lock()
+_stats = {
+    "total_requests": 0,
+    "total_tokens": 0,
+    "total_latency_s": 0.0,
+    "last_tok_per_s": 0.0,
+    "peak_tok_per_s": 0.0,
+}
+
+
+def _update_stats(n_tokens: int, elapsed_s: float):
+    tok_per_s = n_tokens / elapsed_s if elapsed_s > 0 else 0.0
+    with _stats_lock:
+        _stats["total_requests"] += 1
+        _stats["total_tokens"] += n_tokens
+        _stats["total_latency_s"] += elapsed_s
+        _stats["last_tok_per_s"] = tok_per_s
+        if tok_per_s > _stats["peak_tok_per_s"]:
+            _stats["peak_tok_per_s"] = tok_per_s
+    return tok_per_s
+
+
+def _count_tokens(texts: list[str]) -> int:
+    """Count tokens using the actual tokenizer."""
+    if TOKENIZER is not None:
+        try:
+            enc = TOKENIZER(texts, add_special_tokens=True)
+            return sum(len(ids) for ids in enc["input_ids"])
+        except Exception:
+            pass
+    # fallback: whitespace split approximation
+    return sum(len(t.split()) for t in texts)
 
 
 def load_model():
@@ -52,39 +85,21 @@ def load_model():
     if not model_id:
         raise RuntimeError("JINA_MODEL_ID not set")
 
-    logger.info(f"Loading model: {model_id} (type={MODEL_TYPE})")
+    logger.info(f"Loading model: {model_id}")
 
-    if MODEL_TYPE == "embedding":
-        from sentence_transformers import SentenceTransformer
-        MODEL = SentenceTransformer(model_id, trust_remote_code=True, device=DEVICE)
-        MODEL_INFO = {"model": model_id, "type": "embedding"}
+    from sentence_transformers import SentenceTransformer
+    MODEL = SentenceTransformer(model_id, trust_remote_code=True, device=DEVICE)
+    MODEL_INFO = {"model": model_id, "type": "embedding"}
 
-    elif MODEL_TYPE == "reranker":
-        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+    # Load tokenizer for real token counting
+    try:
+        from transformers import AutoTokenizer
         TOKENIZER = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-        MODEL = AutoModelForSequenceClassification.from_pretrained(
-            model_id,
-            trust_remote_code=True,
-            torch_dtype=torch.float16 if DEVICE == "cuda" else torch.float32,
-        ).to(DEVICE)
-        MODEL.eval()
-        MODEL_INFO = {"model": model_id, "type": "reranker"}
+        logger.info("Tokenizer loaded for real tok/s measurement")
+    except Exception as e:
+        logger.warning(f"Could not load tokenizer ({e}), will use word-split approximation")
 
-    elif MODEL_TYPE == "reader":
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-        TOKENIZER = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-        MODEL = AutoModelForCausalLM.from_pretrained(
-            model_id,
-            trust_remote_code=True,
-            torch_dtype=torch.float16 if DEVICE == "cuda" else torch.float32,
-            device_map="auto" if DEVICE == "cuda" else None,
-        )
-        if DEVICE != "cuda":
-            MODEL = MODEL.to(DEVICE)
-        MODEL.eval()
-        MODEL_INFO = {"model": model_id, "type": "reader"}
-
-    logger.info(f"Model loaded: {model_id}")
+    logger.info(f"Model loaded: {model_id} on {DEVICE}")
 
 
 @app.on_event("startup")
@@ -99,13 +114,7 @@ class EmbeddingRequest(BaseModel):
     model: Optional[str] = None
     encoding_format: Optional[str] = "float"
     dimensions: Optional[int] = None
-    task: Optional[str] = "retrieval.query"
-
-
-class EmbeddingObject(BaseModel):
-    object: str = "embedding"
-    embedding: list
-    index: int
+    task: Optional[str] = "retrieval"
 
 
 class EmbeddingResponse(BaseModel):
@@ -115,76 +124,63 @@ class EmbeddingResponse(BaseModel):
     usage: dict
 
 
-class RerankRequest(BaseModel):
-    model: Optional[str] = None
-    query: str
-    documents: list
-    top_n: Optional[int] = None
-    return_documents: Optional[bool] = True
-
-
-class RerankResult(BaseModel):
-    index: int
-    relevance_score: float
-    document: Optional[dict] = None
-
-
-class RerankResponse(BaseModel):
-    model: str
-    results: list
-    usage: dict
-
-
-class ChatMessage(BaseModel):
-    role: str
-    content: str
-
-
-class ChatCompletionRequest(BaseModel):
-    model: Optional[str] = None
-    messages: list
-    max_tokens: Optional[int] = 2048
-    temperature: Optional[float] = 0.0
-    stream: Optional[bool] = False
-
-
-class ChatCompletionResponse(BaseModel):
-    id: str
-    object: str = "chat.completion"
-    created: int
-    model: str
-    choices: list
-    usage: dict
-
-
 # --- Endpoints ---
 
 @app.get("/health")
 async def health():
-    return {
+    with _stats_lock:
+        stats_snapshot = dict(_stats)
+
+    avg_tok_per_s = (
+        stats_snapshot["total_tokens"] / stats_snapshot["total_latency_s"]
+        if stats_snapshot["total_latency_s"] > 0
+        else None
+    )
+
+    resp = {
         "status": "ok",
         "model": MODEL_ID,
-        "type": MODEL_TYPE,
         "device": DEVICE,
         "ready": MODEL is not None,
     }
 
+    if stats_snapshot["total_requests"] > 0:
+        resp["throughput"] = {
+            "total_requests": stats_snapshot["total_requests"],
+            "total_tokens": stats_snapshot["total_tokens"],
+            "last_tok_per_s": round(stats_snapshot["last_tok_per_s"], 1),
+            "avg_tok_per_s": round(avg_tok_per_s, 1) if avg_tok_per_s else None,
+            "peak_tok_per_s": round(stats_snapshot["peak_tok_per_s"], 1),
+        }
+
+    return resp
+
 
 @app.post("/v1/embeddings", response_model=EmbeddingResponse)
 async def create_embeddings(request: EmbeddingRequest):
-    if MODEL is None or MODEL_TYPE != "embedding":
-        raise HTTPException(status_code=503, detail="Embedding model not loaded")
+    if MODEL is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
 
     inputs = request.input if isinstance(request.input, list) else [request.input]
 
-    # Encode
+    # Count real tokens before encoding
+    n_tokens = _count_tokens(inputs)
+
+    t0 = time.perf_counter()
     with torch.no_grad():
         embeddings = MODEL.encode(
             inputs,
-            task=request.task or "retrieval.query",
+            task=request.task or "retrieval",
             convert_to_numpy=True,
             normalize_embeddings=True,
         )
+    elapsed = time.perf_counter() - t0
+
+    tok_per_s = _update_stats(n_tokens, elapsed)
+    logger.info(
+        f"Embedded {len(inputs)} texts | {n_tokens} tokens | "
+        f"{elapsed*1000:.0f}ms | {tok_per_s:.0f} tok/s"
+    )
 
     # Handle Matryoshka truncation
     if request.dimensions and request.dimensions < embeddings.shape[-1]:
@@ -196,121 +192,15 @@ async def create_embeddings(request: EmbeddingRequest):
         for i, emb in enumerate(embeddings)
     ]
 
-    total_tokens = sum(len(s.split()) for s in inputs)  # approx
-
     return EmbeddingResponse(
         data=data,
         model=MODEL_ID,
-        usage={"prompt_tokens": total_tokens, "total_tokens": total_tokens},
-    )
-
-
-@app.post("/v1/rerank", response_model=RerankResponse)
-async def rerank(request: RerankRequest):
-    if MODEL is None or MODEL_TYPE != "reranker":
-        raise HTTPException(status_code=503, detail="Reranker model not loaded")
-
-    query = request.query
-    docs = request.documents
-
-    # Normalize docs to strings
-    doc_texts = []
-    for d in docs:
-        if isinstance(d, str):
-            doc_texts.append(d)
-        elif isinstance(d, dict):
-            doc_texts.append(d.get("text", str(d)))
-        else:
-            doc_texts.append(str(d))
-
-    pairs = [[query, doc] for doc in doc_texts]
-
-    with torch.no_grad():
-        inputs = TOKENIZER(
-            pairs,
-            padding=True,
-            truncation=True,
-            max_length=512,
-            return_tensors="pt",
-        ).to(DEVICE)
-        scores = MODEL(**inputs).logits.squeeze(-1).float().cpu().numpy()
-
-    if len(scores.shape) > 1:
-        scores = scores[:, 0]
-
-    # Sort by score descending
-    ranked = sorted(enumerate(scores.tolist()), key=lambda x: x[1], reverse=True)
-    top_n = request.top_n or len(ranked)
-
-    results = []
-    for rank_idx, (orig_idx, score) in enumerate(ranked[:top_n]):
-        result = {"index": orig_idx, "relevance_score": float(score)}
-        if request.return_documents:
-            d = docs[orig_idx]
-            result["document"] = d if isinstance(d, dict) else {"text": d}
-        results.append(result)
-
-    total_tokens = len(query.split()) + sum(len(t.split()) for t in doc_texts)
-
-    return RerankResponse(
-        model=MODEL_ID,
-        results=results,
-        usage={"prompt_tokens": total_tokens, "total_tokens": total_tokens},
-    )
-
-
-@app.post("/v1/chat/completions")
-async def chat_completions(request: ChatCompletionRequest):
-    if MODEL is None or MODEL_TYPE != "reader":
-        raise HTTPException(status_code=503, detail="Reader model not loaded")
-
-    # Build prompt from messages
-    prompt = TOKENIZER.apply_chat_template(
-        [{"role": m["role"], "content": m["content"]} for m in request.messages],
-        tokenize=False,
-        add_generation_prompt=True,
-    )
-
-    inputs = TOKENIZER(prompt, return_tensors="pt").to(DEVICE)
-
-    with torch.no_grad():
-        outputs = MODEL.generate(
-            **inputs,
-            max_new_tokens=request.max_tokens or 2048,
-            do_sample=request.temperature > 0,
-            temperature=request.temperature if request.temperature > 0 else 1.0,
-            pad_token_id=TOKENIZER.eos_token_id,
-        )
-
-    # Decode only new tokens
-    new_tokens = outputs[0][inputs["input_ids"].shape[1]:]
-    response_text = TOKENIZER.decode(new_tokens, skip_special_tokens=True)
-
-    prompt_tokens = inputs["input_ids"].shape[1]
-    completion_tokens = len(new_tokens)
-
-    return {
-        "id": f"chatcmpl-{int(time.time())}",
-        "object": "chat.completion",
-        "created": int(time.time()),
-        "model": MODEL_ID,
-        "choices": [{
-            "index": 0,
-            "message": {"role": "assistant", "content": response_text},
-            "finish_reason": "stop",
-        }],
-        "usage": {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": prompt_tokens + completion_tokens,
+        usage={
+            "prompt_tokens": n_tokens,
+            "total_tokens": n_tokens,
+            "tok_per_s": round(tok_per_s, 1),
         },
-    }
-
-
-# Also support /rerank (some clients use this)
-@app.post("/rerank")
-async def rerank_alias(request: RerankRequest):
-    return await rerank(request)
+    )
 
 
 if __name__ == "__main__":

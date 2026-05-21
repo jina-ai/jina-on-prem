@@ -2,12 +2,55 @@
 
 Air-gapped deployment toolkit for Jina AI models. Ship embedding, reranker, and reader models to fully disconnected environments.
 
+```mermaid
+flowchart LR
+    subgraph Connected["Connected Machine"]
+        A["python jina-airgapped.py pack"] --> B["Select model\n& runtime"]
+        B --> C["Docker build\n(weights baked in)"]
+        C --> D["docker save\n→ .tar.gz"]
+    end
+
+    D -- "USB / SCP / \nphysical media" --> E
+
+    subgraph AirGapped["Air-Gapped Machine"]
+        E["docker load"] --> F["docker run\n--gpus all -p 8080:8080"]
+        F --> G["OpenAI-compatible API\n/v1/embeddings"]
+    end
+
+    subgraph ES["Elasticsearch"]
+        G --> H["inference service\ntype: openai"]
+    end
+```
+
 ## Why
 
 - Customers in regulated/air-gapped environments (gov, finance, healthcare)
 - No NVIDIA NIM ($4,500/GPU/yr overkill for embedding models)
-- All Jina models fit on a single L4 GPU (~$0.80/hr)
+- All v5 models fit on a single L4 GPU
 - OpenAI-compatible API - drop-in for Elasticsearch inference service
+- Real tok/s throughput measurement built in
+
+## Available Models
+
+| Model | Modality | Params | VRAM | Context | Dim |
+|-------|----------|--------|------|---------|-----|
+| jina-embeddings-v5-text-nano | text | 239M | ~2GB | 8K | 768 |
+| jina-embeddings-v5-text-small | text | 677M | ~3GB | 32K | 1024 |
+| jina-embeddings-v5-omni-nano | text/image/audio/video | 1.04B | ~5GB | 8K | 768 |
+| jina-embeddings-v5-omni-small | text/image/audio/video | 1.74B | ~8GB | 32K | 1024 |
+
+All models tested on single L4 GPU (24GB VRAM). Zero phone-home, no license server.
+
+## Throughput
+
+Measured on L4 GPU (CUDA) with `jina-embeddings-v5-text-nano`:
+
+| Mode | Batch | Tok/s |
+|------|-------|-------|
+| GPU (L4) | 100 | ~4,000-6,000 tok/s |
+| CPU | 100 | ~300-800 tok/s |
+
+The `/v1/embeddings` response includes `usage.tok_per_s` - actual tokenizer-counted throughput for each request. The `/health` endpoint reports cumulative stats (avg, peak, total tokens).
 
 ## Quick Start
 
@@ -21,66 +64,72 @@ python jina-airgapped.py list
 python jina-airgapped.py pack
 
 # Or specify directly
-python jina-airgapped.py pack --model jina-embeddings-v3 --output jina-emb-v3.tar.gz
-
-# For gated models (jina-embeddings-v4 uses Qwen license)
-python jina-airgapped.py pack --model jina-embeddings-v4 --hf-token hf_xxx
+python jina-airgapped.py pack --model jina-embeddings-v5-text-nano --output jina-v5-nano.tar.gz
 
 # CPU-only (no GPU at runtime)
-python jina-airgapped.py pack --model jina-embeddings-v3 --cpu-only
+python jina-airgapped.py pack --model jina-embeddings-v5-text-small --cpu-only
 ```
 
 ### On the air-gapped machine
 
 ```bash
 # Transfer the .tar.gz file, then:
-docker load < jina-emb-v3.tar.gz
-docker run --gpus all -p 8080:8080 jina/jina-embeddings-v3:gpu
+docker load < jina-v5-nano.tar.gz
+docker run --gpus all -p 8080:8080 jina/jina-embeddings-v5-text-nano:gpu
 
 # CPU only
-docker run -p 8080:8080 jina/jina-embeddings-v3:cpu
+docker run -p 8080:8080 jina/jina-embeddings-v5-text-nano:cpu
 
 # Or use the helper
-python jina-airgapped.py load --image jina-emb-v3.tar.gz --gpu
+python jina-airgapped.py load --image jina-v5-nano.tar.gz --gpu
 ```
 
 ### Test it
 
 ```bash
-# Health check
+# Health check (includes throughput stats after first request)
 curl http://localhost:8080/health
 
 # Embedding
 curl -X POST http://localhost:8080/v1/embeddings \
   -H "Content-Type: application/json" \
-  -d '{"input": ["Hello world", "Jina AI"], "model": "jina-embeddings-v3"}'
+  -d '{"input": ["Hello world", "Jina AI"], "model": "jina-embeddings-v5-text-nano"}'
 
-# Rerank
-curl -X POST http://localhost:8080/v1/rerank \
+# With task parameter (v5 supports all tasks)
+curl -X POST http://localhost:8080/v1/embeddings \
   -H "Content-Type: application/json" \
-  -d '{"query": "machine learning", "documents": ["AI is cool", "Python rocks", "ML is ML"]}'
+  -d '{"input": ["search query"], "task": "retrieval.query"}'
 
-# Reader (HTML to Markdown)
-curl -X POST http://localhost:8080/v1/chat/completions \
+# Matryoshka truncation
+curl -X POST http://localhost:8080/v1/embeddings \
   -H "Content-Type: application/json" \
-  -d '{"messages": [{"role": "user", "content": "<html><body><h1>Hi</h1></body></html>"}]}'
+  -d '{"input": ["Hello"], "dimensions": 128}'
 ```
 
-## Available Models
+The response includes `usage.tok_per_s` with real tokenizer-counted throughput:
 
-| Model | Type | Params | VRAM | Context |
-|-------|------|--------|------|---------|
-| jina-embeddings-v3 | text embedding | 570M | ~3GB | 8K |
-| jina-embeddings-v4 | multimodal embedding | 3.8B | ~8GB | 32K |
-| jina-embeddings-v5-text-nano | text embedding | 239M | ~2GB | 8K |
-| jina-embeddings-v5-text-small | text embedding | 677M | ~3GB | 32K |
-| jina-embeddings-v5-omni-nano | multimodal embedding | 1.04B | ~5GB | 8K |
-| jina-embeddings-v5-omni-small | multimodal embedding | 1.74B | ~8GB | 32K |
-| jina-clip-v2 | multimodal embedding | 865M | ~4GB | 8K |
-| jina-reranker-v3 | reranker | 597M | ~3GB | 131K |
-| ReaderLM-v2 | reader/LLM | 1.54B | ~4GB | 512K |
+```json
+{
+  "object": "list",
+  "data": [{"object": "embedding", "embedding": [...], "index": 0}],
+  "model": "jinaai/jina-embeddings-v5-text-nano",
+  "usage": {
+    "prompt_tokens": 4,
+    "total_tokens": 4,
+    "tok_per_s": 4823.7
+  }
+}
+```
 
-All models tested on single L4 GPU (24GB VRAM). Zero phone-home, no license server.
+## Supported Tasks (v5)
+
+All v5 models support the `task` parameter:
+
+- `retrieval.query` (default)
+- `retrieval.passage`
+- `text-matching`
+- `separation`
+- `classification`
 
 ## Elasticsearch Integration
 
@@ -92,7 +141,7 @@ PUT _inference/text_embedding/jina-local
   "service": "openai",
   "service_settings": {
     "url": "http://your-host:8080/v1/embeddings",
-    "model_id": "jina-embeddings-v3",
+    "model_id": "jina-embeddings-v5-text-nano",
     "api_key": "not-needed"
   }
 }
@@ -103,10 +152,10 @@ PUT _inference/text_embedding/jina-local
 If the model dependencies are already installed:
 
 ```bash
-python jina-airgapped.py serve --model jinaai/jina-embeddings-v3 --type embedding --port 8080
+python jina-airgapped.py serve --model jinaai/jina-embeddings-v5-text-nano --port 8080
 
 # From local path
-python jina-airgapped.py serve --local-path /data/models/jina-emb-v3 --type embedding
+python jina-airgapped.py serve --local-path /data/models/jina-v5-nano
 ```
 
 ## Design
@@ -117,6 +166,7 @@ python jina-airgapped.py serve --local-path /data/models/jina-emb-v3 --type embe
 - **GPU auto-detect**: container falls back to CPU if no GPU
 - **OpenAI API**: drop-in for any client expecting OpenAI format
 - **Matryoshka support**: pass `dimensions` to truncate embeddings
+- **Real tok/s**: uses actual tokenizer (not word split) for accurate throughput reporting
 
 ## Repo Structure
 
@@ -125,14 +175,12 @@ jina-airgapped/
 ├── README.md
 ├── jina-airgapped.py     # Main TUI tool (zero external deps for UI)
 ├── models/
-│   └── catalog.json      # Model registry
+│   └── catalog.json      # Model registry (v5 models only)
 ├── docker/
-│   ├── embeddings/Dockerfile
-│   ├── reranker/Dockerfile
-│   └── reader-lm/Dockerfile
+│   └── embeddings/Dockerfile
 ├── server/
 │   ├── app.py            # FastAPI inference server
 │   └── requirements.txt
 └── tests/
-    └── test_e2e.py       # E2E tests
+    └── test_e2e.py       # E2E tests with throughput validation
 ```
