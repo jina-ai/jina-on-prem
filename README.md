@@ -12,8 +12,8 @@ flowchart TB
 
     Phase1 -->|"USB / SCP / physical media"| Phase2
 
-    subgraph Phase2["Phase 2: DEPLOY (no network needed)"]
-        E["python jina-airgapped.py deploy"] --> F["docker load + run"]
+    subgraph Phase2["Phase 2: DEPLOY (no network needed, no repo needed)"]
+        E["docker load < model.tar.gz"] --> F["docker run -p 8080:8080"]
         F --> G["Multi-schema API ready\n/v1/embeddings | /v1/embed | /v1/models/...:embedContent"]
         G --> H["Elasticsearch / Your App\ninference service type: openai\nor gemini / cohere / voyage"]
     end
@@ -60,16 +60,15 @@ python jina-airgapped.py bundle --model jina-embeddings-v5-text-small --cpu-only
 
 ### Phase 2: Deploy (air-gapped machine, zero network)
 
+No repo, no scripts, no dependencies - just Docker.
+
 ```bash
 # Transfer the .tar.gz file via USB/SCP/physical media, then:
-python jina-airgapped.py deploy --image jina-v5-nano.tar.gz --gpu
-
-# CPU only
-python jina-airgapped.py deploy --image jina-v5-nano.tar.gz
-
-# Or raw Docker (same result):
 docker load < jina-v5-nano.tar.gz
 docker run --gpus all -p 8080:8080 jina/jina-embeddings-v5-text-nano:gpu
+
+# CPU only
+docker run -p 8080:8080 jina/jina-embeddings-v5-text-nano:cpu
 ```
 
 ### Verify it works
