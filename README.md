@@ -252,12 +252,16 @@ Single content response:
 
 ## Throughput
 
-Measured on L4 GPU (CUDA) with `jina-embeddings-v5-text-nano`:
+Measured over 10s steady-state, batch size 32, mixed-length input (avg ~25 tokens/sentence).
+Hardware: Intel Xeon @ 2.20GHz CPU | NVIDIA L4 GPU (24GB, 30.3 TFLOPS FP16)
 
-| Mode | Batch | Tok/s |
-|------|-------|-------|
-| GPU (L4) | 100 | ~4,000-6,000 tok/s |
-| CPU | 100 | ~300-800 tok/s |
+| Model | CPU tok/s | GPU tok/s |
+|-------|-----------|:----------|
+|       | Intel Xeon @ 2.20GHz | NVIDIA L4 (30.3 TFLOPS FP16) |
+| jina-embeddings-v5-text-nano | 514 | 6,523 |
+| jina-embeddings-v5-text-small | 38 | 2,548 |
+| jina-embeddings-v5-omni-nano | 177 | 3,828 |
+| jina-embeddings-v5-omni-small | 43 | 1,887 |
 
 The `/v1/embeddings` response includes `usage.tok_per_s` - actual tokenizer-counted throughput for each request. The `/health` endpoint reports cumulative stats.
 

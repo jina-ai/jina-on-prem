@@ -6,10 +6,13 @@ Measures real tok/s for all v5 embedding models on CPU and GPU.
 
 import os
 import time
+import json
 import argparse
 import platform
 import subprocess
 import sys
+import tempfile
+import shutil
 from typing import Optional
 
 # Sentences of varying lengths to simulate real-world mixed input
@@ -53,13 +56,15 @@ MODELS = [
     ("jinaai/jina-embeddings-v5-omni-small", "1.74B"),
 ]
 
+# Models that need tokenizer_config patching (TokenizersBackend not registered in transformers)
+NEEDS_TOKENIZER_PATCH = {
+    "jinaai/jina-embeddings-v5-omni-nano",
+}
+
 
 def get_cpu_info():
     try:
-        result = subprocess.run(
-            ["lscpu"],
-            capture_output=True, text=True
-        )
+        result = subprocess.run(["lscpu"], capture_output=True, text=True)
         for line in result.stdout.splitlines():
             if "Model name" in line:
                 return line.split(":")[1].strip()
@@ -81,6 +86,24 @@ def get_gpu_info():
     return "No GPU detected"
 
 
+def resolve_model_path(model_id: str) -> str:
+    """Download model if needed, patch tokenizer if required, return local path."""
+    if model_id in NEEDS_TOKENIZER_PATCH:
+        from huggingface_hub import snapshot_download
+        repo_path = snapshot_download(model_id)
+        tc_path = os.path.join(repo_path, "tokenizer_config.json")
+        if os.path.exists(tc_path):
+            with open(tc_path) as f:
+                tc = json.load(f)
+            if tc.get("tokenizer_class") == "TokenizersBackend":
+                tc["tokenizer_class"] = "PreTrainedTokenizerFast"
+                with open(tc_path, "w") as f:
+                    json.dump(tc, f, indent=2)
+                print(f"  Patched tokenizer_config: TokenizersBackend -> PreTrainedTokenizerFast")
+        return repo_path
+    return model_id
+
+
 def benchmark_model(model_id: str, device: str, batch_size: int = 32, duration_s: float = 10.0):
     """Benchmark a model, returns tok/s."""
     print(f"\n  Loading {model_id} on {device}...")
@@ -88,14 +111,16 @@ def benchmark_model(model_id: str, device: str, batch_size: int = 32, duration_s
     from sentence_transformers import SentenceTransformer
     from transformers import AutoTokenizer
 
+    model_path = resolve_model_path(model_id)
+
     model = SentenceTransformer(
-        model_id,
+        model_path,
         trust_remote_code=True,
         device=device,
     )
 
     try:
-        tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     except Exception as e:
         print(f"  Warning: tokenizer load failed ({e}), using word-split fallback")
         tokenizer = None
@@ -191,12 +216,13 @@ def main():
         results[model_id] = {"params": params, "cpu": None, "gpu": None}
         for device in devices:
             print(f"\n[{model_id}] ({params}) on {device.upper()}")
+            result_key = "gpu" if device == "cuda" else "cpu"
             try:
                 tok_s = benchmark_model(model_id, device, args.batch_size, args.duration)
-                results[model_id][device] = tok_s
+                results[model_id][result_key] = tok_s
             except Exception as e:
                 print(f"  ERROR: {e}")
-                results[model_id][device] = None
+                results[model_id][result_key] = None
 
     # Print summary table
     print("\n" + "=" * 70)
@@ -206,22 +232,15 @@ def main():
     # CPU info short
     cpu_short = cpu_info
     if "Intel" in cpu_info:
-        # Extract model number
         parts = cpu_info.split()
         try:
-            idx = parts.index("Platinum") if "Platinum" in parts else (parts.index("Gold") if "Gold" in parts else -1)
-            if idx >= 0:
+            idx = next((i for i, p in enumerate(parts) if p in ("Platinum", "Gold", "Silver")), -1)
+            if idx >= 0 and idx + 1 < len(parts):
                 cpu_short = f"Intel Xeon {parts[idx]} {parts[idx+1]}"
+            elif "@" in cpu_info:
+                cpu_short = "Intel Xeon @ " + cpu_info.split("@")[1].strip()
         except Exception:
             pass
-
-    gpu_short = "NVIDIA L4"
-    cpu_tflops = "?"
-    gpu_tflops = "30.3"
-
-    # Try to get actual CPU TFLOPS
-    # For Intel Xeon 8481C: ~3.6 TFLOPS (FP32 peak ~4.4, but for reference)
-    # We'll report as measured
 
     print(f"\nHardware:")
     print(f"  CPU: {cpu_info}")
@@ -230,12 +249,12 @@ def main():
     print(f"\n{'Model':<45} {'CPU tok/s':>12} {'GPU tok/s':>12}")
     print("-" * 70)
     for model_id, data in results.items():
-        cpu_val = f"{data['cpu']:,.0f}" if data['cpu'] is not None else "N/A"
-        gpu_val = f"{data['gpu']:,.0f}" if data['gpu'] is not None else "N/A"
-        print(f"{model_id:<45} {cpu_val:>12} {gpu_val:>12}")
+        cpu_val = f"{int(data['cpu']):,}" if data['cpu'] is not None else "N/A"
+        gpu_val = f"{int(data['gpu']):,}" if data['gpu'] is not None else "N/A"
+        short_name = model_id.split("/")[-1]
+        print(f"{short_name:<45} {cpu_val:>12} {gpu_val:>12}")
 
     # Output machine-readable JSON
-    import json
     output = {
         "hardware": {
             "cpu": cpu_info,
@@ -259,9 +278,10 @@ def main():
     print("|-------|-----------|-----------|")
     print(f"|       | {cpu_short} | NVIDIA L4 (30.3 TFLOPS FP16) |")
     for model_id, data in results.items():
-        cpu_val = f"{data['cpu']:,.0f}" if data['cpu'] is not None else "N/A"
-        gpu_val = f"{data['gpu']:,.0f}" if data['gpu'] is not None else "N/A"
-        print(f"| {model_id} | {cpu_val} | {gpu_val} |")
+        short_name = model_id.split("/")[-1]
+        cpu_val = f"{int(data['cpu']):,}" if data['cpu'] is not None else "N/A"
+        gpu_val = f"{int(data['gpu']):,}" if data['gpu'] is not None else "N/A"
+        print(f"| {short_name} | {cpu_val} | {gpu_val} |")
 
 
 if __name__ == "__main__":
