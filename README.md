@@ -45,49 +45,12 @@ This toolkit follows the two-phase terminology used by professional air-gap tool
 
 The `serve` command runs a model directly without Docker (model files must be pre-installed).
 
-## Available Models
-
-28 models, ordered newest to oldest:
-
-| Model | Type | Modality | Params | VRAM | Context | Dim | License |
-|-------|------|----------|--------|------|---------|-----|---------|
-| jina-embeddings-v5-omni-small | embedding | text/image/audio/video | 1.74B | ~8GB | 32K | 1024 | CC-BY-NC-4.0 |
-| jina-embeddings-v5-omni-nano | embedding | text/image/audio/video | 1.04B | ~5GB | 8K | 768 | CC-BY-NC-4.0 |
-| jina-embeddings-v5-text-small | embedding | text | 677M | ~3GB | 32K | 1024 | CC-BY-NC-4.0 |
-| jina-embeddings-v5-text-nano | embedding | text | 239M | ~2GB | 8K | 768 | CC-BY-NC-4.0 |
-| jina-vlm | vlm | text/image | 2.4B | ~6GB | 32K | - | CC-BY-NC-4.0 |
-| jina-reranker-v3 | reranker | text | 597M | ~3GB | 131K | - | CC-BY-NC-4.0 |
-| jina-code-embeddings-1.5b | embedding | code | 1.5B | ~4GB | 32K | 1536 | CC-BY-NC-4.0 |
-| jina-code-embeddings-0.5b | embedding | code | 494M | ~2GB | 32K | 896 | CC-BY-NC-4.0 |
-| jina-embeddings-v4 | embedding | text/image/PDF | 3.8B | ~10GB | 32K | 2048 | Qwen Research |
-| jina-reranker-m0 | reranker | text/image | 2.4B | ~6GB | 10K | - | CC-BY-NC-4.0 |
-| ReaderLM-v2 | reader | text | 1.54B | ~4GB | 512K | - | CC-BY-NC-4.0 |
-| jina-clip-v2 | embedding | text/image | 865M | ~4GB | 8K | 1024 | CC-BY-NC-4.0 |
-| jina-embeddings-v3 | embedding | text | 570M | ~3GB | 8K | 1024 | CC-BY-NC-4.0 |
-| jina-colbert-v2 | colbert | text | 560M | ~3GB | 8K | 128 | CC-BY-NC-4.0 |
-| reader-lm-1.5b | reader | text | 1.54B | ~4GB | 256K | - | CC-BY-NC-4.0 |
-| reader-lm-0.5b | reader | text | 494M | ~2GB | 256K | - | CC-BY-NC-4.0 |
-| jina-reranker-v2-base-multilingual | reranker | text | 278M | ~1GB | 1K | - | CC-BY-NC-4.0 |
-| jina-clip-v1 | embedding | text/image | 223M | ~1GB | 8K | 768 | Apache-2.0 |
-| jina-reranker-v1-turbo-en | reranker | text | 37.8M | ~1GB | 8K | - | Apache-2.0 |
-| jina-reranker-v1-tiny-en | reranker | text | 33M | ~1GB | 8K | - | Apache-2.0 |
-| jina-reranker-v1-base-en | reranker | text | 137M | ~1GB | 8K | - | Apache-2.0 |
-| jina-colbert-v1-en | colbert | text | 137M | ~1GB | 8K | 128 | Apache-2.0 |
-| jina-embeddings-v2-base-es | embedding | text | 161M | ~1GB | 8K | 768 | Apache-2.0 |
-| jina-embeddings-v2-base-code | embedding | code | 137M | ~1GB | 8K | 768 | Apache-2.0 |
-| jina-embeddings-v2-base-de | embedding | text | 161M | ~1GB | 8K | 768 | Apache-2.0 |
-| jina-embeddings-v2-base-zh | embedding | text | 161M | ~1GB | 8K | 768 | Apache-2.0 |
-| jina-embeddings-v2-base-en | embedding | text | 137M | ~1GB | 8K | 768 | Apache-2.0 |
-| jina-embedding-b-en-v1 | embedding | text | 110M | ~1GB | 512 | 768 | Apache-2.0 |
-
-CC-BY-NC-4.0 models require a commercial license for commercial use. Contact Elastic sales for a waiver.
-
 ## Quick Start
 
 ### Phase 1: Bundle (connected machine)
 
 ```bash
-# List all 28 available models
+# List all available models
 python jina-airgapped.py list
 
 # Interactive wizard: select model, build Docker image, save to .tar.gz
@@ -119,6 +82,41 @@ docker run --gpus all -p 8080:8080 jina/jina-embeddings-v5-text-nano:gpu
 ```bash
 curl http://localhost:8080/health
 ```
+
+## Available Models
+
+Models licensed under CC-BY-NC-4.0 require a commercial license for commercial use. Contact [Elastic sales](https://www.elastic.co/contact) for a waiver.
+
+| Model | Type | Modality | Params | VRAM | Context | Dim | License |
+|-------|------|----------|--------|------|---------|-----|---------|
+| jina-embeddings-v5-omni-small | embedding | text/image/audio/video | 1.74B | ~8GB | 32K | 1024 | CC-BY-NC-4.0 |
+| jina-embeddings-v5-omni-nano | embedding | text/image/audio/video | 1.04B | ~5GB | 8K | 768 | CC-BY-NC-4.0 |
+| jina-embeddings-v5-text-small | embedding | text | 677M | ~3GB | 32K | 1024 | CC-BY-NC-4.0 |
+| jina-embeddings-v5-text-nano | embedding | text | 239M | ~2GB | 8K | 768 | CC-BY-NC-4.0 |
+| jina-vlm | vlm | text/image | 2.4B | ~6GB | 32K | - | CC-BY-NC-4.0 |
+| jina-reranker-v3 | reranker | text | 597M | ~3GB | 131K | - | CC-BY-NC-4.0 |
+| jina-code-embeddings-1.5b | embedding | code | 1.5B | ~4GB | 32K | 1536 | CC-BY-NC-4.0 |
+| jina-code-embeddings-0.5b | embedding | code | 494M | ~2GB | 32K | 896 | CC-BY-NC-4.0 |
+| jina-embeddings-v4 | embedding | text/image/PDF | 3.8B | ~10GB | 32K | 2048 | Qwen Research |
+| jina-reranker-m0 | reranker | text/image | 2.4B | ~6GB | 10K | - | CC-BY-NC-4.0 |
+| ReaderLM-v2 | reader | text | 1.54B | ~4GB | 512K | - | CC-BY-NC-4.0 |
+| jina-clip-v2 | embedding | text/image | 865M | ~4GB | 8K | 1024 | CC-BY-NC-4.0 |
+| jina-embeddings-v3 | embedding | text | 570M | ~3GB | 8K | 1024 | CC-BY-NC-4.0 |
+| jina-colbert-v2 | colbert | text | 560M | ~3GB | 8K | 128 | CC-BY-NC-4.0 |
+| reader-lm-1.5b | reader | text | 1.54B | ~4GB | 256K | - | CC-BY-NC-4.0 |
+| reader-lm-0.5b | reader | text | 494M | ~2GB | 256K | - | CC-BY-NC-4.0 |
+| jina-reranker-v2-base-multilingual | reranker | text | 278M | ~1GB | 1K | - | CC-BY-NC-4.0 |
+| jina-clip-v1 | embedding | text/image | 223M | ~1GB | 8K | 768 | Apache-2.0 |
+| jina-reranker-v1-turbo-en | reranker | text | 37.8M | ~1GB | 8K | - | Apache-2.0 |
+| jina-reranker-v1-tiny-en | reranker | text | 33M | ~1GB | 8K | - | Apache-2.0 |
+| jina-reranker-v1-base-en | reranker | text | 137M | ~1GB | 8K | - | Apache-2.0 |
+| jina-colbert-v1-en | colbert | text | 137M | ~1GB | 8K | 128 | Apache-2.0 |
+| jina-embeddings-v2-base-es | embedding | text | 161M | ~1GB | 8K | 768 | Apache-2.0 |
+| jina-embeddings-v2-base-code | embedding | code | 137M | ~1GB | 8K | 768 | Apache-2.0 |
+| jina-embeddings-v2-base-de | embedding | text | 161M | ~1GB | 8K | 768 | Apache-2.0 |
+| jina-embeddings-v2-base-zh | embedding | text | 161M | ~1GB | 8K | 768 | Apache-2.0 |
+| jina-embeddings-v2-base-en | embedding | text | 137M | ~1GB | 8K | 768 | Apache-2.0 |
+| jina-embedding-b-en-v1 | embedding | text | 110M | ~1GB | 512 | 768 | Apache-2.0 |
 
 ## API Schemas
 
