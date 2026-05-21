@@ -33,12 +33,12 @@ flowchart TB
 
 This toolkit follows the two-phase terminology used by professional air-gap tools (zarf, NVIDIA NIM, Red Hat disconnected install):
 
-| Phase | Command | Network? | What it does |
-|-------|---------|----------|--------------|
-| 1 - Bundle | `bundle` | **Required** | Downloads weights, builds Docker image, saves .tar.gz |
-| 2 - Deploy | `deploy` | **None** | Loads .tar.gz, starts container - fully offline |
+| Phase | Command | Network? | Requires | What it does |
+|-------|---------|----------|----------|--------------|
+| 1 - Bundle | `bundle` | **Required** | Python 3.8+, Docker | Downloads weights, builds Docker image, saves .tar.gz |
+| 2 - Deploy | _(none)_ | **None** | Docker only | `docker load` + `docker run` - fully offline, no repo needed |
 
-The `serve` command runs a model directly without Docker (model files must be pre-installed).
+The `serve` command runs a model directly without Docker (requires Python 3.8+, torch, transformers, sentence-transformers, and model files pre-installed).
 
 ## Quick Start
 
