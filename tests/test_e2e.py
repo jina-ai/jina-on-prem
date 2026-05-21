@@ -65,14 +65,14 @@ def test_embeddings_matryoshka():
 
 
 def test_embeddings_tasks():
-    """Test v5 task parameters."""
-    for task in ["retrieval.query", "retrieval.passage", "text-matching", "separation", "classification"]:
+    """Test v5 text task parameters (text models support: retrieval, text-matching, clustering, classification)."""
+    for task in ["retrieval", "text-matching", "clustering", "classification"]:
         status, body = request("POST", "/v1/embeddings", {
             "input": ["Test task parameter"],
             "task": task,
         })
         assert status == 200, f"Task {task} failed: {status}: {body}"
-    print(f"  {PASS} /v1/embeddings task parameter works (all 5 tasks)")
+    print(f"  {PASS} /v1/embeddings task parameter works (all 4 text tasks)")
 
 
 def test_throughput_reported():

@@ -45,7 +45,7 @@
       "license": "CC-BY-NC-4.0",
       "vram_gb": 5,
       "description": "Multimodal embedding model (text, image, audio, video), 1.04B params, 8K context",
-      "tasks": ["retrieval.query", "retrieval.passage", "text-matching", "separation", "classification"],  
+      "tasks": ["retrieval.query", "retrieval.passage", "text-matching", "separation", "classification"],
       "api_endpoint": "/v1/embeddings"
     },
     {
@@ -61,7 +61,7 @@
       "license": "CC-BY-NC-4.0",
       "vram_gb": 8,
       "description": "Multimodal embedding model (text, image, audio, video), 1.74B params, 32K context",
-      "tasks": ["retrieval.query", "retrieval.passage", "text-matching", "separation", "classification"],  
+      "tasks": ["retrieval.query", "retrieval.passage", "text-matching", "separation", "classification"],
       "api_endpoint": "/v1/embeddings"
     }
   ]
