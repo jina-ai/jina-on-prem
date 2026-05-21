@@ -1,5 +1,5 @@
 """
-End-to-end tests for jina-airgapped inference server.
+End-to-end tests for jina-airgap inference server.
 Run against a live server: TEST_URL=http://localhost:8080 python tests/test_e2e.py
 """
 

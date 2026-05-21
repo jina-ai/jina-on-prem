@@ -1,11 +1,11 @@
-# jina-airgapped
+# jina-airgap
 
 Air-gapped deployment toolkit for Jina AI models. Ship embedding, reranker, and reader models to fully disconnected environments.
 
 ```mermaid
 flowchart TB
     subgraph Phase1["Phase 1: BUNDLE (requires network)"]
-        A["python jina-airgapped.py bundle"] --> B["Select model & runtime"]
+        A["python jina-airgap.py bundle"] --> B["Select model & runtime"]
         B --> C["Docker build\n(weights + model deps baked in)"]
         C --> D["docker save → .tar.gz"]
     end
@@ -46,16 +46,16 @@ The `serve` command runs a model directly without Docker (requires Python 3.8+, 
 
 ```bash
 # List all available models
-python jina-airgapped.py list
+python jina-airgap.py list
 
 # Interactive wizard: select model, build Docker image, save to .tar.gz
-python jina-airgapped.py bundle
+python jina-airgap.py bundle
 
 # Or specify directly (fastest option for air-gap testing)
-python jina-airgapped.py bundle --model jina-embeddings-v5-text-nano --output jina-v5-nano.tar.gz
+python jina-airgap.py bundle --model jina-embeddings-v5-text-nano --output jina-v5-nano.tar.gz
 
 # CPU-only bundle (no GPU required at deploy time)
-python jina-airgapped.py bundle --model jina-embeddings-v5-text-small --cpu-only
+python jina-airgap.py bundle --model jina-embeddings-v5-text-small --cpu-only
 ```
 
 ### Phase 2: Deploy (air-gapped machine, zero network)
@@ -324,16 +324,16 @@ PUT _inference/text_embedding/jina-local
 If model dependencies are already installed:
 
 ```bash
-python jina-airgapped.py serve --model jinaai/jina-embeddings-v5-text-nano --port 8080
+python jina-airgap.py serve --model jinaai/jina-embeddings-v5-text-nano --port 8080
 
 # From local path
-python jina-airgapped.py serve --local-path /data/models/jina-v5-nano
+python jina-airgap.py serve --local-path /data/models/jina-v5-nano
 ```
 
 ## Design
 
 - **Two-phase terminology**: `bundle` (Phase 1, needs network) and `deploy` (Phase 2, offline) - aligned with zarf, NVIDIA NIM, Red Hat disconnected install patterns
-- **Zero deps for TUI**: `jina-airgapped.py` uses Python stdlib only
+- **Zero deps for TUI**: `jina-airgap.py` uses Python stdlib only
 - **Model weights baked in**: `HF_HUB_OFFLINE=1` enforced at runtime, zero downloads
 - **Per-model deps**: `catalog.json` `deps` field drives model-specific requirements; Dockerfile installs them at bundle time
 - **Multi-schema API**: OpenAI, Voyage AI, Cohere, Gemini - all active simultaneously on different endpoints
@@ -345,9 +345,9 @@ python jina-airgapped.py serve --local-path /data/models/jina-v5-nano
 ## Repo Structure
 
 ```
-jina-airgapped/
+jina-airgap/
 ├── README.md
-├── jina-airgapped.py          # Main CLI tool (bundle/deploy/serve/list)
+├── jina-airgap.py          # Main CLI tool (bundle/deploy/serve/list)
 ├── models/
 │   └── catalog.json           # 28 model registry with deps field
 ├── docker/

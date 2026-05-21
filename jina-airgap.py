@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-jina-airgapped - Air-Gapped Deployment Toolkit for Jina AI Models
+jina-airgap - Air-Gapped Deployment Toolkit for Jina AI Models
 
 Two-phase workflow:
 
@@ -13,12 +13,12 @@ Two-phase workflow:
     Zero external dependencies at runtime.
 
 Usage:
-  python jina-airgapped.py                       # Layer 0: brief command list
-  python jina-airgapped.py <command> --help      # Layer 1: command help + examples
-  python jina-airgapped.py list
-  python jina-airgapped.py bundle --model <id>
-  python jina-airgapped.py deploy --image <file>
-  python jina-airgapped.py serve --model <id>
+  python jina-airgap.py                       # Layer 0: brief command list
+  python jina-airgap.py <command> --help      # Layer 1: command help + examples
+  python jina-airgap.py list
+  python jina-airgap.py bundle --model <id>
+  python jina-airgap.py deploy --image <file>
+  python jina-airgap.py serve --model <id>
 """
 
 import os
@@ -74,7 +74,7 @@ def out(text=""):
 def load_catalog():
     if not CATALOG_PATH.exists():
         err(f"Error: Catalog not found: {CATALOG_PATH}", RED)
-        err(f"Fix: Make sure you are running from the jina-airgapped directory.", YELLOW)
+        err(f"Fix: Make sure you are running from the jina-airgap directory.", YELLOW)
         sys.exit(EXIT_RUNTIME_ERROR)
     with open(CATALOG_PATH) as f:
         return json.load(f)["models"]
@@ -97,7 +97,7 @@ def find_model(model_id: str, models: list) -> dict:
         err(f"Error: Model '{model_id}' not found. Did you mean '{suggestion}'?", RED)
     else:
         err(f"Error: Model '{model_id}' not found.", RED)
-    err(f"Fix: Run 'python jina-airgapped.py list' to see all available models.", YELLOW)
+    err(f"Fix: Run 'python jina-airgap.py list' to see all available models.", YELLOW)
     sys.exit(EXIT_USER_ERROR)
 
 
@@ -237,14 +237,14 @@ def cmd_bundle(args):
         model = find_model(args.model, models)
     elif args.dry_run:
         err("Error: --dry-run requires --model.", RED)
-        err("Fix: python jina-airgapped.py bundle --dry-run --model jina-embeddings-v5-text-nano", YELLOW)
+        err("Fix: python jina-airgap.py bundle --dry-run --model jina-embeddings-v5-text-nano", YELLOW)
         sys.exit(EXIT_USER_ERROR)
     else:
         # Interactive selection only when TTY
         if not IS_TTY:
             err("Error: --model is required when not running interactively.", RED)
-            err("Fix: python jina-airgapped.py bundle --model <model-id>", YELLOW)
-            err("     Run 'python jina-airgapped.py list' to see all models.", YELLOW)
+            err("Fix: python jina-airgap.py bundle --model <model-id>", YELLOW)
+            err("     Run 'python jina-airgap.py list' to see all models.", YELLOW)
             sys.exit(EXIT_USER_ERROR)
         model = _select_model_interactive(models)
 
@@ -303,12 +303,12 @@ def cmd_bundle(args):
     dockerfile = get_dockerfile_path()
     if not dockerfile.exists():
         err(f"Error: Dockerfile not found: {dockerfile}", RED)
-        err("Fix: Make sure you are running from the jina-airgapped directory.", YELLOW)
+        err("Fix: Make sure you are running from the jina-airgap directory.", YELLOW)
         sys.exit(EXIT_RUNTIME_ERROR)
 
     # Write model-specific requirements to temp dir (not alongside Dockerfile)
     err(f"\n{BOLD}Step 2/4{RESET} Writing deps...")
-    tmpdir = tempfile.mkdtemp(prefix="jina-airgapped-")
+    tmpdir = tempfile.mkdtemp(prefix="jina-airgap-")
     model_reqs_path = Path(tmpdir) / "model-requirements.txt"
     model_reqs_content = build_model_requirements(model)
     if model_reqs_content:
@@ -385,7 +385,7 @@ def cmd_bundle(args):
         err(f"\n{GREEN}{BOLD}Bundle ready!{RESET} {size_mb:.0f} MB saved to: {output_file}")
         gpu_flag = " --gpu" if runtime == "gpu" else ""
         err(f"\n{BOLD}Deploy on air-gapped machine:{RESET}")
-        err(f"  python jina-airgapped.py deploy --image {output_file}{gpu_flag}")
+        err(f"  python jina-airgap.py deploy --image {output_file}{gpu_flag}")
         err(f"\n{BOLD}Or raw Docker:{RESET}")
         raw_gpu = " --gpus all" if runtime == "gpu" else ""
         err(f"  docker load < {output_file}")
@@ -433,13 +433,13 @@ def cmd_deploy(args):
     # Validate file exists
     if not Path(image_file).exists():
         err(f"Error: File not found: {image_file}", RED)
-        err(f"Fix: Check the path. Usage: python jina-airgapped.py deploy --image <path.tar.gz>", YELLOW)
+        err(f"Fix: Check the path. Usage: python jina-airgap.py deploy --image <path.tar.gz>", YELLOW)
         sys.exit(EXIT_USER_ERROR)
 
     # Validate it's a valid gzip
     if not validate_gzip(image_file):
         err(f"Error: '{image_file}' is not a valid gzip archive.", RED)
-        err(f"Fix: Make sure the file was created by 'python jina-airgapped.py bundle'", YELLOW)
+        err(f"Fix: Make sure the file was created by 'python jina-airgap.py bundle'", YELLOW)
         err(f"     and was not corrupted during transfer.", YELLOW)
         sys.exit(EXIT_USER_ERROR)
 
@@ -577,8 +577,8 @@ def cmd_serve(args):
     else:
         if not IS_TTY:
             err("Error: --model or --local-path is required.", RED)
-            err("Fix: python jina-airgapped.py serve --model <id>", YELLOW)
-            err("     Run 'python jina-airgapped.py list' to see all models.", YELLOW)
+            err("Fix: python jina-airgap.py serve --model <id>", YELLOW)
+            err("     Run 'python jina-airgap.py list' to see all models.", YELLOW)
             sys.exit(EXIT_USER_ERROR)
         model = _select_model_interactive(models)
 
@@ -604,7 +604,7 @@ def cmd_serve(args):
     server_script = SCRIPT_DIR / "server" / "app.py"
     if not server_script.exists():
         err(f"Error: Server script not found: {server_script}", RED)
-        err(f"Fix: Make sure you are running from the jina-airgapped directory.", YELLOW)
+        err(f"Fix: Make sure you are running from the jina-airgap directory.", YELLOW)
         sys.exit(EXIT_RUNTIME_ERROR)
 
     err(f"  Model:  {env['JINA_MODEL_ID']}")
@@ -659,12 +659,12 @@ def _select_model_interactive(models):
 
 def make_parser():
     parser = argparse.ArgumentParser(
-        prog="python jina-airgapped.py",
+        prog="python jina-airgap.py",
         description="Air-Gapped Deployment Toolkit for Jina AI Models",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=True,
     )
-    parser.add_argument("--version", action="version", version=f"jina-airgapped {VERSION}")
+    parser.add_argument("--version", action="version", version=f"jina-airgap {VERSION}")
 
     subparsers = parser.add_subparsers(dest="command", metavar="<command>")
 
@@ -676,12 +676,12 @@ def make_parser():
         description="List all available Jina AI models.",
         epilog=textwrap.dedent("""\
             Examples:
-              python jina-airgapped.py list
-              python jina-airgapped.py list -v
-              python jina-airgapped.py list --type embedding
-              python jina-airgapped.py list --modality multimodal
-              python jina-airgapped.py list --json
-              python jina-airgapped.py list --json --type reranker | python3 -m json.tool
+              python jina-airgap.py list
+              python jina-airgap.py list -v
+              python jina-airgap.py list --type embedding
+              python jina-airgap.py list --modality multimodal
+              python jina-airgap.py list --json
+              python jina-airgap.py list --json --type reranker | python3 -m json.tool
         """),
     )
     list_p.add_argument("-v", "--verbose", action="store_true",
@@ -707,12 +707,12 @@ def make_parser():
         """),
         epilog=textwrap.dedent("""\
             Examples:
-              python jina-airgapped.py bundle --model jina-embeddings-v5-text-nano
-              python jina-airgapped.py bundle --model jina-embeddings-v5-text-small --output small.tar.gz
-              python jina-airgapped.py bundle --model jina-embeddings-v5-text-nano --cpu-only
-              python jina-airgapped.py bundle --model jina-reranker-v2-base-multilingual --hf-token TOKEN
-              python jina-airgapped.py bundle --dry-run --model jina-embeddings-v5-text-nano
-              python jina-airgapped.py bundle --model jina-embeddings-v5-text-nano --json
+              python jina-airgap.py bundle --model jina-embeddings-v5-text-nano
+              python jina-airgap.py bundle --model jina-embeddings-v5-text-small --output small.tar.gz
+              python jina-airgap.py bundle --model jina-embeddings-v5-text-nano --cpu-only
+              python jina-airgap.py bundle --model jina-reranker-v2-base-multilingual --hf-token TOKEN
+              python jina-airgap.py bundle --dry-run --model jina-embeddings-v5-text-nano
+              python jina-airgap.py bundle --model jina-embeddings-v5-text-nano --json
         """),
     )
     bundle_p.add_argument("--model", metavar="MODEL_ID",
@@ -743,10 +743,10 @@ def make_parser():
         """),
         epilog=textwrap.dedent("""\
             Examples:
-              python jina-airgapped.py deploy --image jina-v5-nano-gpu.tar.gz --gpu
-              python jina-airgapped.py deploy --image jina-v5-nano-cpu.tar.gz --port 9090
-              python jina-airgapped.py deploy --image jina-v5-nano-gpu.tar.gz --gpu --detach
-              python jina-airgapped.py deploy --image bundle.tar.gz --name my-embedder --detach
+              python jina-airgap.py deploy --image jina-v5-nano-gpu.tar.gz --gpu
+              python jina-airgap.py deploy --image jina-v5-nano-cpu.tar.gz --port 9090
+              python jina-airgap.py deploy --image jina-v5-nano-gpu.tar.gz --gpu --detach
+              python jina-airgap.py deploy --image bundle.tar.gz --name my-embedder --detach
         """),
     )
     deploy_p.add_argument("--image", "-i", metavar="FILE", required=True,
@@ -773,10 +773,10 @@ def make_parser():
         """),
         epilog=textwrap.dedent("""\
             Examples:
-              python jina-airgapped.py serve --model jina-embeddings-v5-text-nano
-              python jina-airgapped.py serve --model jina-embeddings-v5-text-nano --device cuda
-              python jina-airgapped.py serve --local-path /data/models/my-model
-              python jina-airgapped.py serve --model jina-embeddings-v5-text-nano --port 9090
+              python jina-airgap.py serve --model jina-embeddings-v5-text-nano
+              python jina-airgap.py serve --model jina-embeddings-v5-text-nano --device cuda
+              python jina-airgap.py serve --local-path /data/models/my-model
+              python jina-airgap.py serve --model jina-embeddings-v5-text-nano --port 9090
         """),
     )
     serve_p.add_argument("--model", metavar="MODEL_ID",
@@ -837,11 +837,11 @@ def main():
         err(f"  {BOLD}serve{RESET}   Serve model directly (no Docker, deps required)")
         err("")
         err(f"{BOLD}Quick start:{RESET}")
-        err("  python jina-airgapped.py list")
-        err("  python jina-airgapped.py bundle --model jina-embeddings-v5-text-nano")
-        err("  python jina-airgapped.py deploy --image jina-embeddings-v5-text-nano-gpu.tar.gz --gpu")
+        err("  python jina-airgap.py list")
+        err("  python jina-airgap.py bundle --model jina-embeddings-v5-text-nano")
+        err("  python jina-airgap.py deploy --image jina-embeddings-v5-text-nano-gpu.tar.gz --gpu")
         err("")
-        err(f"{DIM}Run 'python jina-airgapped.py <command> --help' for command details.{RESET}")
+        err(f"{DIM}Run 'python jina-airgap.py <command> --help' for command details.{RESET}")
         sys.exit(EXIT_OK)
 
     args = parser.parse_args()
