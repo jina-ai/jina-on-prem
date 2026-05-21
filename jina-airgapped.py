@@ -203,7 +203,7 @@ def cmd_list(args):
 # ---------------------------------------------------------------------------
 
 def get_dockerfile_path():
-    return SCRIPT_DIR / "docker" / "embeddings" / "Dockerfile"
+    return SCRIPT_DIR / "docker" / "Dockerfile"
 
 
 def build_model_requirements(model: dict) -> str:

@@ -351,8 +351,7 @@ jina-airgapped/
 ├── models/
 │   └── catalog.json           # 28 model registry with deps field
 ├── docker/
-│   └── embeddings/
-│       └── Dockerfile         # Reads model-requirements.txt at build time
+│   └── Dockerfile         # Reads model-requirements.txt at build time
 ├── server/
 │   ├── app.py                 # FastAPI server: OpenAI, Voyage, Gemini, Cohere endpoints
 │   └── requirements.txt       # Base server deps
