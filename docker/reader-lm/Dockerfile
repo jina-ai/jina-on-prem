@@ -41,6 +41,7 @@ COPY --from=downloader /model_cache/model /model
 
 ENV HF_HUB_OFFLINE=1
 ENV TRANSFORMERS_OFFLINE=1
+ENV JINA_OFFLINE=1
 ENV HF_HOME=/model_cache
 ENV JINA_MODEL_TYPE=reader
 ENV JINA_MODEL_ID=/model

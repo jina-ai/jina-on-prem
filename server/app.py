@@ -21,8 +21,11 @@ logger = logging.getLogger(__name__)
 # --- Config from env ---
 MODEL_ID = os.environ.get("JINA_MODEL_ID", "")
 MODEL_TYPE = os.environ.get("JINA_MODEL_TYPE", "embedding")  # embedding | reranker | reader
-HF_HUB_OFFLINE = os.environ.get("HF_HUB_OFFLINE", "1")
-os.environ["HF_HUB_OFFLINE"] = "1"  # enforce air-gap
+# Enforce offline mode only if explicitly set (e.g., inside Docker with baked-in weights)
+# When JINA_OFFLINE=1 is set, lock down all network access
+if os.environ.get("JINA_OFFLINE", "0") == "1":
+    os.environ["HF_HUB_OFFLINE"] = "1"
+    os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
 # Detect device
 if torch.cuda.is_available():
