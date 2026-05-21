@@ -15,12 +15,7 @@ flowchart TB
     subgraph Phase2["Phase 2: DEPLOY (no network needed)"]
         E["python jina-airgapped.py deploy"] --> F["docker load + run"]
         F --> G["Multi-schema API ready\n/v1/embeddings | /v1/embed | /v1/models/...:embedContent"]
-    end
-
-    Phase2 --> ES
-
-    subgraph ES["Elasticsearch / Your App"]
-        H["inference service type: openai\nor gemini / cohere / voyage"]
+        G --> H["Elasticsearch / Your App\ninference service type: openai\nor gemini / cohere / voyage"]
     end
 ```
 
