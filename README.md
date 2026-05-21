@@ -32,14 +32,19 @@ flowchart LR
 
 ## Available Models
 
-| Model | Modality | Params | VRAM | Context | Dim |
-|-------|----------|--------|------|---------|-----|
-| jina-embeddings-v5-text-nano | text | 239M | ~2GB | 8K | 768 |
-| jina-embeddings-v5-text-small | text | 677M | ~3GB | 32K | 1024 |
-| jina-embeddings-v5-omni-nano | text/image/audio/video | 1.04B | ~5GB | 8K | 768 |
-| jina-embeddings-v5-omni-small | text/image/audio/video | 1.74B | ~8GB | 32K | 1024 |
+| Model | Type | Modality | Params | VRAM | Context | Dim |
+|-------|------|----------|--------|------|---------|-----|
+| jina-embeddings-v3 | embedding | text | 570M | ~3GB | 8K | 1024 |
+| jina-embeddings-v4 | embedding | text/image/PDF | 3.8B | ~8GB | 32K | 2048 |
+| jina-embeddings-v5-text-nano | embedding | text | 239M | ~2GB | 8K | 768 |
+| jina-embeddings-v5-text-small | embedding | text | 677M | ~3GB | 32K | 1024 |
+| jina-embeddings-v5-omni-nano | embedding | text/image/audio/video | 1.04B | ~5GB | 8K | 768 |
+| jina-embeddings-v5-omni-small | embedding | text/image/audio/video | 1.74B | ~8GB | 32K | 1024 |
+| jina-clip-v2 | embedding | text/image | 865M | ~4GB | 8K | 1024 |
+| jina-reranker-v3 | reranker | text | 597M | ~3GB | 131K | - |
+| ReaderLM-v2 | reader | text | 1.54B | ~4GB | 512K | - |
 
-All models tested on single L4 GPU (24GB VRAM). Zero phone-home, no license server.
+All models fit on a single L4 GPU (24GB VRAM). Zero phone-home, no license server.
 
 ## Throughput
 
@@ -175,7 +180,7 @@ jina-airgapped/
 ├── README.md
 ├── jina-airgapped.py     # Main TUI tool (zero external deps for UI)
 ├── models/
-│   └── catalog.json      # Model registry (v5 models only)
+│   └── catalog.json      # Model registry
 ├── docker/
 │   └── embeddings/Dockerfile
 ├── server/

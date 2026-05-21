@@ -1,6 +1,38 @@
 {
   "models": [
     {
+      "id": "jina-embeddings-v3",
+      "hf_repo": "jinaai/jina-embeddings-v3",
+      "type": "embedding",
+      "family": "embeddings",
+      "parameters": "570M",
+      "context": 8192,
+      "output_dim": 1024,
+      "matryoshka_dims": [32, 64, 128, 256, 512, 768, 1024],
+      "modality": "text",
+      "license": "CC-BY-NC-4.0",
+      "vram_gb": 3,
+      "description": "Multilingual text embedding model, 570M params, 8K context",
+      "tasks": ["retrieval", "text-matching", "separation", "classification"],
+      "api_endpoint": "/v1/embeddings"
+    },
+    {
+      "id": "jina-embeddings-v4",
+      "hf_repo": "jinaai/jina-embeddings-v4",
+      "type": "embedding",
+      "family": "embeddings",
+      "parameters": "3.8B",
+      "context": 32768,
+      "output_dim": 2048,
+      "matryoshka_dims": [128, 256, 512, 1024, 2048],
+      "modality": "multimodal",
+      "license": "Qwen Research License",
+      "vram_gb": 8,
+      "description": "Multimodal embedding model (text, image, PDF), 3.8B params, 32K context",
+      "tasks": ["retrieval", "text-matching", "code"],
+      "api_endpoint": "/v1/embeddings"
+    },
+    {
       "id": "jina-embeddings-v5-text-nano",
       "hf_repo": "jinaai/jina-embeddings-v5-text-nano",
       "type": "embedding",
@@ -44,8 +76,8 @@
       "modality": "multimodal",
       "license": "CC-BY-NC-4.0",
       "vram_gb": 5,
-      "description": "Multimodal embedding model (text, image, audio, video), 1.04B params, 8K context",
-      "tasks": ["retrieval.query", "retrieval.passage", "text-matching", "separation", "classification"],
+      "description": "Multimodal embedding model (text, image, audio, video), 1.04B params",
+      "tasks": ["retrieval", "text-matching", "clustering", "classification"],
       "api_endpoint": "/v1/embeddings"
     },
     {
@@ -60,9 +92,51 @@
       "modality": "multimodal",
       "license": "CC-BY-NC-4.0",
       "vram_gb": 8,
-      "description": "Multimodal embedding model (text, image, audio, video), 1.74B params, 32K context",
-      "tasks": ["retrieval.query", "retrieval.passage", "text-matching", "separation", "classification"],
+      "description": "Multimodal embedding model (text, image, audio, video), 1.74B params",
+      "tasks": ["retrieval", "text-matching", "clustering", "classification"],
       "api_endpoint": "/v1/embeddings"
+    },
+    {
+      "id": "jina-clip-v2",
+      "hf_repo": "jinaai/jina-clip-v2",
+      "type": "embedding",
+      "family": "embeddings",
+      "parameters": "865M",
+      "context": 8192,
+      "output_dim": 1024,
+      "matryoshka_dims": [64, 128, 256, 512, 768, 1024],
+      "modality": "multimodal",
+      "license": "CC-BY-NC-4.0",
+      "vram_gb": 4,
+      "description": "Multimodal CLIP model (text, image), 865M params",
+      "tasks": ["retrieval", "classification"],
+      "api_endpoint": "/v1/embeddings"
+    },
+    {
+      "id": "jina-reranker-v3",
+      "hf_repo": "jinaai/jina-reranker-v3",
+      "type": "reranker",
+      "family": "reranker",
+      "parameters": "597M",
+      "context": 131072,
+      "license": "CC-BY-NC-4.0",
+      "vram_gb": 3,
+      "description": "Multilingual reranker model, 597M params, 131K context",
+      "tasks": ["reranking"],
+      "api_endpoint": "/v1/rerank"
+    },
+    {
+      "id": "ReaderLM-v2",
+      "hf_repo": "jinaai/ReaderLM-v2",
+      "type": "reader",
+      "family": "reader-lm",
+      "parameters": "1.54B",
+      "context": 524288,
+      "license": "CC-BY-NC-4.0",
+      "vram_gb": 4,
+      "description": "HTML to Markdown/JSON reader, 1.54B params, 512K context",
+      "tasks": ["read"],
+      "api_endpoint": "/v1/chat/completions"
     }
   ]
 }
