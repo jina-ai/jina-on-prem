@@ -1,0 +1,92 @@
+# Jina AI Model - Air-Gapped Docker Image (GPU)
+# Phase 1 (bundle): bakes model weights + model-specific deps into image.
+# Phase 2 (deploy): runs fully offline, zero external network calls.
+#
+# Build with: DOCKER_BUILDKIT=1 docker build -f docker/Dockerfile.gpu ...
+
+ARG MODEL_ID=jinaai/jina-embeddings-v5-text-nano
+ARG HF_TOKEN=""
+
+# ---------------------------------------------------------------------------
+# Stage 1: Download model weights + pre-cache dynamic modules
+# Uses CPU torch to keep the download stage lean (no CUDA toolkit needed).
+# ---------------------------------------------------------------------------
+FROM python:3.11-slim AS downloader
+
+ARG MODEL_ID
+ARG HF_TOKEN
+
+ENV HF_HOME=/model_cache
+ENV HF_TOKEN=${HF_TOKEN}
+ENV MODEL_ID=${MODEL_ID}
+
+# Minimal deps for download only
+RUN pip install --no-cache-dir huggingface_hub
+
+# Copy and run the download script
+COPY docker/download_model.py /tmp/download_model.py
+RUN python /tmp/download_model.py
+
+# ---------------------------------------------------------------------------
+# Stage 2: Runtime image (CUDA, lean)
+# Layer order: system deps (stable) -> pip deps (stable) -> weights (per-model)
+# ---------------------------------------------------------------------------
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04 AS runtime
+
+# System deps - installed first so they cache independently of model changes
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3-pip python3.11-dev curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN ln -sf /usr/bin/python3.11 /usr/bin/python && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python3
+
+WORKDIR /app
+
+# Copy server code (changes rarely)
+COPY server/ /app/
+
+# Install CUDA-enabled torch first (largest dep, most stable layer)
+RUN pip install --no-cache-dir "torch>=2.5.0" \
+    --index-url https://download.pytorch.org/whl/cu121 \
+    && rm -rf /root/.cache/pip
+
+# Install remaining server deps (excluding torch, already installed above)
+RUN pip install --no-cache-dir \
+    "fastapi>=0.115.0" \
+    "uvicorn[standard]>=0.32.0" \
+    "transformers>=4.48.0,<5.0.0" \
+    "sentence-transformers>=3.3.0" \
+    "einops>=0.8.0" \
+    "pillow>=10.0.0" \
+    "numpy>=1.24.0" \
+    "huggingface_hub>=0.27.0" \
+    "accelerate>=1.2.0" \
+    "timm>=1.0.0" \
+    "peft>=0.10.0" \
+    && rm -rf /root/.cache/pip
+
+# Install model-specific pinned deps (generated from catalog.json at bundle time)
+COPY docker/model-requirements.txt /tmp/model-requirements.txt
+RUN grep -v '^\s*#' /tmp/model-requirements.txt | grep -v '^\s*$' | \
+    xargs --no-run-if-empty pip install --no-cache-dir \
+    && rm -rf /root/.cache/pip || true
+
+# Copy cached model weights from downloader stage (changes per model - last layer)
+COPY --from=downloader /model_cache /model_cache
+
+# Enforce air-gap: all model files are baked in, no downloads at runtime
+ENV HF_HUB_OFFLINE=1
+ENV TRANSFORMERS_OFFLINE=1
+ENV JINA_OFFLINE=1
+ENV HF_HOME=/model_cache
+
+# GPU inference dtype: float16 halves memory bandwidth, ~1.5-2x throughput on L4
+ENV JINA_DTYPE=float16
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
+    CMD curl -sf http://localhost:8080/health || exit 1
+
+CMD ["sh", "-c", "JINA_MODEL_ID=$(cat /model_cache/MODEL_ID) exec python app.py"]

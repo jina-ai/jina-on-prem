@@ -23,6 +23,9 @@ from typing import Any, Optional, Union
 
 import torch
 import numpy as np
+
+# Boost matmul precision: uses TF32 on Ampere/Ada/Hopper GPUs, ~1.2x faster on L4
+torch.set_float32_matmul_precision('high')
 from fastapi import FastAPI, HTTPException, Path as FPath
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -46,6 +49,17 @@ elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
 else:
     DEVICE = "cpu"
 logger.info(f"Using device: {DEVICE}")
+
+# --- Runtime optimizations (applied at load time) ---
+# CPU: use all physical cores (0 = auto-detect from env or os.cpu_count)
+_omp_env = os.environ.get("OMP_NUM_THREADS", "")
+_n_cpu_threads = int(_omp_env) if _omp_env and _omp_env != "0" else (os.cpu_count() or 4)
+torch.set_num_threads(_n_cpu_threads)
+torch.set_num_interop_threads(max(1, _n_cpu_threads // 2))
+
+# GPU: enable cuDNN auto-tuner and TF32 matmul (no effect on CPU/MPS)
+if DEVICE == "cuda":
+    torch.backends.cudnn.benchmark = True
 
 app = FastAPI(
     title="Jina AI Air-Gapped Server",
@@ -345,7 +359,8 @@ def _embed(inputs: list, task: str = "retrieval", dimensions: Optional[int] = No
 
     n_tokens = _count_tokens(inputs)
     t0 = time.perf_counter()
-    with torch.no_grad():
+    ctx = torch.autocast("cuda", dtype=torch.float16) if DEVICE == "cuda" else torch.inference_mode()
+    with torch.inference_mode(), ctx:
         embeddings = MODEL.encode(
             inputs,
             task=task,
@@ -404,7 +419,8 @@ def _embed_mixed(items: list, task: str = "retrieval", dimensions: Optional[int]
     n_tokens = _count_tokens(text_parts) if text_parts else len(items)
 
     t0 = time.perf_counter()
-    with torch.no_grad():
+    ctx = torch.autocast("cuda", dtype=torch.float16) if DEVICE == "cuda" else torch.inference_mode()
+    with torch.inference_mode(), ctx:
         embeddings = MODEL.encode(
             encode_inputs,
             task=task,
@@ -450,8 +466,33 @@ def load_model():
     except Exception as e:
         logger.warning(f"Could not load tokenizer ({e}), will use word-split approximation")
 
+    # --- Apply dtype optimization (GPU only) ---
+    if DEVICE == "cuda":
+        dtype_env = os.environ.get("JINA_DTYPE", "float16").lower()
+        if dtype_env in ("float16", "fp16", "half"):
+            MODEL.half()
+            logger.info("Model converted to FP16 (JINA_DTYPE=float16)")
+        elif dtype_env in ("bfloat16", "bf16"):
+            MODEL.bfloat16()
+            logger.info("Model converted to BF16 (JINA_DTYPE=bfloat16)")
+        else:
+            logger.info(f"Running in FP32 (JINA_DTYPE={dtype_env})")
+
+        # torch.compile: fuses ops, ~10-30% additional speedup
+        try:
+            first_module = MODEL._first_module()
+            if hasattr(first_module, "auto_model"):
+                first_module.auto_model = torch.compile(
+                    first_module.auto_model,
+                    mode="reduce-overhead",
+                    fullgraph=False,
+                )
+                logger.info("torch.compile(reduce-overhead) applied to encoder")
+        except Exception as e:
+            logger.warning(f"torch.compile skipped: {e}")
+
     multimodal = _is_omni_model()
-    logger.info(f"Model loaded: {model_id} on {DEVICE} | multimodal={multimodal}")
+    logger.info(f"Model loaded: {model_id} on {DEVICE} | multimodal={multimodal} | threads={_n_cpu_threads}")
 
 
 @app.on_event("startup")
@@ -902,7 +943,7 @@ async def rerank(request: RerankRequest):
         docs.append(d if isinstance(d, str) else d.get("text", ""))
 
     t0 = time.perf_counter()
-    with torch.no_grad():
+    with torch.inference_mode():
         pairs = [[request.query, doc] for doc in docs]
         try:
             scores = MODEL.predict(pairs)

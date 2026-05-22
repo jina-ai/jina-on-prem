@@ -202,8 +202,16 @@ def cmd_list(args):
 # bundle subcommand
 # ---------------------------------------------------------------------------
 
-def get_dockerfile_path():
-    return SCRIPT_DIR / "docker" / "Dockerfile"
+def get_dockerfile_path(runtime: str = "gpu") -> Path:
+    """Return the Dockerfile path for the given runtime (gpu or cpu)."""
+    candidates = [
+        SCRIPT_DIR / "docker" / f"Dockerfile.{runtime}",
+        SCRIPT_DIR / "docker" / "Dockerfile",  # legacy fallback
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return candidates[0]  # will fail with a clear error downstream
 
 
 def build_model_requirements(model: dict) -> str:
@@ -270,7 +278,7 @@ def cmd_bundle(args):
         deps_str = build_model_requirements(model).strip()
         if deps_str:
             err(f"\n  Model deps:\n    " + deps_str.replace("\n", "\n    "))
-        err(f"\n  Dockerfile: {get_dockerfile_path()}")
+        err(f"\n  Dockerfile: {get_dockerfile_path(runtime)}")
         err(f"\n{GREEN}Nothing built. Remove --dry-run to proceed.{RESET}")
         sys.exit(EXIT_OK)
 
@@ -300,20 +308,19 @@ def cmd_bundle(args):
 
     check_docker()
 
-    dockerfile = get_dockerfile_path()
+    dockerfile = get_dockerfile_path(runtime)
     if not dockerfile.exists():
         err(f"Error: Dockerfile not found: {dockerfile}", RED)
         err("Fix: Make sure you are running from the jina-airgap directory.", YELLOW)
         sys.exit(EXIT_RUNTIME_ERROR)
 
-    # Write model-specific requirements to temp dir (not alongside Dockerfile)
+    # Write model-specific requirements into docker/ build context so COPY works
     err(f"\n{BOLD}Step 2/4{RESET} Writing deps...")
-    tmpdir = tempfile.mkdtemp(prefix="jina-airgap-")
-    model_reqs_path = Path(tmpdir) / "model-requirements.txt"
+    model_reqs_path = SCRIPT_DIR / "docker" / "model-requirements.txt"
     model_reqs_content = build_model_requirements(model)
     if model_reqs_content:
         model_reqs_path.write_text(model_reqs_content)
-        err(f"  Wrote {len(model_reqs_content.splitlines())} dependency lines to temp dir")
+        err(f"  Wrote {len(model_reqs_content.splitlines())} dependency lines to docker/model-requirements.txt")
     else:
         model_reqs_path.write_text("# no model-specific deps\n")
         err("  No model-specific deps")
@@ -322,26 +329,25 @@ def cmd_bundle(args):
     err(f"\n{BOLD}Step 3/4{RESET} Building Docker image...")
     err(f"  {DIM}This downloads model weights - may take 10-30 minutes{RESET}")
 
+    build_env = os.environ.copy()
+    build_env["DOCKER_BUILDKIT"] = "1"
+
     build_args = [
         "docker", "build",
         "-f", str(dockerfile),
         "--build-arg", f"MODEL_ID={model['hf_repo']}",
-        "--build-arg", f"MODEL_REQS={model_reqs_path}",
         "-t", image_tag,
     ]
     if args.hf_token:
         build_args += ["--build-arg", f"HF_TOKEN={args.hf_token}"]
-    if runtime == "cpu":
-        build_args += ["--build-arg", "BASE_IMAGE=python:3.11-slim"]
     build_args.append(str(SCRIPT_DIR))
 
-    err(f"  {DIM}Running: docker build ... -t {image_tag}{RESET}")
+    err(f"  {DIM}Running: DOCKER_BUILDKIT=1 docker build ... -t {image_tag}{RESET}")
 
-    result = subprocess.run(build_args, capture_output=True, text=True)
+    result = subprocess.run(build_args, capture_output=True, text=True, env=build_env)
 
-    # Cleanup temp dir
+    # Cleanup the temporary requirements file from build context
     model_reqs_path.unlink(missing_ok=True)
-    Path(tmpdir).rmdir()
 
     if result.returncode != 0:
         err(f"\n{BOLD}Error: Docker build failed (exit {result.returncode}){RESET}", RED)
@@ -355,7 +361,19 @@ def cmd_bundle(args):
         err("  - Network:        ensure internet access for Phase 1")
         sys.exit(EXIT_RUNTIME_ERROR)
 
-    err(f"  {GREEN}Build complete.{RESET}")
+    # Report final image size
+    size_result = subprocess.run(
+        ["docker", "image", "inspect", image_tag, "--format", "{{.Size}}"],
+        capture_output=True, text=True
+    )
+    image_size_mb = ""
+    if size_result.returncode == 0:
+        try:
+            image_bytes = int(size_result.stdout.strip())
+            image_size_mb = f" ({image_bytes / (1024**3):.1f} GB uncompressed)"
+        except ValueError:
+            pass
+    err(f"  {GREEN}Build complete.{RESET}{image_size_mb}")
 
     # Save image to tar.gz
     err(f"\n{BOLD}Step 4/4{RESET} Saving bundle to: {output_file}")
@@ -384,12 +402,16 @@ def cmd_bundle(args):
     else:
         err(f"\n{GREEN}{BOLD}Bundle ready!{RESET} {size_mb:.0f} MB saved to: {output_file}")
         gpu_flag = " --gpu" if runtime == "gpu" else ""
+        network_flag = " --network=none" if runtime == "gpu" else ""
         err(f"\n{BOLD}Deploy on air-gapped machine:{RESET}")
         err(f"  python jina-airgap.py deploy --image {output_file}{gpu_flag}")
         err(f"\n{BOLD}Or raw Docker:{RESET}")
         raw_gpu = " --gpus all" if runtime == "gpu" else ""
         err(f"  docker load < {output_file}")
-        err(f"  docker run{raw_gpu} -p 8080:8080 {image_tag}")
+        err(f"  docker run{raw_gpu}{network_flag} -p 8080:8080 {image_tag}")
+        err(f"\n{BOLD}Air-gap verification:{RESET}")
+        err(f"  docker run{raw_gpu} --network=none -p 8080:8080 {image_tag}")
+        err(f"  curl http://localhost:8080/health  # from host")
 
     sys.exit(EXIT_OK)
 

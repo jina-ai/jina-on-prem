@@ -1,0 +1,49 @@
+# Jina Airgap .dockerignore
+# Keeps the build context lean - only send what Docker needs
+
+# Version control
+.git
+.gitignore
+
+# Tests and scripts (not needed at runtime)
+tests/
+scripts/
+
+# Documentation
+README.md
+*.md
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Build artifacts and bundles
+*.tar.gz
+*.tar
+*.zip
+
+# Model weights (should only be in downloader stage via HF download)
+# NOTE: docker/download_model.py is intentionally NOT excluded - needed for build
+*.safetensors
+*.bin
+*.pt
+*.onnx
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -104,8 +104,43 @@ def resolve_model_path(model_id: str) -> str:
     return model_id
 
 
-def benchmark_model(model_id: str, device: str, batch_size: int = 32, duration_s: float = 10.0):
+def apply_optimizations(model, device: str):
+    """Apply runtime optimizations to a loaded SentenceTransformer."""
+    import torch
+    import os
+
+    if device == "cpu":
+        n_threads = int(os.environ.get("OMP_NUM_THREADS", "") or os.cpu_count() or 4)
+        torch.set_num_threads(n_threads)
+        torch.set_num_interop_threads(max(1, n_threads // 2))
+        print(f"  CPU threads: {n_threads}")
+
+    elif device == "cuda":
+        torch.backends.cudnn.benchmark = True
+
+        # FP16: halves memory bandwidth, ~1.5-2x throughput
+        model.half()
+        print("  Applied: FP16 (model.half())")
+
+        # torch.compile: fuses ops, reduce-overhead mode uses CUDA graphs
+        try:
+            first_module = model._first_module()
+            if hasattr(first_module, "auto_model"):
+                first_module.auto_model = torch.compile(
+                    first_module.auto_model,
+                    mode="reduce-overhead",
+                    fullgraph=False,
+                )
+                print("  Applied: torch.compile(reduce-overhead)")
+        except Exception as e:
+            print(f"  torch.compile skipped: {e}")
+
+    return model
+
+
+def benchmark_model(model_id: str, device: str, batch_size: int = 32, duration_s: float = 10.0, optimize: bool = True):
     """Benchmark a model, returns tok/s."""
+    import torch
     print(f"\n  Loading {model_id} on {device}...")
 
     from sentence_transformers import SentenceTransformer
@@ -119,6 +154,10 @@ def benchmark_model(model_id: str, device: str, batch_size: int = 32, duration_s
         device=device,
     )
 
+    if optimize:
+        print("  Applying optimizations...")
+        model = apply_optimizations(model, device)
+
     try:
         tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     except Exception as e:
@@ -131,6 +170,13 @@ def benchmark_model(model_id: str, device: str, batch_size: int = 32, duration_s
             return sum(len(ids) for ids in enc["input_ids"])
         return sum(len(t.split()) for t in texts)
 
+    # Autocast context for GPU
+    def make_ctx():
+        if device == "cuda":
+            return torch.autocast("cuda", dtype=torch.float16)
+        import contextlib
+        return contextlib.nullcontext()
+
     # Build batches from the corpus (cycle to fill batch)
     corpus = BENCHMARK_CORPUS
     batches = []
@@ -138,10 +184,11 @@ def benchmark_model(model_id: str, device: str, batch_size: int = 32, duration_s
         batch = [corpus[j % len(corpus)] for j in range(i, i + batch_size)]
         batches.append(batch)
 
-    # Warm up: 3 batches
-    print(f"  Warming up (3 batches)...")
-    for b in batches[:3]:
-        model.encode(b, task="retrieval", convert_to_numpy=True, normalize_embeddings=True)
+    # Warm up: 5 batches (more warmup to let torch.compile settle)
+    print(f"  Warming up (5 batches)...")
+    for b in batches[:5]:
+        with torch.no_grad(), make_ctx():
+            model.encode(b, task="retrieval", convert_to_numpy=True, normalize_embeddings=True)
 
     # Steady-state measurement: run for exactly duration_s seconds
     print(f"  Measuring for {duration_s}s...")
@@ -152,7 +199,8 @@ def benchmark_model(model_id: str, device: str, batch_size: int = 32, duration_s
 
     while time.perf_counter() < t_end:
         batch = batches[batch_idx % len(batches)]
-        model.encode(batch, task="retrieval", convert_to_numpy=True, normalize_embeddings=True)
+        with torch.no_grad(), make_ctx():
+            model.encode(batch, task="retrieval", convert_to_numpy=True, normalize_embeddings=True)
         total_tokens += count_tokens(batch)
         batch_idx += 1
 
@@ -183,6 +231,8 @@ def main():
     parser.add_argument("--duration", type=float, default=10.0, help="Steady-state measurement duration in seconds")
     parser.add_argument("--device", choices=["cpu", "cuda", "both"], default="both")
     parser.add_argument("--models", nargs="+", default=None, help="Subset of models to benchmark")
+    parser.add_argument("--no-optimize", action="store_true", help="Disable runtime optimizations (baseline mode)")
+    parser.add_argument("--batch-sizes", nargs="+", type=int, default=None, help="Test multiple batch sizes (e.g. 32 64 128)")
     args = parser.parse_args()
 
     print("=" * 70)
@@ -212,17 +262,27 @@ def main():
     if args.device in ("cuda", "both") and has_gpu:
         devices.append("cuda")
 
+    optimize = not args.no_optimize
+    batch_sizes_to_test = args.batch_sizes if args.batch_sizes else [args.batch_size]
+
     for model_id, params in models_to_run:
         results[model_id] = {"params": params, "cpu": None, "gpu": None}
         for device in devices:
-            print(f"\n[{model_id}] ({params}) on {device.upper()}")
             result_key = "gpu" if device == "cuda" else "cpu"
-            try:
-                tok_s = benchmark_model(model_id, device, args.batch_size, args.duration)
-                results[model_id][result_key] = tok_s
-            except Exception as e:
-                print(f"  ERROR: {e}")
-                results[model_id][result_key] = None
+            best_tok_s = None
+            best_bs = args.batch_size
+            for bs in batch_sizes_to_test:
+                print(f"\n[{model_id}] ({params}) on {device.upper()} | batch_size={bs} | optimize={optimize}")
+                try:
+                    tok_s = benchmark_model(model_id, device, bs, args.duration, optimize=optimize)
+                    if best_tok_s is None or tok_s > best_tok_s:
+                        best_tok_s = tok_s
+                        best_bs = bs
+                except Exception as e:
+                    print(f"  ERROR: {e}")
+            results[model_id][result_key] = best_tok_s
+            if len(batch_sizes_to_test) > 1:
+                print(f"  Best batch size: {best_bs} -> {int(best_tok_s):,} tok/s")
 
     # Print summary table
     print("\n" + "=" * 70)

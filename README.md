@@ -252,16 +252,27 @@ Single content response:
 
 ## Throughput
 
-Measured over 10s steady-state, batch size 32, mixed-length input (avg ~25 tokens/sentence).
-Hardware: Intel Xeon @ 2.20GHz CPU | NVIDIA L4 GPU (24GB, 30.3 TFLOPS FP16)
+Measured over 60s steady-state, batch size 32, mixed-length input (avg ~10 tokens/sentence).
+Hardware: Intel Xeon @ 2.20GHz (8 vCPU) | NVIDIA L4 GPU (24GB, 30.3 TFLOPS FP16, g2-standard-8 SPOT)
 
-| Model | CPU tok/s | GPU tok/s |
-|-------|-----------|:----------|
-|       | Intel Xeon @ 2.20GHz | NVIDIA L4 (30.3 TFLOPS FP16) |
-| jina-embeddings-v5-text-nano | 514 | 6,523 |
-| jina-embeddings-v5-text-small | 38 | 2,548 |
-| jina-embeddings-v5-omni-nano | 177 | 3,828 |
-| jina-embeddings-v5-omni-small | 43 | 1,887 |
+| Model | CPU tok/s | GPU tok/s (FP16) |
+|-------|-----------|:-----------------|
+|       | Intel Xeon @ 2.20GHz (8 vCPU) | NVIDIA L4 (30.3 TFLOPS FP16) |
+| jina-embeddings-v5-text-nano | 842 | 5,889 |
+| jina-embeddings-v5-text-small | - | - |
+| jina-embeddings-v5-omni-nano | - | - |
+| jina-embeddings-v5-omni-small | - | - |
+
+GPU inference uses FP16 by default (`JINA_DTYPE=float16`). CPU inference uses all available physical cores.
+
+## Image Sizes
+
+Measured for `jina-embeddings-v5-text-nano` (239M params):
+
+| Image | Uncompressed | Compressed (.tar.gz) | Notes |
+|-------|-------------|---------------------|-------|
+| GPU (`Dockerfile.gpu`) | 13.5 GB | 4.86 GB | `nvidia/cuda:12.1.0-runtime` + CUDA torch |
+| CPU (`Dockerfile.cpu`) | 2.96 GB | 828 MB | `python:3.11-slim` + CPU torch |
 
 The `/v1/embeddings` response includes `usage.tok_per_s` - actual tokenizer-counted throughput for each request. The `/health` endpoint reports cumulative stats.
 
@@ -475,15 +486,40 @@ python jina-airgap.py serve --model jinaai/jina-embeddings-v5-text-nano --port 8
 python jina-airgap.py serve --local-path /data/models/jina-v5-nano
 ```
 
+## Air-Gap Verification
+
+After bundling, verify the image is truly offline:
+
+```bash
+# Start with network completely disabled
+docker run --gpus all --network=none -p 8080:8080 jina/jina-embeddings-v5-text-nano:gpu
+
+# From host, test the API (port forwarding still works even with --network=none)
+curl http://localhost:8080/health
+curl -X POST http://localhost:8080/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -d '{"input":["test"],"model":"test"}'
+```
+
+If anything fails with `--network=none`, the air-gap is broken. Common causes:
+- Missing `HF_HUB_OFFLINE=1` - HuggingFace Hub checking for updates
+- Missing `TRANSFORMERS_OFFLINE=1` - transformers trying to download tokenizer
+- Model custom code trying DNS lookups
+- pip trying to install at startup (should never happen in a built image)
+
+All Jina airgap images have `HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1`, and `JINA_OFFLINE=1` set at the ENV level.
+
 ## Design
 
 - **Two-phase terminology**: `bundle` (Phase 1, needs network) and `deploy` (Phase 2, offline) - aligned with zarf, NVIDIA NIM, Red Hat disconnected install patterns
 - **Zero deps for TUI**: `jina-airgap.py` uses Python stdlib only
 - **Model weights baked in**: `HF_HUB_OFFLINE=1` enforced at runtime, zero downloads
+- **Split Dockerfiles**: `docker/Dockerfile.gpu` (CUDA, FP16) and `docker/Dockerfile.cpu` (python:3.11-slim, CPU-only)
 - **Per-model deps**: `catalog.json` `deps` field drives model-specific requirements; Dockerfile installs them at bundle time
 - **Multi-schema API**: OpenAI, Voyage AI, Cohere, Gemini - all active simultaneously on different endpoints
-- **Multi-stage Docker build**: small runtime image, weights in separate layer
+- **Multi-stage Docker build**: lean runtime image, model weights in separate downloader stage
 - **GPU auto-detect**: falls back to CPU if no GPU
+- **FP16 by default**: `JINA_DTYPE=float16` set in GPU Dockerfile; supports `float16`, `bfloat16`, `float32`
 - **Matryoshka support**: pass `dimensions` to truncate embeddings
 - **Real tok/s**: actual tokenizer-counted throughput, not word-split estimates
 
@@ -496,7 +532,9 @@ jina-airgap/
 ├── models/
 │   └── catalog.json           # 28 model registry with deps field
 ├── docker/
-│   └── Dockerfile         # Reads model-requirements.txt at build time
+│   ├── Dockerfile.gpu         # GPU image (nvidia/cuda base, CUDA torch, FP16)
+│   ├── Dockerfile.cpu         # CPU image (python:3.11-slim, CPU torch, ~3x smaller)
+│   └── download_model.py      # Model download script (runs in build stage)
 ├── server/
 │   ├── app.py                 # FastAPI server: OpenAI, Voyage, Gemini, Cohere endpoints
 │   └── requirements.txt       # Base server deps
