@@ -444,11 +444,24 @@ def _embed(inputs: list, task: str = "retrieval", dimensions: Optional[int] = No
     t0 = time.perf_counter()
     ctx = torch.autocast("cuda", dtype=torch.float16) if DEVICE == "cuda" else torch.inference_mode()
     with torch.inference_mode(), ctx:
+        encode_kwargs = {
+            "convert_to_numpy": True,
+            "normalize_embeddings": True,
+        }
+        # Omni models: set default_task on the module before encode instead of passing
+        # task= kwarg (st 3.4.1 doesn't forward it to the module's forward()).
+        # Text models (v3/v5-text): their custom_st.py encode() accepts task= directly.
+        if _is_omni_model():
+            # Set default_task on the first module (the custom_st Transformer module)
+            for mod in MODEL.modules():
+                if hasattr(mod, 'default_task'):
+                    mod.default_task = task
+                    break
+        else:
+            encode_kwargs["task"] = task
         embeddings = MODEL.encode(
             inputs,
-            task=task,
-            convert_to_numpy=True,
-            normalize_embeddings=True,
+            **encode_kwargs,
         )
     elapsed = time.perf_counter() - t0
 
@@ -506,11 +519,20 @@ def _embed_mixed(items: list, task: str = "retrieval", dimensions: Optional[int]
     t0 = time.perf_counter()
     ctx = torch.autocast("cuda", dtype=torch.float16) if DEVICE == "cuda" else torch.inference_mode()
     with torch.inference_mode(), ctx:
+        encode_kwargs = {
+            "convert_to_numpy": True,
+            "normalize_embeddings": True,
+        }
+        if _is_omni_model():
+            for mod in MODEL.modules():
+                if hasattr(mod, 'default_task'):
+                    mod.default_task = task
+                    break
+        else:
+            encode_kwargs["task"] = task
         embeddings = MODEL.encode(
             encode_inputs,
-            task=task,
-            convert_to_numpy=True,
-            normalize_embeddings=True,
+            **encode_kwargs,
         )
     elapsed = time.perf_counter() - t0
 
@@ -570,7 +592,14 @@ def load_model():
         logger.info(f"Loaded as CrossEncoder (reranker): {model_id}")
     else:
         from sentence_transformers import SentenceTransformer
-        MODEL = SentenceTransformer(model_id, trust_remote_code=True, device=DEVICE)
+        # Omni models need default_task set at load time because their custom_st.py
+        # forward() receives task from SentenceTransformer internals, and st 3.4.1
+        # doesn't pass task= through to forward(). Setting default_task ensures the
+        # model always has a valid task.
+        st_kwargs = {}
+        if _is_omni_model():
+            st_kwargs["model_kwargs"] = {"default_task": "retrieval"}
+        MODEL = SentenceTransformer(model_id, trust_remote_code=True, device=DEVICE, **st_kwargs)
         MODEL_INFO = {"model": model_id, "type": "embedding"}
 
     try:
