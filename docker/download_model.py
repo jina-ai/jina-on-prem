@@ -113,6 +113,15 @@ for modeling in glob.glob("/model_cache/**/modeling_jina_embeddings_v5.py", recu
             f.write(src)
         print(f"Patched {modeling}: PeftConfig->LoraConfig + dtype->torch_dtype")
 
+# Remove model-repo requirements.txt files from the HF cache.
+# transformers dynamic_module_utils auto-runs pip install from these at runtime,
+# which overwrites our pinned versions in an air-gap environment that still has
+# internet access during testing, or fails in a true air-gap environment.
+# We have already installed the correct pinned versions during the Docker build.
+for req_file in glob.glob("/model_cache/**/**/requirements.txt", recursive=True):
+    os.remove(req_file)
+    print(f"Removed {req_file} (preventing dynamic pip install at runtime)")
+
 with open("/model_cache/MODEL_ID", "w") as f:
     f.write(model_id)
 
