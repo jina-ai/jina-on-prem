@@ -4,13 +4,16 @@ Multi-schema embedding API: OpenAI, Voyage AI, Google Gemini, Cohere.
 Real tok/s throughput measurement.
 
 Endpoints:
-  POST /v1/embeddings                          - OpenAI + Voyage AI compatible
-  POST /v1/embed                               - Cohere compatible
-  POST /v1/models/{model_id}:embedContent      - Gemini single-content
+  POST /v1/embeddings                          - OpenAI + Voyage AI compatible (text + multimodal)
+  POST /v1/embed                               - Cohere compatible (text + multimodal)
+  POST /v1/multimodalembeddings                - Voyage AI multimodal endpoint
+  POST /v1/models/{model_id}:embedContent      - Gemini single-content (text + multimodal)
   POST /v1/models/{model_id}:batchEmbedContents - Gemini batch
   GET  /health                                 - health + throughput stats
 """
 
+import base64
+import io
 import os
 import json
 import time
@@ -46,8 +49,8 @@ logger.info(f"Using device: {DEVICE}")
 
 app = FastAPI(
     title="Jina AI Air-Gapped Server",
-    version="3.0.0",
-    description="Multi-schema embedding server: OpenAI, Voyage AI, Gemini, Cohere",
+    version="4.0.0",
+    description="Multi-schema embedding server: OpenAI, Voyage AI, Gemini, Cohere (text + multimodal)",
 )
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
@@ -66,6 +69,252 @@ _stats = {
     "peak_tok_per_s": 0.0,
 }
 
+# --- Multimodal config ---
+# Models that support image / audio / video inputs
+MULTIMODAL_MODEL_IDS = {
+    "jina-embeddings-v5-omni-small",
+    "jina-embeddings-v5-omni-nano",
+    "jina-embeddings-v4",
+    "jina-clip-v2",
+    "jina-clip-v1",
+    "jina-reranker-m0",
+    "jina-vlm",
+}
+
+MAX_MEDIA_BYTES = 10 * 1024 * 1024  # 10 MB per input
+
+IMAGE_MIMES = {
+    "image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif",
+    "image/bmp", "image/tiff", "image/avif", "image/heic", "image/svg+xml",
+}
+AUDIO_MIMES = {
+    "audio/wav", "audio/x-wav", "audio/mp3", "audio/mpeg", "audio/flac",
+    "audio/ogg", "audio/m4a", "audio/x-m4a", "audio/opus",
+}
+VIDEO_MIMES = {
+    "video/mp4", "video/avi", "video/x-msvideo", "video/quicktime",
+    "video/x-matroska", "video/webm", "video/x-flv", "video/x-ms-wmv",
+}
+
+
+# =============================================================================
+# Multimodal helpers
+# =============================================================================
+
+def _is_omni_model() -> bool:
+    """True if the loaded model supports multimodal (image/audio/video) inputs."""
+    short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
+    return short_id in MULTIMODAL_MODEL_IDS
+
+
+def _require_omni():
+    """Raise HTTP 400 if the current model does not support multimodal inputs."""
+    if not _is_omni_model():
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Model '{MODEL_ID}' is text-only and does not accept image/audio/video inputs. "
+                f"Use one of: {sorted(MULTIMODAL_MODEL_IDS)}"
+            ),
+        )
+
+
+def _decode_b64(b64_str: str) -> tuple:
+    """
+    Decode a base64 string in raw or data-URL format.
+    Returns (raw_bytes, mime_type).
+
+    Accepts:
+    - Raw base64: "iVBORw0KGgo..."
+    - Data URL:   "data:image/png;base64,iVBORw0KGgo..."
+    """
+    mime_type = ""
+    data = b64_str.strip()
+    if data.startswith("data:"):
+        try:
+            header, data = data.split(",", 1)
+            mime_type = header.split(";")[0][5:]  # strip "data:"
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Malformed data URL")
+    try:
+        raw = base64.b64decode(data)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid base64 encoding: {e}")
+    if len(raw) > MAX_MEDIA_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Media too large: {len(raw):,} bytes exceeds {MAX_MEDIA_BYTES:,} byte limit",
+        )
+    return raw, mime_type
+
+
+def _detect_mime(raw: bytes, hint: str = "") -> str:
+    """Detect MIME type from magic bytes; fall back to hint."""
+    if raw[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if raw[:2] == b"\xff\xd8":
+        return "image/jpeg"
+    if len(raw) >= 6 and raw[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    if len(raw) >= 12 and raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+        return "image/webp"
+    if len(raw) >= 12 and raw[:4] == b"RIFF" and raw[8:12] == b"WAVE":
+        return "audio/wav"
+    if len(raw) >= 3 and raw[:3] == b"ID3":
+        return "audio/mp3"
+    if len(raw) >= 4 and raw[:4] == b"fLaC":
+        return "audio/flac"
+    if len(raw) >= 12 and b"ftyp" in raw[4:12]:
+        return "video/mp4"
+    if len(raw) >= 4 and raw[:4] == b"\x1a\x45\xdf\xa3":
+        return "video/webm"
+    return hint
+
+
+def _bytes_to_st_input(raw: bytes, mime_hint: str = ""):
+    """
+    Convert raw bytes to the input type expected by sentence-transformers encode().
+    - image/* -> PIL.Image.Image
+    - audio/* or video/* -> io.BytesIO (sentence-transformers accepts bytes/BytesIO)
+    """
+    mime = (_detect_mime(raw, mime_hint) or mime_hint).lower()
+
+    if mime in IMAGE_MIMES:
+        from PIL import Image
+        try:
+            img = Image.open(io.BytesIO(raw))
+            img.load()
+            return img
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Cannot decode image: {e}")
+
+    if mime in AUDIO_MIMES or mime in VIDEO_MIMES:
+        return io.BytesIO(raw)
+
+    # Unknown MIME: attempt image decode, fall back to BytesIO
+    try:
+        from PIL import Image
+        img = Image.open(io.BytesIO(raw))
+        img.load()
+        return img
+    except Exception:
+        return io.BytesIO(raw)
+
+
+def _parse_typed_base64(item: dict, key: str, default_mime: str) -> list:
+    """Parse image_base64 / audio_base64 / video_base64 typed fields."""
+    inner = item.get(key, "")
+    if isinstance(inner, str):
+        raw, mime = _decode_b64(inner)
+        mime = mime or default_mime
+    elif isinstance(inner, dict):
+        raw, mime = _decode_b64(inner.get("base64", inner.get("data", "")))
+        mime = mime or inner.get("mime_type", inner.get("mimeType", default_mime))
+    else:
+        raise HTTPException(status_code=400, detail=f"Invalid value for '{key}'")
+    return [_bytes_to_st_input(raw, mime)]
+
+
+def _parse_content_part(part: dict) -> list:
+    """
+    Parse a single content-array part into a list of ST-compatible inputs.
+
+    Handles:
+    - {"type": "text", "text": "..."}
+    - {"type": "image", "format": "base64", "value": "..."}         (Elastic format)
+    - {"type": "image_url", "image_url": {"url": "data:..."}}       (Cohere/Voyage)
+    - {"type": "image_base64", "image_base64": "data:..." | {...}}
+    - {"type": "audio_base64", "audio_base64": "data:..." | {...}}
+    - {"type": "video_base64", "video_base64": "data:..." | {...}}
+    - {"inlineData": {"mimeType": "...", "data": "..."}}             (Gemini format)
+    """
+    if not isinstance(part, dict):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Content part must be a dict, got {type(part).__name__}",
+        )
+
+    t = part.get("type", "")
+
+    if t == "text":
+        return [part.get("text", "")]
+
+    # Elastic Inference Service: {"type": "image", "format": "base64", "value": "..."}
+    if t == "image" and part.get("format") == "base64":
+        raw, mime = _decode_b64(part["value"])
+        return [_bytes_to_st_input(raw, mime or "image/jpeg")]
+
+    # Cohere/Voyage: {"type": "image_url", "image_url": {"url": "data:..."}}
+    if t == "image_url":
+        url_val = part.get("image_url", {})
+        url = url_val.get("url", url_val) if isinstance(url_val, dict) else str(url_val)
+        if not url.startswith("data:"):
+            raise HTTPException(
+                status_code=400,
+                detail="image_url: only data: URLs (base64) are supported in air-gapped mode",
+            )
+        raw, mime = _decode_b64(url)
+        return [_bytes_to_st_input(raw, mime)]
+
+    # Gemini: {"inlineData": {"mimeType": "...", "data": "..."}}
+    if "inlineData" in part:
+        inline = part["inlineData"]
+        raw, _ = _decode_b64(inline.get("data", ""))
+        return [_bytes_to_st_input(raw, inline.get("mimeType", ""))]
+
+    # Typed base64 formats
+    if t == "image_base64" or "image_base64" in part:
+        return _parse_typed_base64(part, "image_base64", "image/jpeg")
+    if t == "audio_base64" or "audio_base64" in part:
+        return _parse_typed_base64(part, "audio_base64", "audio/wav")
+    if t == "video_base64" or "video_base64" in part:
+        return _parse_typed_base64(part, "video_base64", "video/mp4")
+
+    raise HTTPException(status_code=400, detail=f"Unknown content part type: '{t}'")
+
+
+def _parse_openai_item(item) -> list:
+    """
+    Parse one element of the OpenAI `input` array into a list of ST-compatible inputs.
+
+    Returns a list:
+    - [str]          -> plain text (len 1)
+    - [PIL.Image]    -> single image (len 1)
+    - [BytesIO]      -> single audio/video (len 1)
+    - [x, y, ...]    -> fused multimodal parts (len > 1, caller wraps in tuple)
+
+    Supported formats:
+    1. "plain text"
+    2. {"type": "text", "text": "..."}
+    3. {"type": "image", "format": "base64", "value": "..."}                    (Elastic)
+    4. {"type": "image_base64", "image_base64": {"base64": "...", "mime_type": "..."}}
+    5. {"type": "audio_base64", "audio_base64": {"base64": "...", "mime_type": "..."}}
+    6. {"type": "video_base64", "video_base64": {"base64": "...", "mime_type": "..."}}
+    7. {"content": [...]}  fused multimodal block -> parts merged into ONE embedding
+    """
+    if isinstance(item, str):
+        return [item]
+
+    if not isinstance(item, dict):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Input item must be str or dict, got {type(item).__name__}",
+        )
+
+    # Fused content block: {"content": [...]}
+    if "content" in item and isinstance(item["content"], list):
+        parts = []
+        for p in item["content"]:
+            parts.extend(_parse_content_part(p))
+        return parts
+
+    # Single-part item: delegate to content-part parser
+    return _parse_content_part(item)
+
+
+# =============================================================================
+# Core embedding (text-only and multimodal)
+# =============================================================================
 
 def _update_stats(n_tokens: int, elapsed_s: float) -> float:
     tok_per_s = n_tokens / elapsed_s if elapsed_s > 0 else 0.0
@@ -79,7 +328,7 @@ def _update_stats(n_tokens: int, elapsed_s: float) -> float:
     return tok_per_s
 
 
-def _count_tokens(texts: list[str]) -> int:
+def _count_tokens(texts: list) -> int:
     if TOKENIZER is not None:
         try:
             enc = TOKENIZER(texts, add_special_tokens=True)
@@ -89,8 +338,8 @@ def _count_tokens(texts: list[str]) -> int:
     return sum(len(t.split()) for t in texts)
 
 
-def _embed(inputs: list[str], task: str = "retrieval", dimensions: Optional[int] = None):
-    """Core embedding logic. Returns (embeddings_np, n_tokens, tok_per_s)."""
+def _embed(inputs: list, task: str = "retrieval", dimensions: Optional[int] = None):
+    """Text-only embedding. Returns (embeddings_np, n_tokens, tok_per_s)."""
     if MODEL is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
 
@@ -107,6 +356,71 @@ def _embed(inputs: list[str], task: str = "retrieval", dimensions: Optional[int]
 
     tok_per_s = _update_stats(n_tokens, elapsed)
     logger.info(f"Embedded {len(inputs)} texts | {n_tokens} tokens | {elapsed*1000:.0f}ms | {tok_per_s:.0f} tok/s")
+
+    if dimensions and dimensions < embeddings.shape[-1]:
+        embeddings = embeddings[..., :dimensions]
+        norms = np.linalg.norm(embeddings, axis=-1, keepdims=True)
+        embeddings = embeddings / np.where(norms > 0, norms, 1.0)
+
+    return embeddings, n_tokens, tok_per_s
+
+
+def _embed_mixed(items: list, task: str = "retrieval", dimensions: Optional[int] = None):
+    """
+    Embed a mixed list of inputs (text strings, PIL.Images, BytesIO, or lists for fused multimodal).
+
+    Each items[i] is:
+    - str / PIL.Image / BytesIO  -> one embedding
+    - list of the above         -> fused multimodal tuple -> one embedding
+
+    Returns (embeddings_np, n_tokens, tok_per_s).
+    """
+    if MODEL is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+
+    encode_inputs = []
+    text_parts = []
+
+    for item in items:
+        if isinstance(item, list):
+            # Sort: put non-text items (PIL.Image, BytesIO) first in the tuple.
+            # The model's _encode_single_image has a bug when called via the
+            # shortcut at line 903 (text-first ordering). Keeping non-text first
+            # forces _encode_composite_parts which handles all orderings correctly.
+            sorted_parts = sorted(item, key=lambda x: isinstance(x, str))
+            encode_inputs.append(tuple(sorted_parts))
+            for p in item:
+                if isinstance(p, str):
+                    text_parts.append(p)
+        elif isinstance(item, str):
+            encode_inputs.append(item)
+            text_parts.append(item)
+        else:
+            # Standalone PIL.Image or BytesIO: wrap with empty string to produce a
+            # 2-element tuple (non-text first). This routes through _encode_composite_parts
+            # and avoids the _encode_single_image processor bug.
+            encode_inputs.append((item, ""))
+
+    n_tokens = _count_tokens(text_parts) if text_parts else len(items)
+
+    t0 = time.perf_counter()
+    with torch.no_grad():
+        embeddings = MODEL.encode(
+            encode_inputs,
+            task=task,
+            convert_to_numpy=True,
+            normalize_embeddings=True,
+        )
+    elapsed = time.perf_counter() - t0
+
+    if isinstance(embeddings, np.ndarray) and embeddings.ndim == 1:
+        embeddings = embeddings[None, :]
+
+    tok_per_s = _update_stats(n_tokens, elapsed)
+    logger.info(
+        f"Embedded {len(items)} multimodal inputs | {n_tokens} text-tokens | "
+        f"{elapsed*1000:.0f}ms | {tok_per_s:.0f} tok/s"
+    )
 
     if dimensions and dimensions < embeddings.shape[-1]:
         embeddings = embeddings[..., :dimensions]
@@ -136,7 +450,8 @@ def load_model():
     except Exception as e:
         logger.warning(f"Could not load tokenizer ({e}), will use word-split approximation")
 
-    logger.info(f"Model loaded: {model_id} on {DEVICE}")
+    multimodal = _is_omni_model()
+    logger.info(f"Model loaded: {model_id} on {DEVICE} | multimodal={multimodal}")
 
 
 @app.on_event("startup")
@@ -164,6 +479,7 @@ async def health():
         "model": MODEL_ID,
         "device": DEVICE,
         "ready": MODEL is not None,
+        "multimodal": _is_omni_model(),
         "schemas": ["openai", "voyage", "gemini", "cohere"],
     }
 
@@ -181,8 +497,14 @@ async def health():
 
 # =============================================================================
 # Schema 1: OpenAI + Voyage AI  (POST /v1/embeddings)
-# Both use the same endpoint. Voyage adds input_type, output_dimension, output_dtype
-# which map naturally to OpenAI's task, dimensions, encoding_format.
+#
+# Multimodal: `input` items may be structured dicts in addition to plain strings.
+# Formats:
+#   {"type": "image", "format": "base64", "value": "<b64>"}            (Elastic)
+#   {"type": "image_base64", "image_base64": {"base64":"...", "mime_type":"image/png"}}
+#   {"type": "audio_base64", "audio_base64": {"base64":"...", "mime_type":"audio/wav"}}
+#   {"type": "video_base64", "video_base64": {"base64":"...", "mime_type":"video/mp4"}}
+#   {"content": [part, ...]}  fused multimodal -> ONE embedding per block
 # =============================================================================
 
 class OpenAIEmbeddingRequest(BaseModel):
@@ -192,10 +514,10 @@ class OpenAIEmbeddingRequest(BaseModel):
     dimensions: Optional[int] = None
     task: Optional[str] = "retrieval"
 
-    # Voyage AI extensions (aliases for OpenAI fields)
-    input_type: Optional[str] = None        # Voyage: "query", "document", etc.
-    output_dimension: Optional[int] = None  # Voyage alias for dimensions
-    output_dtype: Optional[str] = None      # Voyage alias for encoding_format
+    # Voyage AI extensions
+    input_type: Optional[str] = None
+    output_dimension: Optional[int] = None
+    output_dtype: Optional[str] = None
 
 
 class OpenAIEmbeddingResponse(BaseModel):
@@ -208,30 +530,38 @@ class OpenAIEmbeddingResponse(BaseModel):
 @app.post("/v1/embeddings", response_model=OpenAIEmbeddingResponse, tags=["OpenAI / Voyage AI"])
 async def create_embeddings_openai(request: OpenAIEmbeddingRequest):
     """
-    OpenAI-compatible embedding endpoint. Also accepts Voyage AI fields:
-    input_type (maps to task), output_dimension (maps to dimensions), output_dtype.
+    OpenAI-compatible embedding endpoint. Also accepts Voyage AI fields.
+    Supports multimodal inputs for omni models via structured input items.
 
     Compatible with:
     - OpenAI client: openai.embeddings.create(model=..., input=...)
     - Voyage AI client: vo.embed(texts, model=..., input_type="query")
     - Elasticsearch inference service type: openai
     """
-    inputs = request.input if isinstance(request.input, list) else [request.input]
+    raw_inputs = request.input if isinstance(request.input, list) else [request.input]
 
-    # Voyage AI field mapping
     dims = request.dimensions or request.output_dimension
     task = request.task or "retrieval"
     if request.input_type:
-        # Map Voyage input_type to Jina task
         voyage_task_map = {
-            "query": "retrieval.query",
-            "document": "retrieval.passage",
+            "query": "retrieval",
+            "document": "retrieval",
             "classification": "classification",
             "clustering": "clustering",
         }
-        task = voyage_task_map.get(request.input_type, request.input_type)
+        task = voyage_task_map.get(request.input_type, "retrieval")
 
-    embeddings, n_tokens, tok_per_s = _embed(inputs, task=task, dimensions=dims)
+    has_multimodal = any(not isinstance(x, str) for x in raw_inputs)
+
+    if has_multimodal:
+        _require_omni()
+        parsed = []
+        for item in raw_inputs:
+            parts = _parse_openai_item(item)
+            parsed.append(parts if len(parts) > 1 else parts[0])
+        embeddings, n_tokens, tok_per_s = _embed_mixed(parsed, task=task, dimensions=dims)
+    else:
+        embeddings, n_tokens, tok_per_s = _embed(raw_inputs, task=task, dimensions=dims)
 
     data = [
         {"object": "embedding", "embedding": emb.tolist(), "index": i}
@@ -251,22 +581,20 @@ async def create_embeddings_openai(request: OpenAIEmbeddingRequest):
 
 # =============================================================================
 # Schema 2: Cohere  (POST /v1/embed)
+#
+# Multimodal extensions:
+# - Legacy: {"texts": [...], "images": ["data:image/png;base64,..."]}
+# - V2:     {"inputs": [{"content": [{"type":"image_url","image_url":{"url":"data:..."}}, ...]}]}
 # =============================================================================
 
 class CohereEmbedRequest(BaseModel):
-    texts: list[str]
+    texts: Optional[list] = None
+    images: Optional[list] = None       # legacy: list of data-URL strings
+    inputs: Optional[list] = None       # V2: content-block array
     model: Optional[str] = None
-    input_type: Optional[str] = "search_document"  # search_query, search_document, classification, clustering
+    input_type: Optional[str] = "search_document"
     truncate: Optional[str] = "END"
-    embedding_types: Optional[list[str]] = Field(default_factory=lambda: ["float"])
-
-
-class CohereEmbedResponse(BaseModel):
-    id: str
-    texts: list[str]
-    embeddings: dict
-    meta: dict
-    response_type: str = "embeddings_floats"
+    embedding_types: Optional[list] = Field(default_factory=lambda: ["float"])
 
 
 @app.post("/v1/embed", tags=["Cohere"])
@@ -274,32 +602,69 @@ async def create_embeddings_cohere(request: CohereEmbedRequest):
     """
     Cohere-compatible embedding endpoint.
 
-    Compatible with:
-    - cohere.Client().embed(texts=[...], model=..., input_type="search_query")
+    Text-only:
+      {"texts": [...], "input_type": "search_document"}
+
+    Legacy multimodal:
+      {"images": ["data:image/png;base64,..."], "input_type": "search_document"}
+
+    V2 multimodal:
+      {"inputs": [{"content": [{"type": "image_url", "image_url": {"url": "data:..."}}, {"type": "text", "text": "..."}]}]}
     """
-    # Map Cohere input_type to Jina task
     cohere_task_map = {
-        "search_query": "retrieval.query",
-        "search_document": "retrieval.passage",
+        "search_query": "retrieval",
+        "search_document": "retrieval",
         "classification": "classification",
         "clustering": "clustering",
     }
     task = cohere_task_map.get(request.input_type or "search_document", "retrieval")
 
-    embeddings, n_tokens, tok_per_s = _embed(request.texts, task=task)
+    import uuid
+
+    if request.inputs is not None:
+        # V2 inputs format
+        _require_omni()
+        parsed = []
+        for inp in request.inputs:
+            content = inp.get("content", [])
+            parts = []
+            for p in content:
+                parts.extend(_parse_content_part(p))
+            parsed.append(parts if len(parts) > 1 else (parts[0] if parts else ""))
+        embeddings, n_tokens, tok_per_s = _embed_mixed(parsed, task=task)
+        texts_out = []
+        images_count = len(parsed)
+    elif request.images is not None:
+        # Legacy: images as data-URL list
+        _require_omni()
+        parsed = []
+        for img_data_url in request.images:
+            raw, mime = _decode_b64(img_data_url)
+            parsed.append(_bytes_to_st_input(raw, mime))
+        embeddings, n_tokens, tok_per_s = _embed_mixed(parsed, task=task)
+        texts_out = request.texts or []
+        images_count = len(request.images)
+    else:
+        # Text-only
+        texts = request.texts or []
+        embeddings, n_tokens, tok_per_s = _embed(texts, task=task)
+        texts_out = texts
+        images_count = 0
 
     embedding_list = [emb.tolist() for emb in embeddings]
 
-    import uuid
     return {
         "id": str(uuid.uuid4()),
-        "texts": request.texts,
+        "texts": texts_out,
         "embeddings": {
             "float": embedding_list,
         },
         "meta": {
-            "api_version": {"version": "1"},
-            "billed_units": {"input_tokens": n_tokens},
+            "api_version": {"version": "2"},
+            "billed_units": {
+                "input_tokens": n_tokens,
+                "images": images_count,
+            },
             "tok_per_s": round(tok_per_s, 1),
         },
         "response_type": "embeddings_floats",
@@ -307,27 +672,126 @@ async def create_embeddings_cohere(request: CohereEmbedRequest):
 
 
 # =============================================================================
-# Schema 3: Google Gemini  (POST /v1/models/{model}:embedContent)
+# Schema 3: Voyage AI Multimodal  (POST /v1/multimodalembeddings)
+#
+# Format:
+# {
+#   "inputs": [
+#     {"content": [
+#       {"type": "text", "text": "..."},
+#       {"type": "image_base64", "image_base64": "data:image/jpeg;base64,..."},
+#       {"type": "video_base64", "video_base64": "data:video/mp4;base64,..."}
+#     ]}
+#   ],
+#   "model": "voyage-multimodal-3.5",
+#   "input_type": "document"
+# }
+# =============================================================================
+
+class VoyageMultimodalRequest(BaseModel):
+    inputs: list
+    model: Optional[str] = None
+    input_type: Optional[str] = None
+    truncation: Optional[bool] = True
+
+
+@app.post("/v1/multimodalembeddings", tags=["Voyage AI Multimodal"])
+async def create_multimodal_embeddings_voyage(request: VoyageMultimodalRequest):
+    """
+    Voyage AI-compatible multimodal embedding endpoint.
+
+    Each input is {"content": [text/image/video/audio parts]}.
+    All parts within one input are fused into a single embedding.
+
+    Compatible with the Voyage AI multimodalembeddings REST API.
+    """
+    _require_omni()
+
+    voyage_task_map = {
+        "query": "retrieval",
+        "document": "retrieval",
+    }
+    task = voyage_task_map.get(request.input_type or "", "retrieval")
+
+    parsed = []
+    for inp in request.inputs:
+        content = inp.get("content", [])
+        parts = []
+        for p in content:
+            parts.extend(_parse_content_part(p))
+        parsed.append(parts if len(parts) > 1 else (parts[0] if parts else ""))
+
+    embeddings, n_tokens, tok_per_s = _embed_mixed(parsed, task=task)
+
+    return {
+        "embeddings": [emb.tolist() for emb in embeddings],
+        "text_tokens": n_tokens,
+        "image_pixels": 0,  # not tracked
+        "total_tokens": n_tokens,
+        "model": MODEL_ID,
+    }
+
+
+# =============================================================================
+# Schema 4: Google Gemini  (POST /v1/models/{model}:embedContent)
+#
+# Multimodal: parts may include inlineData in addition to text:
+#   {"inlineData": {"mimeType": "image/png", "data": "base64..."}}
 # =============================================================================
 
 class GeminiPart(BaseModel):
-    text: str
+    text: Optional[str] = None
+    inlineData: Optional[dict] = None   # {"mimeType": "image/png", "data": "base64..."}
 
 
 class GeminiContent(BaseModel):
-    parts: list[GeminiPart]
+    parts: list                          # list of GeminiPart-like dicts
     role: Optional[str] = None
 
 
 class GeminiEmbedContentRequest(BaseModel):
     content: GeminiContent
-    taskType: Optional[str] = None  # RETRIEVAL_QUERY, RETRIEVAL_DOCUMENT, etc.
+    taskType: Optional[str] = None
     title: Optional[str] = None
     outputDimensionality: Optional[int] = None
 
 
 class GeminiBatchEmbedRequest(BaseModel):
-    requests: list[dict]  # list of GeminiEmbedContentRequest-like dicts
+    requests: list   # list of GeminiEmbedContentRequest-like dicts
+
+
+GEMINI_TASK_MAP = {
+    "RETRIEVAL_QUERY": "retrieval",
+    "RETRIEVAL_DOCUMENT": "retrieval",
+    "SEMANTIC_SIMILARITY": "text-matching",
+    "CLASSIFICATION": "classification",
+    "CLUSTERING": "clustering",
+    "QUESTION_ANSWERING": "retrieval",
+    "FACT_VERIFICATION": "retrieval",
+    "CODE_RETRIEVAL_QUERY": "retrieval",
+}
+
+
+def _parse_gemini_content(content_obj) -> list:
+    """
+    Parse a Gemini content object into ST-compatible inputs.
+    Returns a list of parts (fused if multiple).
+    """
+    parts_raw = content_obj if isinstance(content_obj, list) else content_obj.get("parts", [])
+    result = []
+    for part in parts_raw:
+        if isinstance(part, dict):
+            if "inlineData" in part:
+                result.extend(_parse_content_part(part))
+            elif "text" in part:
+                result.append(part["text"])
+            else:
+                result.extend(_parse_content_part(part))
+        elif hasattr(part, "text") and part.text is not None:
+            result.append(part.text)
+        elif hasattr(part, "inlineData") and part.inlineData is not None:
+            result.extend(_parse_content_part({"inlineData": part.inlineData}))
+    return result
 
 
 @app.post("/v1/models/{model_id}:embedContent", tags=["Google Gemini"])
@@ -337,26 +801,23 @@ async def embed_content_gemini(
 ):
     """
     Google Gemini-compatible single embedding endpoint.
+    Supports text parts and inlineData (image/audio/video) parts.
 
     Compatible with:
     - genai.embed_content(model=..., content=..., task_type="RETRIEVAL_QUERY")
-    - POST /v1/models/jina-embeddings-v5-text-nano:embedContent
     """
-    text = " ".join(p.text for p in request.content.parts)
+    task = GEMINI_TASK_MAP.get(request.taskType or "", "retrieval")
 
-    gemini_task_map = {
-        "RETRIEVAL_QUERY": "retrieval.query",
-        "RETRIEVAL_DOCUMENT": "retrieval.passage",
-        "SEMANTIC_SIMILARITY": "text-matching",
-        "CLASSIFICATION": "classification",
-        "CLUSTERING": "clustering",
-        "QUESTION_ANSWERING": "retrieval.query",
-        "FACT_VERIFICATION": "retrieval.query",
-        "CODE_RETRIEVAL_QUERY": "retrieval.query",
-    }
-    task = gemini_task_map.get(request.taskType or "", "retrieval")
+    parts = _parse_gemini_content(request.content.dict())
+    has_multimodal = any(not isinstance(p, str) for p in parts)
 
-    embeddings, n_tokens, tok_per_s = _embed([text], task=task, dimensions=request.outputDimensionality)
+    if has_multimodal:
+        _require_omni()
+        item = parts if len(parts) > 1 else parts[0]
+        embeddings, n_tokens, tok_per_s = _embed_mixed([item], task=task, dimensions=request.outputDimensionality)
+    else:
+        text = " ".join(str(p) for p in parts)
+        embeddings, n_tokens, tok_per_s = _embed([text], task=task, dimensions=request.outputDimensionality)
 
     return {
         "embedding": {
@@ -376,34 +837,38 @@ async def batch_embed_contents_gemini(
 ):
     """
     Google Gemini-compatible batch embedding endpoint.
+    Supports text and inlineData (multimodal) parts.
 
     Compatible with:
     - genai.batch_embed_contents(requests=[...])
-    - POST /v1/models/jina-embeddings-v5-text-nano:batchEmbedContents
     """
-    texts = []
+    all_items = []
     dims = None
+    has_multimodal = False
+    first_task_type = ""
 
     for req in request.requests:
-        content = req.get("content", {})
-        parts = content.get("parts", [])
-        text = " ".join(p.get("text", "") for p in parts)
-        texts.append(text)
         if not dims and req.get("outputDimensionality"):
             dims = req["outputDimensionality"]
+        if not first_task_type:
+            first_task_type = req.get("taskType", "")
 
-    # Use task from first request
-    first_task_type = request.requests[0].get("taskType", "") if request.requests else ""
-    gemini_task_map = {
-        "RETRIEVAL_QUERY": "retrieval.query",
-        "RETRIEVAL_DOCUMENT": "retrieval.passage",
-        "SEMANTIC_SIMILARITY": "text-matching",
-        "CLASSIFICATION": "classification",
-        "CLUSTERING": "clustering",
-    }
-    task = gemini_task_map.get(first_task_type, "retrieval")
+        content = req.get("content", {})
+        parts = _parse_gemini_content(content)
 
-    embeddings, n_tokens, tok_per_s = _embed(texts, task=task, dimensions=dims)
+        if any(not isinstance(p, str) for p in parts):
+            has_multimodal = True
+
+        all_items.append(parts if len(parts) > 1 else (parts[0] if parts else ""))
+
+    task = GEMINI_TASK_MAP.get(first_task_type, "retrieval")
+
+    if has_multimodal:
+        _require_omni()
+        embeddings, n_tokens, tok_per_s = _embed_mixed(all_items, task=task, dimensions=dims)
+    else:
+        texts = [item if isinstance(item, str) else " ".join(str(p) for p in item) for item in all_items]
+        embeddings, n_tokens, tok_per_s = _embed(texts, task=task, dimensions=dims)
 
     return {
         "embeddings": [{"values": emb.tolist()} for emb in embeddings],
@@ -420,7 +885,7 @@ async def batch_embed_contents_gemini(
 
 class RerankRequest(BaseModel):
     query: str
-    documents: list[Union[str, dict]]
+    documents: list
     model: Optional[str] = None
     top_n: Optional[int] = None
     return_documents: Optional[bool] = True
@@ -438,7 +903,6 @@ async def rerank(request: RerankRequest):
 
     t0 = time.perf_counter()
     with torch.no_grad():
-        # sentence-transformers CrossEncoder interface
         pairs = [[request.query, doc] for doc in docs]
         try:
             scores = MODEL.predict(pairs)

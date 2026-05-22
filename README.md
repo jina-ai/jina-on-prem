@@ -265,16 +265,157 @@ Hardware: Intel Xeon @ 2.20GHz CPU | NVIDIA L4 GPU (24GB, 30.3 TFLOPS FP16)
 
 The `/v1/embeddings` response includes `usage.tok_per_s` - actual tokenizer-counted throughput for each request. The `/health` endpoint reports cumulative stats.
 
+## Multimodal Inputs (Omni Models)
+
+`jina-embeddings-v5-omni-small` and `jina-embeddings-v5-omni-nano` accept text, images, audio, and video in a shared vector space.
+
+All inputs must be base64-encoded (no URLs or file paths - air-gapped by design). Maximum 10 MB per input.
+
+### Encoding an image to base64
+
+```python
+import base64
+
+with open("photo.jpg", "rb") as f:
+    b64 = base64.b64encode(f.read()).decode()
+data_url = f"data:image/jpeg;base64,{b64}"
+```
+
+### OpenAI schema (Elastic Inference Service format)
+
+```bash
+# Single image
+curl -X POST http://localhost:8080/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": [
+      {"type": "image", "format": "base64", "value": "<BASE64_IMAGE>"}
+    ]
+  }'
+
+# Typed format with mime type
+curl -X POST http://localhost:8080/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": [
+      {"type": "image_base64", "image_base64": {"base64": "<BASE64>", "mime_type": "image/png"}},
+      {"type": "audio_base64", "audio_base64": {"base64": "<BASE64>", "mime_type": "audio/wav"}},
+      {"type": "video_base64", "video_base64": {"base64": "<BASE64>", "mime_type": "video/mp4"}}
+    ]
+  }'
+
+# Fused multimodal: text + image -> ONE embedding
+curl -X POST http://localhost:8080/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": [{
+      "content": [
+        {"type": "text", "text": "A red square on white background"},
+        {"type": "image", "format": "base64", "value": "<BASE64_IMAGE>"}
+      ]
+    }]
+  }'
+
+# Mixed batch: text and images in one request
+curl -X POST http://localhost:8080/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": [
+      "text query",
+      {"type": "image", "format": "base64", "value": "<BASE64_IMAGE>"}
+    ]
+  }'
+```
+
+```python
+import base64
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:8080/v1", api_key="not-needed")
+
+with open("photo.jpg", "rb") as f:
+    b64 = base64.b64encode(f.read()).decode()
+
+resp = client.embeddings.create(
+    model="jina-embeddings-v5-omni-nano",
+    input=[
+        "plain text query",
+        {"type": "image", "format": "base64", "value": b64},
+    ]
+)
+print(len(resp.data))  # 2 embeddings in shared vector space
+```
+
+### Gemini schema (inlineData)
+
+```bash
+curl -X POST "http://localhost:8080/v1/models/jina-embeddings-v5-omni-nano:embedContent" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": {
+      "parts": [
+        {"text": "A red square"},
+        {"inlineData": {"mimeType": "image/png", "data": "<BASE64_IMAGE>"}}
+      ]
+    },
+    "taskType": "RETRIEVAL_DOCUMENT"
+  }'
+```
+
+### Cohere schema
+
+```bash
+# Legacy format (images as data URLs)
+curl -X POST http://localhost:8080/v1/embed \
+  -H "Content-Type: application/json" \
+  -d '{
+    "images": ["data:image/png;base64,<BASE64_IMAGE>"],
+    "input_type": "search_document"
+  }'
+
+# V2 format (content blocks, same as Cohere API v2)
+curl -X POST http://localhost:8080/v1/embed \
+  -H "Content-Type: application/json" \
+  -d '{
+    "inputs": [{
+      "content": [
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,<BASE64_IMAGE>"}},
+        {"type": "text", "text": "A red square"}
+      ]
+    }],
+    "input_type": "search_document"
+  }'
+```
+
+### Voyage AI multimodal schema
+
+```bash
+curl -X POST http://localhost:8080/v1/multimodalembeddings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "inputs": [{
+      "content": [
+        {"type": "text", "text": "A red square"},
+        {"type": "image_base64", "image_base64": "data:image/png;base64,<BASE64_IMAGE>"}
+      ]
+    }],
+    "model": "voyage-multimodal-3.5",
+    "input_type": "document"
+  }'
+```
+
+Text-only models return HTTP 400 with a clear error if multimodal inputs are sent.
+
 ## Supported Tasks (v5)
 
 All v5 models support the `task` parameter:
 
-- `retrieval.query` (default)
-- `retrieval.passage`
-- `text-matching`
-- `separation`
-- `classification`
-- `clustering`
+- `retrieval` (default) - semantic search
+- `text-matching` - similarity comparison
+- `classification` - label assignment
+- `clustering` - grouping
+
+The Cohere `input_type` and Gemini `taskType` fields are mapped automatically to the task above.
 
 ## Per-Model Dependency Configs
 
