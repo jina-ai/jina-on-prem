@@ -8,7 +8,14 @@
       "parameters": "1.74B",
       "context": 32768,
       "output_dim": 1024,
-      "matryoshka_dims": [32, 64, 128, 256, 512, 1024],
+      "matryoshka_dims": [
+        32,
+        64,
+        128,
+        256,
+        512,
+        1024
+      ],
       "modality": "multimodal",
       "language": "multilingual",
       "license": "CC-BY-NC-4.0",
@@ -17,19 +24,32 @@
       "quantized": true,
       "mlx": true,
       "description": "Multimodal embedding model (text, image, audio, video, PDF), 1.74B params, 32K context",
-      "tasks": ["retrieval", "text-matching", "clustering", "classification"],
-      "endpoints": ["embedding", "classify"],
+      "tasks": [
+        "retrieval",
+        "text-matching",
+        "clustering",
+        "classification"
+      ],
+      "endpoints": [
+        "embedding",
+        "classify"
+      ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2605.08384",
       "deps": {
-        "transformers": ">=4.45.0,<5.0.0",
-        "sentence-transformers": ">=3.0.0",
-        "torch": ">=2.1.0",
-        "flash-attn": ">=2.5.0",
-        "Pillow": ">=10.0.0",
-        "librosa": ">=0.10.0",
-        "av": ">=12.0.0",
-        "timm": ">=1.0.0"
+        "transformers": "==4.48.3",
+        "sentence-transformers": "==3.4.1",
+        "torch": "==2.5.1",
+        "einops": "==0.8.0",
+        "peft": "==0.14.0",
+        "accelerate": "==1.2.1",
+        "timm": "==1.0.12",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
+        "Pillow": "==10.4.0",
+        "librosa": "==0.10.2",
+        "av": "==12.3.0",
+        "flash-attn": "==2.7.3"
       }
     },
     {
@@ -40,7 +60,14 @@
       "parameters": "1.04B",
       "context": 8192,
       "output_dim": 768,
-      "matryoshka_dims": [32, 64, 128, 256, 512, 768],
+      "matryoshka_dims": [
+        32,
+        64,
+        128,
+        256,
+        512,
+        768
+      ],
       "modality": "multimodal",
       "language": "multilingual",
       "license": "CC-BY-NC-4.0",
@@ -49,19 +76,32 @@
       "quantized": true,
       "mlx": true,
       "description": "Multimodal embedding model (text, image, audio, video, PDF), 1.04B params, 8K context",
-      "tasks": ["retrieval", "text-matching", "clustering", "classification"],
-      "endpoints": ["embedding", "classify"],
+      "tasks": [
+        "retrieval",
+        "text-matching",
+        "clustering",
+        "classification"
+      ],
+      "endpoints": [
+        "embedding",
+        "classify"
+      ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2605.08384",
       "deps": {
-        "transformers": ">=4.45.0,<5.0.0",
-        "sentence-transformers": ">=3.0.0",
-        "torch": ">=2.1.0",
-        "flash-attn": ">=2.5.0",
-        "Pillow": ">=10.0.0",
-        "librosa": ">=0.10.0",
-        "av": ">=12.0.0",
-        "timm": ">=1.0.0"
+        "transformers": "==4.48.3",
+        "sentence-transformers": "==3.4.1",
+        "torch": "==2.5.1",
+        "einops": "==0.8.0",
+        "peft": "==0.14.0",
+        "accelerate": "==1.2.1",
+        "timm": "==1.0.12",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
+        "Pillow": "==10.4.0",
+        "librosa": "==0.10.2",
+        "av": "==12.3.0",
+        "flash-attn": "==2.7.3"
       }
     },
     {
@@ -72,7 +112,14 @@
       "parameters": "677M",
       "context": 32768,
       "output_dim": 1024,
-      "matryoshka_dims": [32, 64, 128, 256, 512, 1024],
+      "matryoshka_dims": [
+        32,
+        64,
+        128,
+        256,
+        512,
+        1024
+      ],
       "modality": "text",
       "language": "multilingual",
       "license": "CC-BY-NC-4.0",
@@ -81,14 +128,28 @@
       "quantized": true,
       "mlx": true,
       "description": "Text embedding model, 677M params, 32K context",
-      "tasks": ["retrieval", "text-matching", "clustering", "classification"],
-      "endpoints": ["embedding", "classify"],
+      "tasks": [
+        "retrieval",
+        "text-matching",
+        "clustering",
+        "classification"
+      ],
+      "endpoints": [
+        "embedding",
+        "classify"
+      ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2602.15547",
       "deps": {
-        "transformers": ">=4.45.0,<5.0.0",
-        "sentence-transformers": ">=3.0.0",
-        "torch": ">=2.1.0",
+        "transformers": "==4.48.3",
+        "sentence-transformers": "==3.4.1",
+        "torch": "==2.5.1",
+        "einops": "==0.8.0",
+        "peft": "==0.14.0",
+        "accelerate": "==1.2.1",
+        "timm": "==1.0.12",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
         "flash-attn": null
       }
     },
@@ -100,7 +161,14 @@
       "parameters": "239M",
       "context": 8192,
       "output_dim": 768,
-      "matryoshka_dims": [32, 64, 128, 256, 512, 768],
+      "matryoshka_dims": [
+        32,
+        64,
+        128,
+        256,
+        512,
+        768
+      ],
       "modality": "text",
       "language": "multilingual",
       "license": "CC-BY-NC-4.0",
@@ -109,14 +177,28 @@
       "quantized": true,
       "mlx": true,
       "description": "Smallest text embedding model, 239M params, 8K context",
-      "tasks": ["retrieval", "text-matching", "clustering", "classification"],
-      "endpoints": ["embedding", "classify"],
+      "tasks": [
+        "retrieval",
+        "text-matching",
+        "clustering",
+        "classification"
+      ],
+      "endpoints": [
+        "embedding",
+        "classify"
+      ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2602.15547",
       "deps": {
-        "transformers": ">=4.45.0,<5.0.0",
-        "sentence-transformers": ">=3.0.0",
-        "torch": ">=2.1.0",
+        "transformers": "==4.48.3",
+        "sentence-transformers": "==3.4.1",
+        "torch": "==2.5.1",
+        "einops": "==0.8.0",
+        "peft": "==0.14.0",
+        "accelerate": "==1.2.1",
+        "timm": "==1.0.12",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
         "flash-attn": null
       }
     },
@@ -134,16 +216,22 @@
       "vram_gb": 6,
       "mlx": true,
       "description": "Vision-language model (image+text input, text output), 2.4B params, 32K context, 4096x4096 image",
-      "tasks": ["read"],
-      "endpoints": ["read"],
+      "tasks": [
+        "read"
+      ],
+      "endpoints": [
+        "read"
+      ],
       "api_endpoint": "/v1/chat/completions",
       "paper": "https://arxiv.org/abs/2512.04032",
       "deps": {
-        "transformers": ">=4.45.0,<5.0.0",
-        "torch": ">=2.1.0",
-        "flash-attn": ">=2.5.0",
-        "Pillow": ">=10.0.0",
-        "accelerate": ">=1.0.0"
+        "transformers": "==4.48.3",
+        "torch": "==2.5.1",
+        "Pillow": "==10.4.0",
+        "accelerate": "==1.2.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
+        "flash-attn": "==2.7.3"
       }
     },
     {
@@ -161,15 +249,24 @@
       "quantized": true,
       "mlx": true,
       "description": "Multilingual reranker model, 597M params, 131K context",
-      "tasks": ["reranking"],
-      "endpoints": ["rank"],
+      "tasks": [
+        "reranking"
+      ],
+      "endpoints": [
+        "rank"
+      ],
       "api_endpoint": "/v1/rerank",
       "paper": "https://arxiv.org/abs/2509.25085",
       "deps": {
-        "transformers": ">=4.45.0,<5.0.0",
-        "sentence-transformers": ">=3.0.0",
-        "torch": ">=2.1.0",
-        "flash-attn": ">=2.5.0"
+        "transformers": "==4.48.3",
+        "sentence-transformers": "==3.4.1",
+        "torch": "==2.5.1",
+        "einops": "==0.8.0",
+        "peft": "==0.14.0",
+        "accelerate": "==1.2.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
+        "flash-attn": "==2.7.3"
       }
     },
     {
@@ -180,7 +277,13 @@
       "parameters": "1.5B",
       "context": 32768,
       "output_dim": 1536,
-      "matryoshka_dims": [128, 256, 512, 1024, 1536],
+      "matryoshka_dims": [
+        128,
+        256,
+        512,
+        1024,
+        1536
+      ],
       "modality": "code",
       "language": "multilingual",
       "license": "CC-BY-NC-4.0",
@@ -188,15 +291,29 @@
       "vram_gb": 4,
       "quantized": true,
       "description": "Code embedding model (1.5B), 32K context, nl2code/code2code/techqa",
-      "tasks": ["nl2code", "techqa", "code2code", "code2nl", "code2completion"],
-      "endpoints": ["embedding"],
+      "tasks": [
+        "nl2code",
+        "techqa",
+        "code2code",
+        "code2nl",
+        "code2completion"
+      ],
+      "endpoints": [
+        "embedding"
+      ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2508.21290",
       "deps": {
-        "transformers": ">=4.45.0,<5.0.0",
-        "sentence-transformers": ">=3.0.0",
-        "torch": ">=2.1.0",
-        "flash-attn": ">=2.5.0"
+        "transformers": "==4.48.3",
+        "sentence-transformers": "==3.4.1",
+        "torch": "==2.5.1",
+        "einops": "==0.8.0",
+        "peft": "==0.14.0",
+        "accelerate": "==1.2.1",
+        "timm": "==1.0.12",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
+        "flash-attn": "==2.7.3"
       }
     },
     {
@@ -207,7 +324,13 @@
       "parameters": "494M",
       "context": 32768,
       "output_dim": 896,
-      "matryoshka_dims": [64, 128, 256, 512, 896],
+      "matryoshka_dims": [
+        64,
+        128,
+        256,
+        512,
+        896
+      ],
       "modality": "code",
       "language": "multilingual",
       "license": "CC-BY-NC-4.0",
@@ -215,15 +338,29 @@
       "vram_gb": 2,
       "quantized": true,
       "description": "Code embedding model (0.5B), 32K context, nl2code/code2code/techqa",
-      "tasks": ["nl2code", "techqa", "code2code", "code2nl", "code2completion"],
-      "endpoints": ["embedding"],
+      "tasks": [
+        "nl2code",
+        "techqa",
+        "code2code",
+        "code2nl",
+        "code2completion"
+      ],
+      "endpoints": [
+        "embedding"
+      ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2508.21290",
       "deps": {
-        "transformers": ">=4.45.0,<5.0.0",
-        "sentence-transformers": ">=3.0.0",
-        "torch": ">=2.1.0",
-        "flash-attn": ">=2.5.0"
+        "transformers": "==4.48.3",
+        "sentence-transformers": "==3.4.1",
+        "torch": "==2.5.1",
+        "einops": "==0.8.0",
+        "peft": "==0.14.0",
+        "accelerate": "==1.2.1",
+        "timm": "==1.0.12",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
+        "flash-attn": "==2.7.3"
       }
     },
     {
@@ -234,7 +371,13 @@
       "parameters": "3.8B",
       "context": 32768,
       "output_dim": 2048,
-      "matryoshka_dims": [128, 256, 512, 1024, 2048],
+      "matryoshka_dims": [
+        128,
+        256,
+        512,
+        1024,
+        2048
+      ],
       "modality": "multimodal",
       "language": "multilingual",
       "license": "Qwen Research License",
@@ -242,15 +385,28 @@
       "vram_gb": 10,
       "quantized": true,
       "description": "Multimodal embedding model (text, image, PDF), 3.8B params, 32K context",
-      "tasks": ["retrieval", "text-matching", "code"],
-      "endpoints": ["embedding", "fine-tuning", "late_chunking"],
+      "tasks": [
+        "retrieval",
+        "text-matching",
+        "code"
+      ],
+      "endpoints": [
+        "embedding",
+        "fine-tuning",
+        "late_chunking"
+      ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2506.18902",
       "deps": {
-        "transformers": ">=4.45.0,<5.0.0",
-        "sentence-transformers": ">=3.0.0",
-        "torch": ">=2.1.0",
-        "flash-attn": ">=2.5.0",
+        "transformers": "==4.48.3",
+        "sentence-transformers": "==3.4.1",
+        "torch": "==2.5.1",
+        "einops": "==0.8.0",
+        "peft": "==0.14.0",
+        "accelerate": "==1.2.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
+        "flash-attn": "==2.7.3",
         "timm": ">=1.0.0",
         "Pillow": ">=10.0.0"
       }
@@ -269,16 +425,25 @@
       "vram_gb": 6,
       "quantized": true,
       "description": "Multimodal reranker (text+image query/doc), 2.4B params, 10K context",
-      "tasks": ["reranking"],
-      "endpoints": ["rank"],
+      "tasks": [
+        "reranking"
+      ],
+      "endpoints": [
+        "rank"
+      ],
       "api_endpoint": "/v1/rerank",
       "deps": {
-        "transformers": ">=4.45.0,<5.0.0",
-        "torch": ">=2.1.0",
-        "flash-attn": ">=2.5.0",
+        "transformers": "==4.48.3",
+        "sentence-transformers": "==3.4.1",
+        "torch": "==2.5.1",
+        "einops": "==0.8.0",
+        "peft": "==0.14.0",
+        "accelerate": "==1.2.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
+        "flash-attn": "==2.7.3",
         "Pillow": ">=10.0.0",
-        "timm": ">=1.0.0",
-        "accelerate": ">=1.0.0"
+        "timm": ">=1.0.0"
       }
     },
     {
@@ -294,14 +459,21 @@
       "release": "2025-01-16",
       "vram_gb": 4,
       "description": "HTML to Markdown/JSON reader, 1.54B params, 512K context",
-      "tasks": ["read"],
-      "endpoints": ["read"],
+      "tasks": [
+        "read"
+      ],
+      "endpoints": [
+        "read"
+      ],
       "api_endpoint": "/v1/chat/completions",
       "paper": "https://arxiv.org/abs/2503.01151",
       "deps": {
-        "transformers": ">=4.45.0,<5.0.0",
-        "torch": ">=2.1.0",
-        "flash-attn": ">=2.5.0",
+        "transformers": "==4.44.2",
+        "sentence-transformers": "==2.7.0",
+        "torch": "==2.4.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
+        "flash-attn": "==2.7.3",
         "accelerate": ">=1.0.0"
       }
     },
@@ -313,22 +485,39 @@
       "parameters": "865M",
       "context": 8192,
       "output_dim": 1024,
-      "matryoshka_dims": [64, 128, 256, 512, 768, 1024],
+      "matryoshka_dims": [
+        64,
+        128,
+        256,
+        512,
+        768,
+        1024
+      ],
       "modality": "multimodal",
       "language": "multilingual",
       "license": "CC-BY-NC-4.0",
       "release": "2024-11-05",
       "vram_gb": 4,
       "description": "Multimodal CLIP model (text, image), 865M params, 8K context, 512x512 images",
-      "tasks": ["retrieval", "classification"],
-      "endpoints": ["embedding", "train", "classify"],
+      "tasks": [
+        "retrieval",
+        "classification"
+      ],
+      "endpoints": [
+        "embedding",
+        "train",
+        "classify"
+      ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2412.08802",
       "deps": {
-        "transformers": ">=4.42.0",
-        "sentence-transformers": ">=3.0.0",
-        "torch": ">=2.0.0",
-        "Pillow": ">=10.0.0",
+        "transformers": "==4.48.3",
+        "sentence-transformers": "==3.4.1",
+        "torch": "==2.5.1",
+        "Pillow": "==10.4.0",
+        "timm": "==1.0.12",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
         "flash-attn": null
       }
     },
@@ -340,21 +529,45 @@
       "parameters": "570M",
       "context": 8192,
       "output_dim": 1024,
-      "matryoshka_dims": [32, 64, 128, 256, 512, 768, 1024],
+      "matryoshka_dims": [
+        32,
+        64,
+        128,
+        256,
+        512,
+        768,
+        1024
+      ],
       "modality": "text",
       "language": "multilingual",
       "license": "CC-BY-NC-4.0",
       "release": "2024-09-18",
       "vram_gb": 3,
       "description": "Multilingual text embedding model, 570M params, 8K context",
-      "tasks": ["retrieval", "text-matching", "separation", "classification"],
-      "endpoints": ["embedding", "fine-tuning", "train", "classify", "late_chunking"],
+      "tasks": [
+        "retrieval",
+        "text-matching",
+        "separation",
+        "classification"
+      ],
+      "endpoints": [
+        "embedding",
+        "fine-tuning",
+        "train",
+        "classify",
+        "late_chunking"
+      ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2409.10173",
       "deps": {
-        "transformers": ">=4.42.0",
-        "sentence-transformers": ">=3.0.0",
-        "torch": ">=2.0.0",
+        "transformers": "==4.48.3",
+        "sentence-transformers": "==3.4.1",
+        "torch": "==2.5.1",
+        "einops": "==0.8.0",
+        "peft": "==0.14.0",
+        "accelerate": "==1.2.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
         "flash-attn": null
       }
     },
@@ -366,21 +579,34 @@
       "parameters": "560M",
       "context": 8192,
       "output_dim": 128,
-      "matryoshka_dims": [64, 96, 128],
+      "matryoshka_dims": [
+        64,
+        96,
+        128
+      ],
       "modality": "text",
       "language": "multilingual",
       "license": "CC-BY-NC-4.0",
       "release": "2024-08-31",
       "vram_gb": 3,
       "description": "ColBERT late-interaction model, 560M params, 89 languages, 8K context",
-      "tasks": ["reranking"],
-      "endpoints": ["rank", "multi-embeddings", "late-interaction", "multi-vector"],
+      "tasks": [
+        "reranking"
+      ],
+      "endpoints": [
+        "rank",
+        "multi-embeddings",
+        "late-interaction",
+        "multi-vector"
+      ],
       "api_endpoint": "/v1/rerank",
       "paper": "https://arxiv.org/abs/2408.16672",
       "deps": {
-        "transformers": ">=4.40.0",
-        "sentence-transformers": ">=3.0.0",
-        "torch": ">=2.0.0",
+        "transformers": "==4.44.2",
+        "sentence-transformers": "==2.7.0",
+        "torch": "==2.4.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
         "flash-attn": null
       }
     },
@@ -397,14 +623,23 @@
       "release": "2024-08-11",
       "vram_gb": 4,
       "description": "HTML to Markdown reader, 1.54B params, 256K context",
-      "tasks": ["read"],
-      "endpoints": ["read"],
+      "tasks": [
+        "read"
+      ],
+      "endpoints": [
+        "read"
+      ],
       "api_endpoint": "/v1/chat/completions",
       "deps": {
-        "transformers": ">=4.42.0",
-        "torch": ">=2.0.0",
-        "flash-attn": ">=2.3.0",
-        "accelerate": ">=0.26.0"
+        "transformers": "==4.48.3",
+        "sentence-transformers": "==3.4.1",
+        "torch": "==2.5.1",
+        "einops": "==0.8.0",
+        "peft": "==0.14.0",
+        "accelerate": "==1.2.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
+        "flash-attn": "==2.7.3"
       }
     },
     {
@@ -420,14 +655,23 @@
       "release": "2024-08-11",
       "vram_gb": 2,
       "description": "HTML to Markdown reader, 0.5B params, 256K context",
-      "tasks": ["read"],
-      "endpoints": ["read"],
+      "tasks": [
+        "read"
+      ],
+      "endpoints": [
+        "read"
+      ],
       "api_endpoint": "/v1/chat/completions",
       "deps": {
-        "transformers": ">=4.42.0",
-        "torch": ">=2.0.0",
-        "flash-attn": ">=2.3.0",
-        "accelerate": ">=0.26.0"
+        "transformers": "==4.48.3",
+        "sentence-transformers": "==3.4.1",
+        "torch": "==2.5.1",
+        "einops": "==0.8.0",
+        "peft": "==0.14.0",
+        "accelerate": "==1.2.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
+        "flash-attn": "==2.7.3"
       }
     },
     {
@@ -443,13 +687,19 @@
       "release": "2024-06-25",
       "vram_gb": 1,
       "description": "Multilingual reranker, 278M params, 1K context",
-      "tasks": ["reranking"],
-      "endpoints": ["rank"],
+      "tasks": [
+        "reranking"
+      ],
+      "endpoints": [
+        "rank"
+      ],
       "api_endpoint": "/v1/rerank",
       "deps": {
-        "transformers": ">=4.40.0",
-        "sentence-transformers": ">=3.0.0",
-        "torch": ">=2.0.0",
+        "transformers": "==4.44.2",
+        "sentence-transformers": "==2.7.0",
+        "torch": "==2.4.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
         "flash-attn": null
       }
     },
@@ -467,15 +717,25 @@
       "release": "2024-06-05",
       "vram_gb": 1,
       "description": "CLIP model (text, image), 223M params, English, 224x224 images",
-      "tasks": ["retrieval", "classification"],
-      "endpoints": ["embedding", "train", "classify"],
+      "tasks": [
+        "retrieval",
+        "classification"
+      ],
+      "endpoints": [
+        "embedding",
+        "train",
+        "classify"
+      ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2405.20204",
       "deps": {
-        "transformers": ">=4.35.0",
-        "torch": ">=2.0.0",
-        "Pillow": ">=9.0.0",
-        "flash-attn": null
+        "transformers": "==4.44.2",
+        "sentence-transformers": "==2.7.0",
+        "torch": "==2.4.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
+        "flash-attn": null,
+        "Pillow": ">=9.0.0"
       }
     },
     {
@@ -491,12 +751,18 @@
       "release": "2024-04-18",
       "vram_gb": 1,
       "description": "Fast English reranker (turbo), 37.8M params, 8K context",
-      "tasks": ["reranking"],
-      "endpoints": ["rank"],
+      "tasks": [
+        "reranking"
+      ],
+      "endpoints": [
+        "rank"
+      ],
       "api_endpoint": "/v1/rerank",
       "deps": {
-        "transformers": ">=4.30.0",
-        "torch": ">=2.0.0",
+        "transformers": "==4.44.2",
+        "torch": "==2.4.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
         "flash-attn": null
       }
     },
@@ -513,12 +779,18 @@
       "release": "2024-04-18",
       "vram_gb": 1,
       "description": "Tiny English reranker, 33M params, 8K context",
-      "tasks": ["reranking"],
-      "endpoints": ["rank"],
+      "tasks": [
+        "reranking"
+      ],
+      "endpoints": [
+        "rank"
+      ],
       "api_endpoint": "/v1/rerank",
       "deps": {
-        "transformers": ">=4.30.0",
-        "torch": ">=2.0.0",
+        "transformers": "==4.44.2",
+        "torch": "==2.4.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
         "flash-attn": null
       }
     },
@@ -535,12 +807,18 @@
       "release": "2024-02-29",
       "vram_gb": 1,
       "description": "English reranker, 137M params, 8K context",
-      "tasks": ["reranking"],
-      "endpoints": ["rank"],
+      "tasks": [
+        "reranking"
+      ],
+      "endpoints": [
+        "rank"
+      ],
       "api_endpoint": "/v1/rerank",
       "deps": {
-        "transformers": ">=4.30.0",
-        "torch": ">=2.0.0",
+        "transformers": "==4.44.2",
+        "torch": "==2.4.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
         "flash-attn": null
       }
     },
@@ -558,12 +836,25 @@
       "release": "2024-02-17",
       "vram_gb": 1,
       "description": "ColBERT late-interaction model, 137M params, English, 8K context",
-      "tasks": ["reranking"],
-      "endpoints": ["rank", "multi-embeddings", "late-interaction", "multi-vector"],
+      "tasks": [
+        "reranking"
+      ],
+      "endpoints": [
+        "rank",
+        "multi-embeddings",
+        "late-interaction",
+        "multi-vector"
+      ],
       "api_endpoint": "/v1/rerank",
       "deps": {
-        "transformers": ">=4.30.0",
-        "torch": ">=2.0.0",
+        "transformers": "==4.48.3",
+        "sentence-transformers": "==3.4.1",
+        "torch": "==2.5.1",
+        "einops": "==0.8.0",
+        "peft": "==0.14.0",
+        "accelerate": "==1.2.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
         "flash-attn": null
       }
     },
@@ -581,14 +872,22 @@
       "release": "2024-02-14",
       "vram_gb": 1,
       "description": "Bilingual (English/Spanish) text embedding, 161M params, 8K context",
-      "tasks": ["retrieval", "text-matching"],
-      "endpoints": ["embedding", "fine-tuning"],
+      "tasks": [
+        "retrieval",
+        "text-matching"
+      ],
+      "endpoints": [
+        "embedding",
+        "fine-tuning"
+      ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2310.19923",
       "deps": {
-        "transformers": ">=4.30.0",
-        "sentence-transformers": ">=2.2.0",
-        "torch": ">=1.13.0",
+        "transformers": "==4.44.2",
+        "sentence-transformers": "==2.7.0",
+        "torch": "==2.4.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
         "flash-attn": null
       }
     },
@@ -606,13 +905,21 @@
       "release": "2024-02-05",
       "vram_gb": 1,
       "description": "Code embedding model, 137M params, 8K context",
-      "tasks": ["retrieval", "text-matching"],
-      "endpoints": ["embedding", "fine-tuning"],
+      "tasks": [
+        "retrieval",
+        "text-matching"
+      ],
+      "endpoints": [
+        "embedding",
+        "fine-tuning"
+      ],
       "api_endpoint": "/v1/embeddings",
       "deps": {
-        "transformers": ">=4.30.0",
-        "sentence-transformers": ">=2.2.0",
-        "torch": ">=1.13.0",
+        "transformers": "==4.44.2",
+        "sentence-transformers": "==2.7.0",
+        "torch": "==2.4.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
         "flash-attn": null
       }
     },
@@ -630,14 +937,22 @@
       "release": "2024-01-15",
       "vram_gb": 1,
       "description": "Bilingual (English/German) text embedding, 161M params, 8K context",
-      "tasks": ["retrieval", "text-matching"],
-      "endpoints": ["embedding", "fine-tuning"],
+      "tasks": [
+        "retrieval",
+        "text-matching"
+      ],
+      "endpoints": [
+        "embedding",
+        "fine-tuning"
+      ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2310.19923",
       "deps": {
-        "transformers": ">=4.30.0",
-        "sentence-transformers": ">=2.2.0",
-        "torch": ">=1.13.0",
+        "transformers": "==4.44.2",
+        "sentence-transformers": "==2.7.0",
+        "torch": "==2.4.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
         "flash-attn": null
       }
     },
@@ -655,14 +970,22 @@
       "release": "2024-01-09",
       "vram_gb": 1,
       "description": "Bilingual (English/Chinese) text embedding, 161M params, 8K context",
-      "tasks": ["retrieval", "text-matching"],
-      "endpoints": ["embedding", "fine-tuning"],
+      "tasks": [
+        "retrieval",
+        "text-matching"
+      ],
+      "endpoints": [
+        "embedding",
+        "fine-tuning"
+      ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2310.19923",
       "deps": {
-        "transformers": ">=4.30.0",
-        "sentence-transformers": ">=2.2.0",
-        "torch": ">=1.13.0",
+        "transformers": "==4.44.2",
+        "sentence-transformers": "==2.7.0",
+        "torch": "==2.4.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
         "flash-attn": null
       }
     },
@@ -680,14 +1003,22 @@
       "release": "2023-10-28",
       "vram_gb": 1,
       "description": "English text embedding model, 137M params, 8K context",
-      "tasks": ["retrieval", "text-matching"],
-      "endpoints": ["embedding", "fine-tuning"],
+      "tasks": [
+        "retrieval",
+        "text-matching"
+      ],
+      "endpoints": [
+        "embedding",
+        "fine-tuning"
+      ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2310.19923",
       "deps": {
-        "transformers": ">=4.30.0",
-        "sentence-transformers": ">=2.2.0",
-        "torch": ">=1.13.0",
+        "transformers": "==4.44.2",
+        "sentence-transformers": "==2.7.0",
+        "torch": "==2.4.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
         "flash-attn": null
       }
     },
@@ -705,14 +1036,21 @@
       "release": "2023-06-17",
       "vram_gb": 1,
       "description": "Original English text embedding model, 110M params, 512 token context",
-      "tasks": ["retrieval", "text-matching"],
-      "endpoints": ["embedding"],
+      "tasks": [
+        "retrieval",
+        "text-matching"
+      ],
+      "endpoints": [
+        "embedding"
+      ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2307.11224",
       "deps": {
-        "transformers": ">=4.20.0",
-        "sentence-transformers": ">=2.2.0",
-        "torch": ">=1.13.0",
+        "transformers": "==4.44.2",
+        "sentence-transformers": "==2.7.0",
+        "torch": "==2.4.1",
+        "huggingface_hub": "==0.27.1",
+        "numpy": "==1.26.4",
         "flash-attn": null
       }
     }
