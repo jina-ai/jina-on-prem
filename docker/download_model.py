@@ -37,6 +37,32 @@ try:
 except Exception as e:
     print(f"Warning: pre-load failed, model may still work at runtime: {e}")
 
+# Patch custom_st.py in all cached locations:
+# 1. model_args/config_args default None -> {} to avoid .pop() on None
+# 2. Add trust_remote_code=True to AutoConfig/AutoModel calls
+import glob
+for custom_st in glob.glob("/model_cache/**/custom_st.py", recursive=True):
+    with open(custom_st, "r") as f:
+        src = f.read()
+    original = src
+    # Fix model_args.pop on None: change to use model_kwargs which has or {} fallback
+    src = src.replace('self.default_task = model_args.pop(', 'self.default_task = model_kwargs.pop(')
+    # Add trust_remote_code=True to AutoConfig/AutoModel calls
+    src = src.replace(
+        'self.config = AutoConfig.from_pretrained(\n            model_name_or_path, **config_kwargs\n        )',
+        'config_kwargs["trust_remote_code"] = True\n        self.config = AutoConfig.from_pretrained(\n            model_name_or_path, **config_kwargs\n        )'
+    )
+    src = src.replace(
+        'self.model = AutoModel.from_pretrained(\n            model_name_or_path, config=self.config, **model_kwargs\n        )',
+        'model_kwargs["trust_remote_code"] = True\n        self.model = AutoModel.from_pretrained(\n            model_name_or_path, config=self.config, **model_kwargs\n        )'
+    )
+    if src != original:
+        with open(custom_st, "w") as f:
+            f.write(src)
+        print(f"Patched {custom_st}")
+    else:
+        print(f"No patch needed: {custom_st}")
+
 with open("/model_cache/MODEL_ID", "w") as f:
     f.write(model_id)
 
