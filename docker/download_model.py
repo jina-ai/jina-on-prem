@@ -19,7 +19,6 @@ print(f"Downloading {model_id}...")
 from huggingface_hub import snapshot_download
 
 # Download all model files: weights, configs, tokenizer, and custom model code
-# (custom code in Python files is needed for trust_remote_code=True at runtime)
 snapshot_download(
     model_id,
     token=token,
@@ -27,6 +26,16 @@ snapshot_download(
 )
 
 print(f"Downloaded {model_id} to /model_cache")
+
+# Pre-load with SentenceTransformer to cache dynamic modules
+# This ensures trust_remote_code modules are in the HF cache for offline use
+try:
+    from sentence_transformers import SentenceTransformer
+    print(f"Pre-loading {model_id} to cache dynamic modules...")
+    SentenceTransformer(model_id, trust_remote_code=True, device="cpu")
+    print("Dynamic modules cached successfully")
+except Exception as e:
+    print(f"Warning: pre-load failed, model may still work at runtime: {e}")
 
 with open("/model_cache/MODEL_ID", "w") as f:
     f.write(model_id)

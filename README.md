@@ -4,45 +4,44 @@ Air-gapped deployment toolkit for Jina AI models. Ship embedding, reranker, and 
 
 ```mermaid
 flowchart TB
-    subgraph Phase1["Phase 1: BUNDLE (requires network)"]
-        A["python jina-airgap.py bundle"] --> B["Select model & runtime"]
-        B --> C["Docker build\n(weights + model deps baked in)"]
-        C --> D["docker save → .tar.gz"]
+    subgraph Phase1["Phase 1: BUNDLE, requires network"]
+        A["python jina-airgap.py bundle"] --> B["Select model and runtime"]
+        B --> C["Docker build\nweights and deps baked in"]
+        C --> D["docker save to .tar.gz"]
     end
 
     Phase1 -->|"USB / SCP / physical media"| Phase2
 
-    subgraph Phase2["Phase 2: DEPLOY (no network needed, no repo needed)"]
+    subgraph Phase2["Phase 2: DEPLOY, no network needed"]
         E["docker load < model.tar.gz"] --> F["docker run -p 8080:8080"]
-        F --> G["Multi-schema API ready\n/v1/embeddings | /v1/embed | /v1/models/...:embedContent"]
-        G --> H["Elasticsearch / Your App\ninference service type: openai\nor gemini / cohere / voyage"]
+        F --> G["Multi-schema API ready\n/v1/embeddings, /v1/embed, /v1/models/:embedContent"]
+        G --> H["Elasticsearch / Your App\ninference service type: openai, gemini, cohere, voyage"]
     end
 ```
 
 ## Why
 
-- Customers in regulated/air-gapped environments (gov, finance, healthcare)
-- No NVIDIA NIM ($4,500/GPU/yr - overkill for embedding models)
-- All models fit on a single L4 GPU (24GB VRAM)
-- OpenAI-compatible API - drop-in for Elasticsearch inference service
+- Customers in regulated, air-gapped environments: gov, finance, healthcare
+- All models fit on a single L4 GPU, 24GB VRAM
+- OpenAI-compatible API, drop-in for Elasticsearch inference service
 - Also supports Gemini, Cohere, and Voyage AI schemas out of the box
 - Per-model pinned dependency configs baked into each bundle
 - Real tok/s throughput measurement built in
 
 ## Terminology
 
-This toolkit follows the two-phase terminology used by professional air-gap tools (zarf, NVIDIA NIM, Red Hat disconnected install):
+This toolkit follows the two-phase terminology used by professional air-gap tools such as zarf, NVIDIA NIM, and Red Hat disconnected install:
 
 | Phase | Command | Network? | Requires | What it does |
 |-------|---------|----------|----------|--------------|
-| 1 - Bundle | `bundle` | ✅ | Python 3.8+, Docker | Downloads weights, builds Docker image, saves .tar.gz |
-| 2 - Deploy | _(none)_ | ❌ | Docker only | `docker load` + `docker run` - fully offline, no repo needed |
+| 1. Bundle | `bundle` | ✅ | Python 3.8+, Docker | Downloads weights, builds Docker image, saves .tar.gz |
+| 2. Deploy | n/a | ❌ | Docker only | `docker load` and `docker run`, fully offline, no repo needed |
 
-The `serve` command runs a model directly without Docker (requires Python 3.8+, torch, transformers, sentence-transformers, and model files pre-installed).
+The `serve` command runs a model directly without Docker. Requires Python 3.8+, torch, transformers, sentence-transformers, and model files pre-installed.
 
 ## Quick Start
 
-### Phase 1: Bundle (connected machine)
+### Phase 1: Bundle, connected machine
 
 ```bash
 # List all available models
@@ -58,9 +57,9 @@ python jina-airgap.py bundle --model jina-embeddings-v5-text-nano --output jina-
 python jina-airgap.py bundle --model jina-embeddings-v5-text-small --cpu-only
 ```
 
-### Phase 2: Deploy (air-gapped machine, zero network)
+### Phase 2: Deploy, air-gapped machine, zero network
 
-No repo, no scripts, no dependencies - just Docker.
+No repo, no scripts, no dependencies. Just Docker.
 
 ```bash
 # Transfer the .tar.gz file via USB/SCP/physical media, then:
@@ -252,29 +251,28 @@ Single content response:
 
 ## Throughput
 
-Measured over 60s steady-state, batch size 32, mixed-length input (avg ~10 tokens/sentence).
-Hardware: Intel Xeon @ 2.20GHz (8 vCPU) | NVIDIA L4 GPU (24GB, 30.3 TFLOPS FP16, g2-standard-8 SPOT)
+Measured over 10s steady state, batch size 32, mixed length input, avg 25 tokens per sentence.
 
-| Model | CPU tok/s | GPU tok/s (FP16) |
-|-------|-----------|:-----------------|
-|       | Intel Xeon @ 2.20GHz (8 vCPU) | NVIDIA L4 (30.3 TFLOPS FP16) |
-| jina-embeddings-v5-text-nano | 842 | 5,889 |
-| jina-embeddings-v5-text-small | - | - |
-| jina-embeddings-v5-omni-nano | - | - |
-| jina-embeddings-v5-omni-small | - | - |
+| Model | CPU | GPU FP16 |
+|-------|-----|----------|
+| | Intel Xeon 2.20GHz, 8 vCPU | NVIDIA L4, 24GB, 30.3 TFLOPS |
+| jina-embeddings-v5-text-nano | 842 tok/s | 6,523 tok/s |
+| jina-embeddings-v5-text-small | 38 tok/s | 2,548 tok/s |
+| jina-embeddings-v5-omni-nano | 177 tok/s | 3,828 tok/s |
+| jina-embeddings-v5-omni-small | 43 tok/s | 1,887 tok/s |
 
-GPU inference uses FP16 by default (`JINA_DTYPE=float16`). CPU inference uses all available physical cores.
+GPU inference uses FP16 by default via `JINA_DTYPE=float16`. CPU inference uses all available physical cores.
+
+The `/v1/embeddings` response includes `usage.tok_per_s` for per request throughput. The `/health` endpoint reports cumulative stats.
 
 ## Image Sizes
 
-Measured for `jina-embeddings-v5-text-nano` (239M params):
+Measured for jina-embeddings-v5-text-nano, 239M params.
 
-| Image | Uncompressed | Compressed (.tar.gz) | Notes |
-|-------|-------------|---------------------|-------|
-| GPU (`Dockerfile.gpu`) | 13.5 GB | 4.86 GB | `nvidia/cuda:12.1.0-runtime` + CUDA torch |
-| CPU (`Dockerfile.cpu`) | 2.96 GB | 828 MB | `python:3.11-slim` + CPU torch |
-
-The `/v1/embeddings` response includes `usage.tok_per_s` - actual tokenizer-counted throughput for each request. The `/health` endpoint reports cumulative stats.
+| Variant | Uncompressed | Compressed | Base image |
+|---------|-------------|------------|------------|
+| GPU | 13.5 GB | 4.86 GB | nvidia/cuda:12.2.2-runtime |
+| CPU | 2.96 GB | 828 MB | python:3.11-slim |
 
 ## Multimodal Inputs (Omni Models)
 
