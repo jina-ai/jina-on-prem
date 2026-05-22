@@ -20,8 +20,14 @@ ENV HF_HOME=/model_cache
 ENV HF_TOKEN=${HF_TOKEN}
 ENV MODEL_ID=${MODEL_ID}
 
-# Minimal deps for download only
-RUN pip install --no-cache-dir huggingface_hub
+# Download deps plus sentence-transformers for dynamic module caching
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir \
+    huggingface_hub \
+    "sentence-transformers>=3.3.0,<5.0.0" \
+    "transformers>=4.48.0,<5.0.0" \
+    peft>=0.10.0 \
+    einops>=0.8.0
 
 # Copy and run the download script
 COPY docker/download_model.py /tmp/download_model.py
@@ -54,7 +60,7 @@ RUN pip install --no-cache-dir \
     "fastapi>=0.115.0" \
     "uvicorn[standard]>=0.32.0" \
     "transformers>=4.48.0,<5.0.0" \
-    "sentence-transformers>=3.3.0" \
+    "sentence-transformers>=3.3.0,<5.0.0" \
     "einops>=0.8.0" \
     "pillow>=10.0.0" \
     "numpy>=1.24.0" \
