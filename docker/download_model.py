@@ -59,11 +59,6 @@ for eurobert in glob.glob("/model_cache/**/modeling_eurobert.py", recursive=True
     with open(eurobert, "r") as f:
         src = f.read()
     original = src
-    # Add **kwargs to EuroBertModel.__init__
-    src = src.replace(
-        'class EuroBertModel(EuroBertPreTrainedModel):',
-        'class EuroBertModel(EuroBertPreTrainedModel):'
-    )  # noop anchor
     old_init = '    def __init__(self, config: EuroBertConfig):\n        super().__init__(config)'
     new_init = '    def __init__(self, config: EuroBertConfig, **kwargs):\n        super().__init__(config)'
     src = src.replace(old_init, new_init)
@@ -71,6 +66,26 @@ for eurobert in glob.glob("/model_cache/**/modeling_eurobert.py", recursive=True
         with open(eurobert, "w") as f:
             f.write(src)
         print(f"Patched {eurobert}: added **kwargs to EuroBertModel.__init__")
+
+# 3. modeling_jina_embeddings_v5.py: PeftConfig -> LoraConfig
+#    PeftConfig.from_pretrained ignores LoRA-specific fields (target_modules etc)
+#    in older peft versions, causing ValueError. LoraConfig parses them correctly.
+for modeling in glob.glob("/model_cache/**/modeling_jina_embeddings_v5.py", recursive=True):
+    with open(modeling, "r") as f:
+        src = f.read()
+    original = src
+    src = src.replace(
+        'from peft import PeftMixedModel, PeftConfig',
+        'from peft import PeftMixedModel, PeftConfig, LoraConfig'
+    )
+    src = src.replace(
+        'peft_config = PeftConfig.from_pretrained(',
+        'peft_config = LoraConfig.from_pretrained('
+    )
+    if src != original:
+        with open(modeling, "w") as f:
+            f.write(src)
+        print(f"Patched {modeling}: PeftConfig -> LoraConfig")
 
 with open("/model_cache/MODEL_ID", "w") as f:
     f.write(model_id)
