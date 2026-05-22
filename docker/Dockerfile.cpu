@@ -26,9 +26,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     MODEL_ID=${MODEL_ID}
 
 # Install model deps from pinned requirements for download and pre-load
-# torch CPU wheel installed separately to avoid --index-url clobbering PyPI
+# torch and torchvision from CPU index, then remaining deps from PyPI
 COPY docker/model-requirements.txt /tmp/model-requirements.txt
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+RUN TORCH_VER=$(grep -i '^torch==' /tmp/model-requirements.txt | head -1 | sed 's/torch//') && \
+    TV_VER=$(grep -i '^torchvision==' /tmp/model-requirements.txt | head -1 | sed 's/torchvision//') && \
+    pip install --no-cache-dir "torch${TORCH_VER}" "torchvision${TV_VER}" --index-url https://download.pytorch.org/whl/cpu
 RUN grep -v '^\s*#' /tmp/model-requirements.txt | grep -v '^\s*$' | \
     grep -iv '^torch' | grep -iv '^flash-attn' | \
     xargs --no-run-if-empty pip install --no-cache-dir
@@ -59,9 +61,11 @@ WORKDIR /app
 COPY server/ /app/
 
 # Install model deps from pinned requirements
-# torch CPU installed separately, flash-attn skipped for CPU
+# torch and torchvision from CPU index, flash-attn skipped for CPU
 COPY docker/model-requirements.txt /tmp/model-requirements.txt
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+RUN TORCH_VER=$(grep -i '^torch==' /tmp/model-requirements.txt | head -1 | sed 's/torch//') && \
+    TV_VER=$(grep -i '^torchvision==' /tmp/model-requirements.txt | head -1 | sed 's/torchvision//') && \
+    pip install --no-cache-dir "torch${TORCH_VER}" "torchvision${TV_VER}" --index-url https://download.pytorch.org/whl/cpu
 RUN grep -v '^\s*#' /tmp/model-requirements.txt | grep -v '^\s*$' | \
     grep -iv '^torch' | grep -iv '^flash-attn' | \
     xargs --no-run-if-empty pip install --no-cache-dir

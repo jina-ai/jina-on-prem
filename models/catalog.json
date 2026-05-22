@@ -49,7 +49,8 @@
         "Pillow": "==10.4.0",
         "librosa": "==0.10.2",
         "av": "==12.3.0",
-        "flash-attn": "==2.7.3"
+        "flash-attn": "==2.7.3",
+        "torchvision": "==0.20.1"
       }
     },
     {
@@ -101,7 +102,8 @@
         "Pillow": "==10.4.0",
         "librosa": "==0.10.2",
         "av": "==12.3.0",
-        "flash-attn": "==2.7.3"
+        "flash-attn": "==2.7.3",
+        "torchvision": "==0.20.1"
       }
     },
     {
@@ -150,7 +152,8 @@
         "timm": "==1.0.12",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": null
+        "flash-attn": null,
+        "torchvision": "==0.20.1"
       }
     },
     {
@@ -199,7 +202,8 @@
         "timm": "==1.0.12",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": null
+        "flash-attn": null,
+        "torchvision": "==0.20.1"
       }
     },
     {
@@ -231,7 +235,8 @@
         "accelerate": "==1.2.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": "==2.7.3"
+        "flash-attn": "==2.7.3",
+        "torchvision": "==0.20.1"
       }
     },
     {
@@ -266,7 +271,8 @@
         "accelerate": "==1.2.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": "==2.7.3"
+        "flash-attn": "==2.7.3",
+        "torchvision": "==0.20.1"
       }
     },
     {
@@ -313,7 +319,8 @@
         "timm": "==1.0.12",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": "==2.7.3"
+        "flash-attn": "==2.7.3",
+        "torchvision": "==0.20.1"
       }
     },
     {
@@ -360,7 +367,8 @@
         "timm": "==1.0.12",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": "==2.7.3"
+        "flash-attn": "==2.7.3",
+        "torchvision": "==0.20.1"
       }
     },
     {
@@ -408,7 +416,8 @@
         "numpy": "==1.26.4",
         "flash-attn": "==2.7.3",
         "timm": ">=1.0.0",
-        "Pillow": ">=10.0.0"
+        "Pillow": ">=10.0.0",
+        "torchvision": "==0.20.1"
       }
     },
     {
@@ -443,7 +452,8 @@
         "numpy": "==1.26.4",
         "flash-attn": "==2.7.3",
         "Pillow": ">=10.0.0",
-        "timm": ">=1.0.0"
+        "timm": ">=1.0.0",
+        "torchvision": "==0.20.1"
       }
     },
     {
@@ -474,7 +484,8 @@
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": "==2.7.3",
-        "accelerate": ">=1.0.0"
+        "accelerate": ">=1.0.0",
+        "torchvision": "==0.19.1"
       }
     },
     {
@@ -518,7 +529,8 @@
         "timm": "==1.0.12",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": null
+        "flash-attn": null,
+        "torchvision": "==0.20.1"
       }
     },
     {
@@ -568,7 +580,8 @@
         "accelerate": "==1.2.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": null
+        "flash-attn": null,
+        "torchvision": "==0.20.1"
       }
     },
     {
@@ -607,7 +620,8 @@
         "torch": "==2.4.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": null
+        "flash-attn": null,
+        "torchvision": "==0.19.1"
       }
     },
     {
@@ -639,7 +653,8 @@
         "accelerate": "==1.2.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": "==2.7.3"
+        "flash-attn": "==2.7.3",
+        "torchvision": "==0.20.1"
       }
     },
     {
@@ -671,7 +686,8 @@
         "accelerate": "==1.2.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": "==2.7.3"
+        "flash-attn": "==2.7.3",
+        "torchvision": "==0.20.1"
       }
     },
     {
@@ -700,7 +716,8 @@
         "torch": "==2.4.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": null
+        "flash-attn": null,
+        "torchvision": "==0.19.1"
       }
     },
     {
@@ -735,7 +752,8 @@
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "Pillow": ">=9.0.0"
+        "Pillow": ">=9.0.0",
+        "torchvision": "==0.19.1"
       }
     },
     {
@@ -763,7 +781,8 @@
         "torch": "==2.4.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": null
+        "flash-attn": null,
+        "torchvision": "==0.19.1"
       }
     },
     {
@@ -791,7 +810,8 @@
         "torch": "==2.4.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": null
+        "flash-attn": null,
+        "torchvision": "==0.19.1"
       }
     },
     {
@@ -819,7 +839,8 @@
         "torch": "==2.4.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": null
+        "flash-attn": null,
+        "torchvision": "==0.19.1"
       }
     },
     {
@@ -855,7 +876,8 @@
         "accelerate": "==1.2.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": null
+        "flash-attn": null,
+        "torchvision": "==0.20.1"
       }
     },
     {
@@ -888,7 +910,8 @@
         "torch": "==2.4.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": null
+        "flash-attn": null,
+        "torchvision": "==0.19.1"
       }
     },
     {
@@ -920,7 +943,8 @@
         "torch": "==2.4.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": null
+        "flash-attn": null,
+        "torchvision": "==0.19.1"
       }
     },
     {
@@ -953,7 +977,8 @@
         "torch": "==2.4.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": null
+        "flash-attn": null,
+        "torchvision": "==0.19.1"
       }
     },
     {
@@ -986,7 +1011,8 @@
         "torch": "==2.4.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": null
+        "flash-attn": null,
+        "torchvision": "==0.19.1"
       }
     },
     {
@@ -1019,7 +1045,8 @@
         "torch": "==2.4.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": null
+        "flash-attn": null,
+        "torchvision": "==0.19.1"
       }
     },
     {
@@ -1051,7 +1078,8 @@
         "torch": "==2.4.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": null
+        "flash-attn": null,
+        "torchvision": "==0.19.1"
       }
     }
   ]
