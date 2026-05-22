@@ -59,36 +59,36 @@ PUT _inference/text_embedding/jina-local
 
 28 models. CC-BY-NC-4.0 models require a commercial license for production use — contact [Elastic sales](https://www.elastic.co/contact).
 
-| Model | Type | Modality | Params | VRAM | Context | Dim | Prebuilt |
-|-------|------|----------|--------|------|---------|-----|----------|
-| jina-embeddings-v5-omni-small | embedding | text/image/audio/video | 1.74B | ~8GB | 32K | 1024 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-small) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-small) |
-| jina-embeddings-v5-omni-nano | embedding | text/image/audio/video | 1.04B | ~5GB | 8K | 768 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-nano) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-nano) |
-| jina-embeddings-v5-text-small | embedding | text | 677M | ~3GB | 32K | 1024 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-small) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-small) |
-| jina-embeddings-v5-text-nano | embedding | text | 239M | ~2GB | 8K | 768 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-nano) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-nano) |
-| jina-vlm | vlm | text/image | 2.4B | ~6GB | 32K | - | - |
-| jina-reranker-v3 | reranker | text | 597M | ~3GB | 131K | - | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-reranker-v3) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-reranker-v3) |
-| jina-code-embeddings-1.5b | embedding | code | 1.5B | ~4GB | 32K | 1536 | - |
-| jina-code-embeddings-0.5b | embedding | code | 494M | ~2GB | 32K | 896 | - |
-| jina-embeddings-v4 | embedding | text/image/PDF | 3.8B | ~10GB | 32K | 2048 | - |
-| jina-reranker-m0 | reranker | text/image | 2.4B | ~6GB | 10K | - | - |
-| ReaderLM-v2 | reader | text | 1.54B | ~4GB | 512K | - | - |
-| jina-clip-v2 | embedding | text/image | 865M | ~4GB | 8K | 1024 | - |
-| jina-embeddings-v3 | embedding | text | 570M | ~3GB | 8K | 1024 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v3) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v3) |
-| jina-colbert-v2 | colbert | text | 560M | ~3GB | 8K | 128 | - |
-| reader-lm-1.5b | reader | text | 1.54B | ~4GB | 256K | - | - |
-| reader-lm-0.5b | reader | text | 494M | ~2GB | 256K | - | - |
-| jina-reranker-v2-base-multilingual | reranker | text | 278M | ~1GB | 1K | - | - |
-| jina-clip-v1 | embedding | text/image | 223M | ~1GB | 8K | 768 | - |
-| jina-reranker-v1-turbo-en | reranker | text | 37.8M | ~1GB | 8K | - | - |
-| jina-reranker-v1-tiny-en | reranker | text | 33M | ~1GB | 8K | - | - |
-| jina-reranker-v1-base-en | reranker | text | 137M | ~1GB | 8K | - | - |
-| jina-colbert-v1-en | colbert | text | 137M | ~1GB | 8K | 128 | - |
-| jina-embeddings-v2-base-es | embedding | text | 161M | ~1GB | 8K | 768 | - |
-| jina-embeddings-v2-base-code | embedding | code | 137M | ~1GB | 8K | 768 | - |
-| jina-embeddings-v2-base-de | embedding | text | 161M | ~1GB | 8K | 768 | - |
-| jina-embeddings-v2-base-zh | embedding | text | 161M | ~1GB | 8K | 768 | - |
-| jina-embeddings-v2-base-en | embedding | text | 137M | ~1GB | 8K | 768 | - |
-| jina-embedding-b-en-v1 | embedding | text | 110M | ~1GB | 512 | 768 | - |
+| Model | Prebuilt | Type | Modality | Params | VRAM | Context | Dim |
+|-------|----------|------|----------|--------|------|---------|-----|
+| jina-embeddings-v5-omni-small | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-small) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-small) | embedding | text/image/audio/video | 1.74B | ~8GB | 32K | 1024 |
+| jina-embeddings-v5-omni-nano | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-nano) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-nano) | embedding | text/image/audio/video | 1.04B | ~5GB | 8K | 768 |
+| jina-embeddings-v5-text-small | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-small) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-small) | embedding | text | 677M | ~3GB | 32K | 1024 |
+| jina-embeddings-v5-text-nano | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-nano) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-nano) | embedding | text | 239M | ~2GB | 8K | 768 |
+| jina-vlm | - | vlm | text/image | 2.4B | ~6GB | 32K | - |
+| jina-reranker-v3 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-reranker-v3) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-reranker-v3) | reranker | text | 597M | ~3GB | 131K | - |
+| jina-code-embeddings-1.5b | - | embedding | code | 1.5B | ~4GB | 32K | 1536 |
+| jina-code-embeddings-0.5b | - | embedding | code | 494M | ~2GB | 32K | 896 |
+| jina-embeddings-v4 | - | embedding | text/image/PDF | 3.8B | ~10GB | 32K | 2048 |
+| jina-reranker-m0 | - | reranker | text/image | 2.4B | ~6GB | 10K | - |
+| ReaderLM-v2 | - | reader | text | 1.54B | ~4GB | 512K | - |
+| jina-clip-v2 | - | embedding | text/image | 865M | ~4GB | 8K | 1024 |
+| jina-embeddings-v3 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v3) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v3) | embedding | text | 570M | ~3GB | 8K | 1024 |
+| jina-colbert-v2 | - | colbert | text | 560M | ~3GB | 8K | 128 |
+| reader-lm-1.5b | - | reader | text | 1.54B | ~4GB | 256K | - |
+| reader-lm-0.5b | - | reader | text | 494M | ~2GB | 256K | - |
+| jina-reranker-v2-base-multilingual | - | reranker | text | 278M | ~1GB | 1K | - |
+| jina-clip-v1 | - | embedding | text/image | 223M | ~1GB | 8K | 768 |
+| jina-reranker-v1-turbo-en | - | reranker | text | 37.8M | ~1GB | 8K | - |
+| jina-reranker-v1-tiny-en | - | reranker | text | 33M | ~1GB | 8K | - |
+| jina-reranker-v1-base-en | - | reranker | text | 137M | ~1GB | 8K | - |
+| jina-colbert-v1-en | - | colbert | text | 137M | ~1GB | 8K | 128 |
+| jina-embeddings-v2-base-es | - | embedding | text | 161M | ~1GB | 8K | 768 |
+| jina-embeddings-v2-base-code | - | embedding | code | 137M | ~1GB | 8K | 768 |
+| jina-embeddings-v2-base-de | - | embedding | text | 161M | ~1GB | 8K | 768 |
+| jina-embeddings-v2-base-zh | - | embedding | text | 161M | ~1GB | 8K | 768 |
+| jina-embeddings-v2-base-en | - | embedding | text | 137M | ~1GB | 8K | 768 |
+| jina-embedding-b-en-v1 | - | embedding | text | 110M | ~1GB | 512 | 768 |
 
 ## API
 
@@ -179,7 +179,7 @@ All v5 embedding models support the `task` parameter: `retrieval` (default), `te
 10s steady-state, batch=32, avg 25 tokens/sentence.
 
 | Model | CPU (8 vCPU Xeon 2.2GHz) | GPU FP16 (L4 24GB) |
-|-------|------|----------|--------|------|---------|-----|----------|
+|-------|----------|------|----------|--------|------|---------|-----|
 | v5-text-nano (239M) | 842 tok/s | 6,523 tok/s |
 | v5-text-small (677M) | 38 tok/s | 2,548 tok/s |
 | v5-omni-nano (1.04B) | 177 tok/s | 3,828 tok/s |
