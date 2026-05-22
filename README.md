@@ -170,9 +170,15 @@ curl -X POST http://localhost:8080/v1/embeddings \
 
 Text-only models return HTTP 400 if multimodal inputs are sent.
 
-### Tasks (v5 models)
+### Embedding Tasks
 
-All v5 embedding models support the `task` parameter: `retrieval` (default), `text-matching`, `classification`, `clustering`. Cohere `input_type` and Gemini `taskType` are mapped automatically.
+Pass `task` to optimize embeddings for your use case. The server maps Cohere `input_type` and Gemini `taskType` automatically.
+
+| Model | Supported Tasks |
+|-------|----------------|
+| v5-text / v5-omni | `retrieval` (default), `text-matching`, `classification`, `clustering` |
+| v4 | `retrieval` (default), `text-matching`, `code` |
+| v3 | `retrieval.query`, `retrieval.passage`, `text-matching`, `classification`, `separation` |
 
 ## Architecture
 
