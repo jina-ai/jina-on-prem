@@ -560,6 +560,12 @@ def load_model():
     if _is_reranker_model():
         from sentence_transformers import CrossEncoder
         MODEL = CrossEncoder(model_id, trust_remote_code=True, device=DEVICE)
+        # Set pad_token if missing (qwen3-based rerankers need this for batched inference)
+        if MODEL.tokenizer.pad_token is None:
+            MODEL.tokenizer.pad_token = MODEL.tokenizer.eos_token
+            if hasattr(MODEL.model, 'config'):
+                MODEL.model.config.pad_token_id = MODEL.tokenizer.eos_token_id
+            logger.info("Set pad_token = eos_token for reranker")
         MODEL_INFO = {"model": model_id, "type": "reranker"}
         logger.info(f"Loaded as CrossEncoder (reranker): {model_id}")
     else:
