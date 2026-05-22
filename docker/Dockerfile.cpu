@@ -82,7 +82,9 @@ COPY --from=downloader /model_cache /model_cache
 ENV HF_HUB_OFFLINE=1 \
     TRANSFORMERS_OFFLINE=1 \
     JINA_OFFLINE=1 \
-    HF_HOME=/model_cache
+    HF_HOME=/model_cache \
+    TRUST_REMOTE_CODE=1 \
+    HF_HUB_TRUST_REMOTE_CODE=1
 
 # CPU threading: let runtime auto-detect core count
 # Override at runtime: docker run -e OMP_NUM_THREADS=8 ...
