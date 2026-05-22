@@ -2,16 +2,17 @@
 # Phase 1, bundle: bakes model weights and model-specific deps into image.
 # Phase 2, deploy: runs fully offline, zero external network calls.
 #
-# All model dependency versions are pinned in catalog.json and written to
-# model-requirements.txt at bundle time. This Dockerfile installs exactly
-# those versions, nothing more.
+# Uses pytorch/pytorch official base image with torch, torchvision, CUDA
+# pre-installed. All remaining dependency versions are pinned in catalog.json
+# and written to model-requirements.txt at bundle time.
 
 ARG MODEL_ID=jinaai/jina-embeddings-v5-text-nano
 ARG HF_TOKEN=""
+ARG TORCH_BASE=pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime
 
 # ---------------------------------------------------------------------------
 # Stage 1: Download model weights and pre-cache dynamic modules
-# Uses CPU torch to keep the download stage lean, no CUDA toolkit needed.
+# Uses CPU torch to keep the download stage lean.
 # ---------------------------------------------------------------------------
 FROM python:3.11-slim AS downloader
 
@@ -26,7 +27,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     HF_TOKEN=${HF_TOKEN} \
     MODEL_ID=${MODEL_ID}
 
-# Install model deps from pinned requirements for download and pre-load
 # torch and torchvision from CPU index for download stage
 COPY docker/model-requirements.txt /tmp/model-requirements.txt
 RUN TORCH_VER=$(grep -i '^torch==' /tmp/model-requirements.txt | head -1 | sed 's/torch//') && \
@@ -41,9 +41,11 @@ COPY docker/download_model.py /tmp/download_model.py
 RUN python /tmp/download_model.py
 
 # ---------------------------------------------------------------------------
-# Stage 2: Runtime image, CUDA, lean
+# Stage 2: Runtime image
+# pytorch/pytorch base has torch, torchvision, numpy, pillow, CUDA runtime.
+# We only need to pip install the remaining model-specific deps.
 # ---------------------------------------------------------------------------
-FROM nvidia/cuda:12.2.2-runtime-ubuntu22.04 AS runtime
+FROM ${TORCH_BASE} AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -51,36 +53,28 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.11 python3-pip python3.11-dev curl git \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN ln -sf /usr/bin/python3.11 /usr/bin/python && \
-    ln -sf /usr/bin/python3.11 /usr/bin/python3
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Copy server code
 COPY server/ /app/
 
-# Install CUDA-enabled torch and torchvision first, largest deps, most stable layer
+# Install remaining model deps from pinned requirements
+# torch, torchvision already in base image, skip them
+# flash-attn needs nvcc to compile from source
 COPY docker/model-requirements.txt /tmp/model-requirements.txt
-RUN TORCH_VER=$(grep -i '^torch==' /tmp/model-requirements.txt | head -1 | sed 's/torch//') && \
-    TV_VER=$(grep -i '^torchvision==' /tmp/model-requirements.txt | head -1 | sed 's/torchvision//') && \
-    pip install --no-cache-dir "torch${TORCH_VER}" "torchvision${TV_VER}" \
-    --index-url https://download.pytorch.org/whl/cu121
-
-# Install remaining model deps from pinned requirements, skip torch and flash-attn
 RUN grep -v '^\s*#' /tmp/model-requirements.txt | grep -v '^\s*$' | \
     grep -iv '^torch' | grep -iv '^flash-attn' | \
     xargs --no-run-if-empty pip install --no-cache-dir
 
-# Install flash-attn if listed in requirements: needs nvcc to compile
+# Install flash-attn if listed in requirements
 RUN if grep -qi '^flash-attn' /tmp/model-requirements.txt; then \
         FLASH_VER=$(grep -i '^flash-attn' /tmp/model-requirements.txt | head -1 | sed 's/flash-attn//') && \
-        apt-get update && apt-get install -y --no-install-recommends cuda-nvcc-12-2 && \
+        apt-get update && apt-get install -y --no-install-recommends cuda-nvcc-12-1 && \
         pip install --no-cache-dir "flash-attn${FLASH_VER}" --no-build-isolation && \
-        apt-get remove -y cuda-nvcc-12-2 && apt-get autoremove -y && \
+        apt-get remove -y cuda-nvcc-12-1 && apt-get autoremove -y && \
         rm -rf /var/lib/apt/lists/*; \
     else \
         echo "flash-attn not required for this model"; \
