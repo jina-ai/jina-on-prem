@@ -174,19 +174,6 @@ Text-only models return HTTP 400 if multimodal inputs are sent.
 
 All v5 embedding models support the `task` parameter: `retrieval` (default), `text-matching`, `classification`, `clustering`. Cohere `input_type` and Gemini `taskType` are mapped automatically.
 
-## Throughput
-
-10s steady-state, batch=32, avg 25 tokens/sentence.
-
-| Model | CPU (8 vCPU Xeon 2.2GHz) | GPU FP16 (L4 24GB) |
-|-------|----------|------|----------|--------|------|---------|-----|
-| v5-text-nano (239M) | 842 tok/s | 6,523 tok/s |
-| v5-text-small (677M) | 38 tok/s | 2,548 tok/s |
-| v5-omni-nano (1.04B) | 177 tok/s | 3,828 tok/s |
-| v5-omni-small (1.74B) | 43 tok/s | 1,887 tok/s |
-
-GPU uses FP16 by default (`JINA_DTYPE=float16`). The `/health` endpoint reports cumulative throughput stats; each `/v1/embeddings` response includes `usage.tok_per_s`.
-
 ## Architecture
 
 **Two-phase model**: bundle (Phase 1, connected) and deploy (Phase 2, offline). Same terminology as zarf, NVIDIA NIM, and Red Hat disconnected install.
