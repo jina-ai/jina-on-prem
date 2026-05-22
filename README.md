@@ -61,19 +61,19 @@ PUT _inference/text_embedding/jina-local
 
 | Model | Type | Modality | Params | VRAM | Context | Dim | License | Prebuilt |
 |-------|------|----------|--------|------|---------|-----|---------|----------|
-| jina-embeddings-v5-omni-small | embedding | text/image/audio/video | 1.74B | ~8GB | 32K | 1024 | CC-BY-NC-4.0 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-small) |
-| jina-embeddings-v5-omni-nano | embedding | text/image/audio/video | 1.04B | ~5GB | 8K | 768 | CC-BY-NC-4.0 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-nano) |
-| jina-embeddings-v5-text-small | embedding | text | 677M | ~3GB | 32K | 1024 | CC-BY-NC-4.0 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-small) |
-| jina-embeddings-v5-text-nano | embedding | text | 239M | ~2GB | 8K | 768 | CC-BY-NC-4.0 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-nano) |
+| jina-embeddings-v5-omni-small | embedding | text/image/audio/video | 1.74B | ~8GB | 32K | 1024 | CC-BY-NC-4.0 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-small) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-small) |
+| jina-embeddings-v5-omni-nano | embedding | text/image/audio/video | 1.04B | ~5GB | 8K | 768 | CC-BY-NC-4.0 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-nano) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-nano) |
+| jina-embeddings-v5-text-small | embedding | text | 677M | ~3GB | 32K | 1024 | CC-BY-NC-4.0 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-small) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-small) |
+| jina-embeddings-v5-text-nano | embedding | text | 239M | ~2GB | 8K | 768 | CC-BY-NC-4.0 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-nano) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-nano) |
 | jina-vlm | vlm | text/image | 2.4B | ~6GB | 32K | - | CC-BY-NC-4.0 | - |
-| jina-reranker-v3 | reranker | text | 597M | ~3GB | 131K | - | CC-BY-NC-4.0 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-reranker-v3) |
+| jina-reranker-v3 | reranker | text | 597M | ~3GB | 131K | - | CC-BY-NC-4.0 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-reranker-v3) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-reranker-v3) |
 | jina-code-embeddings-1.5b | embedding | code | 1.5B | ~4GB | 32K | 1536 | CC-BY-NC-4.0 | - |
 | jina-code-embeddings-0.5b | embedding | code | 494M | ~2GB | 32K | 896 | CC-BY-NC-4.0 | - |
 | jina-embeddings-v4 | embedding | text/image/PDF | 3.8B | ~10GB | 32K | 2048 | Qwen Research | - |
 | jina-reranker-m0 | reranker | text/image | 2.4B | ~6GB | 10K | - | CC-BY-NC-4.0 | - |
 | ReaderLM-v2 | reader | text | 1.54B | ~4GB | 512K | - | CC-BY-NC-4.0 | - |
 | jina-clip-v2 | embedding | text/image | 865M | ~4GB | 8K | 1024 | CC-BY-NC-4.0 | - |
-| jina-embeddings-v3 | embedding | text | 570M | ~3GB | 8K | 1024 | CC-BY-NC-4.0 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v3) |
+| jina-embeddings-v3 | embedding | text | 570M | ~3GB | 8K | 1024 | CC-BY-NC-4.0 | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v3) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v3) |
 | jina-colbert-v2 | colbert | text | 560M | ~3GB | 8K | 128 | CC-BY-NC-4.0 | - |
 | reader-lm-1.5b | reader | text | 1.54B | ~4GB | 256K | - | CC-BY-NC-4.0 | - |
 | reader-lm-0.5b | reader | text | 494M | ~2GB | 256K | - | CC-BY-NC-4.0 | - |
@@ -179,7 +179,7 @@ All v5 embedding models support the `task` parameter: `retrieval` (default), `te
 10s steady-state, batch=32, avg 25 tokens/sentence.
 
 | Model | CPU (8 vCPU Xeon 2.2GHz) | GPU FP16 (L4 24GB) |
-|-------|--------------------------|---------------------|
+|-------|------|----------|--------|------|---------|-----|---------|----------|
 | v5-text-nano (239M) | 842 tok/s | 6,523 tok/s |
 | v5-text-small (677M) | 38 tok/s | 2,548 tok/s |
 | v5-omni-nano (1.04B) | 177 tok/s | 3,828 tok/s |
