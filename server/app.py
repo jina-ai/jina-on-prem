@@ -39,9 +39,19 @@ del _hf_modules
 import torch
 import numpy as np
 
-# Patch transformers auto_factory to handle models without prepare_inputs_for_generation.
-# transformers 4.48.x add_generation_mixin_to_remote_model calls getattr without
-# a default, raising AttributeError for embedding-only models like JinaEmbeddingsV5.
+# Patch transformers for air-gapped Jina model loading.
+# 1. resolve_trust_remote_code: force True so custom_st.py AutoConfig/AutoModel
+#    calls don't prompt for interactive confirmation in offline containers.
+# 2. add_generation_mixin_to_remote_model: guard against models without
+#    prepare_inputs_for_generation (embedding-only models like JinaEmbeddingsV5).
+try:
+    from transformers import dynamic_module_utils as _dmu
+    _orig_resolve = _dmu.resolve_trust_remote_code
+    def _always_trust(trust_remote_code, model_name, has_local_code, has_remote_code):
+        return True
+    _dmu.resolve_trust_remote_code = _always_trust
+except Exception:
+    pass
 try:
     from transformers.models.auto import auto_factory as _af
     _orig_add_gen = getattr(_af, 'add_generation_mixin_to_remote_model', None)
