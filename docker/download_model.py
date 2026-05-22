@@ -41,16 +41,27 @@ except Exception as e:
 # These patches fix bugs in the HF model code that break offline loading.
 import glob
 
-# 1. custom_st.py: Fix model_args.pop on None
+# 1. custom_st.py: Fix default_task extraction
+#    v5 models use model_kwargs (correct), but v3 uses model_args which is a
+#    dict that may not have 'default_task'. The pop call fails on None when
+#    model_args is None. Fix: use a safe fallback for both.
 for custom_st in glob.glob("/model_cache/**/custom_st.py", recursive=True):
     with open(custom_st, "r") as f:
         src = f.read()
     original = src
-    src = src.replace('self.default_task = model_args.pop(', 'self.default_task = model_kwargs.pop(')
+    # For v3-style: model_args might be None, and 'default_task' is not a valid key
+    # Just remove the default_task line entirely - it's not used in air-gap mode
+    import re
+    src = re.sub(
+        r"^\s*self\.default_task\s*=\s*model_(?:args|kwargs)\.pop\([^)]*\).*$",
+        "        self.default_task = None  # patched for air-gap",
+        src,
+        flags=re.MULTILINE,
+    )
     if src != original:
         with open(custom_st, "w") as f:
             f.write(src)
-        print(f"Patched {custom_st}: fixed model_args.pop")
+        print(f"Patched {custom_st}: fixed default_task extraction")
 
 # 2. modeling_eurobert.py: EuroBertModel.__init__ needs **kwargs
 #    because modeling_jina_embeddings_v5.py passes dtype= to from_pretrained,

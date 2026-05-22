@@ -37,7 +37,7 @@
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2605.08384",
       "deps": {
-        "transformers": "==4.48.3",
+        "transformers": "==4.51.0",
         "sentence-transformers": "==3.4.1",
         "torch": "==2.5.1",
         "einops": "==0.8.0",
@@ -90,7 +90,7 @@
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2605.08384",
       "deps": {
-        "transformers": "==4.48.3",
+        "transformers": "==4.51.0",
         "sentence-transformers": "==3.4.1",
         "torch": "==2.5.1",
         "einops": "==0.8.0",
@@ -143,7 +143,7 @@
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2602.15547",
       "deps": {
-        "transformers": "==4.48.3",
+        "transformers": "==4.51.0",
         "sentence-transformers": "==3.4.1",
         "torch": "==2.5.1",
         "einops": "==0.8.0",
