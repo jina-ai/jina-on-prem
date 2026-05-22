@@ -37,31 +37,40 @@ try:
 except Exception as e:
     print(f"Warning: pre-load failed, model may still work at runtime: {e}")
 
-# Patch custom_st.py in all cached locations:
-# 1. model_args/config_args default None -> {} to avoid .pop() on None
-# 2. Add trust_remote_code=True to AutoConfig/AutoModel calls
+# Patch model code in all cached locations for air-gap compatibility.
+# These patches fix bugs in the HF model code that break offline loading.
 import glob
+
+# 1. custom_st.py: Fix model_args.pop on None
 for custom_st in glob.glob("/model_cache/**/custom_st.py", recursive=True):
     with open(custom_st, "r") as f:
         src = f.read()
     original = src
-    # Fix model_args.pop on None: change to use model_kwargs which has or {} fallback
     src = src.replace('self.default_task = model_args.pop(', 'self.default_task = model_kwargs.pop(')
-    # Add trust_remote_code=True to AutoConfig/AutoModel calls
-    src = src.replace(
-        'self.config = AutoConfig.from_pretrained(\n            model_name_or_path, **config_kwargs\n        )',
-        'config_kwargs["trust_remote_code"] = True\n        self.config = AutoConfig.from_pretrained(\n            model_name_or_path, **config_kwargs\n        )'
-    )
-    src = src.replace(
-        'self.model = AutoModel.from_pretrained(\n            model_name_or_path, config=self.config, **model_kwargs\n        )',
-        'model_kwargs["trust_remote_code"] = True\n        self.model = AutoModel.from_pretrained(\n            model_name_or_path, config=self.config, **model_kwargs\n        )'
-    )
     if src != original:
         with open(custom_st, "w") as f:
             f.write(src)
-        print(f"Patched {custom_st}")
-    else:
-        print(f"No patch needed: {custom_st}")
+        print(f"Patched {custom_st}: fixed model_args.pop")
+
+# 2. modeling_eurobert.py: EuroBertModel.__init__ needs **kwargs
+#    because modeling_jina_embeddings_v5.py passes dtype= to from_pretrained,
+#    and transformers 4.48.x forwards unknown kwargs to __init__.
+for eurobert in glob.glob("/model_cache/**/modeling_eurobert.py", recursive=True):
+    with open(eurobert, "r") as f:
+        src = f.read()
+    original = src
+    # Add **kwargs to EuroBertModel.__init__
+    src = src.replace(
+        'class EuroBertModel(EuroBertPreTrainedModel):',
+        'class EuroBertModel(EuroBertPreTrainedModel):'
+    )  # noop anchor
+    old_init = '    def __init__(self, config: EuroBertConfig):\n        super().__init__(config)'
+    new_init = '    def __init__(self, config: EuroBertConfig, **kwargs):\n        super().__init__(config)'
+    src = src.replace(old_init, new_init)
+    if src != original:
+        with open(eurobert, "w") as f:
+            f.write(src)
+        print(f"Patched {eurobert}: added **kwargs to EuroBertModel.__init__")
 
 with open("/model_cache/MODEL_ID", "w") as f:
     f.write(model_id)
