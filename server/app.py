@@ -531,6 +531,23 @@ def _embed_mixed(items: list, task: str = "retrieval", dimensions: Optional[int]
     return embeddings, n_tokens, tok_per_s
 
 
+RERANKER_MODEL_IDS = {
+    "jina-reranker-v3",
+    "jina-reranker-m0",
+    "jina-reranker-v2-base-multilingual",
+    "jina-reranker-v1-base-en",
+    "jina-reranker-v1-turbo-en",
+    "jina-reranker-v1-tiny-en",
+    "jina-colbert-v2",
+    "jina-colbert-v1-en",
+}
+
+
+def _is_reranker_model() -> bool:
+    short = MODEL_ID.split("/")[-1] if MODEL_ID else ""
+    return any(r in short for r in RERANKER_MODEL_IDS)
+
+
 def load_model():
     global MODEL, TOKENIZER, MODEL_INFO
 
@@ -540,9 +557,15 @@ def load_model():
 
     logger.info(f"Loading model: {model_id}")
 
-    from sentence_transformers import SentenceTransformer
-    MODEL = SentenceTransformer(model_id, trust_remote_code=True, device=DEVICE)
-    MODEL_INFO = {"model": model_id, "type": "embedding"}
+    if _is_reranker_model():
+        from sentence_transformers import CrossEncoder
+        MODEL = CrossEncoder(model_id, trust_remote_code=True, device=DEVICE)
+        MODEL_INFO = {"model": model_id, "type": "reranker"}
+        logger.info(f"Loaded as CrossEncoder (reranker): {model_id}")
+    else:
+        from sentence_transformers import SentenceTransformer
+        MODEL = SentenceTransformer(model_id, trust_remote_code=True, device=DEVICE)
+        MODEL_INFO = {"model": model_id, "type": "embedding"}
 
     try:
         from transformers import AutoTokenizer
@@ -552,7 +575,7 @@ def load_model():
         logger.warning(f"Could not load tokenizer ({e}), will use word-split approximation")
 
     # --- Apply dtype optimization (GPU only) ---
-    if DEVICE == "cuda":
+    if DEVICE == "cuda" and not _is_reranker_model():
         dtype_env = os.environ.get("JINA_DTYPE", "float16").lower()
         if dtype_env in ("float16", "fp16", "half"):
             MODEL.half()
