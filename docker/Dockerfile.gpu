@@ -25,11 +25,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     MODEL_ID=${MODEL_ID}
 
 # Install download deps plus sentence-transformers for dynamic module caching
+# Install torch from CPU wheel index first (separate RUN to avoid --index-url clobbering PyPI index)
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir \
     huggingface_hub \
     sentence-transformers \
     "transformers>=4.48.0,<5.0.0" \
-    torch --index-url https://download.pytorch.org/whl/cpu \
     peft>=0.10.0 \
     einops>=0.8.0
 
@@ -80,8 +81,11 @@ RUN pip install --no-cache-dir \
     "timm>=1.0.0" \
     "peft>=0.10.0"
 
-# Install flash-attn for models that need it. Fails gracefully if not compatible.
-RUN pip install --no-cache-dir flash-attn --no-build-isolation || echo "flash-attn not available for this platform"
+# Install flash-attn: needs nvcc to compile, install temporarily then remove to keep image lean
+RUN apt-get update && apt-get install -y --no-install-recommends cuda-nvcc-12-2 && \
+    pip install --no-cache-dir flash-attn --no-build-isolation && \
+    apt-get remove -y cuda-nvcc-12-2 && apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/* || echo "flash-attn not available for this platform"
 
 # Install model-specific pinned deps from catalog.json
 COPY docker/model-requirements.txt /tmp/model-requirements.txt
