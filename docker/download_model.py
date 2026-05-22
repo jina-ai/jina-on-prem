@@ -41,27 +41,37 @@ except Exception as e:
 # These patches fix bugs in the HF model code that break offline loading.
 import glob
 
-# 1. custom_st.py: Fix default_task extraction
-#    v5 models use model_kwargs (correct), but v3 uses model_args which is a
-#    dict that may not have 'default_task'. The pop call fails on None when
-#    model_args is None. Fix: use a safe fallback for both.
+# 1. custom_st.py: Multiple patches for air-gap compatibility
+import re
 for custom_st in glob.glob("/model_cache/**/custom_st.py", recursive=True):
     with open(custom_st, "r") as f:
         src = f.read()
     original = src
-    # For v3-style: model_args might be None, and 'default_task' is not a valid key
-    # Just remove the default_task line entirely - it's not used in air-gap mode
-    import re
+
+    # 1a. Fix default_task extraction (v3 model_args.pop / v5 model_kwargs.pop)
     src = re.sub(
         r"^\s*self\.default_task\s*=\s*model_(?:args|kwargs)\.pop\([^)]*\).*$",
         "        self.default_task = None  # patched for air-gap",
         src,
         flags=re.MULTILINE,
     )
+
+    # 1b. Add trust_remote_code=True to AutoConfig.from_pretrained
+    src = src.replace(
+        'self.config = AutoConfig.from_pretrained(\n            model_name_or_path, **config_kwargs\n        )',
+        'config_kwargs["trust_remote_code"] = True\n        self.config = AutoConfig.from_pretrained(\n            model_name_or_path, **config_kwargs\n        )'
+    )
+
+    # 1c. Add trust_remote_code=True to AutoModel.from_pretrained
+    src = src.replace(
+        'self.model = AutoModel.from_pretrained(\n            model_name_or_path, config=self.config, **model_kwargs\n        )',
+        'model_kwargs["trust_remote_code"] = True\n        self.model = AutoModel.from_pretrained(\n            model_name_or_path, config=self.config, **model_kwargs\n        )'
+    )
+
     if src != original:
         with open(custom_st, "w") as f:
             f.write(src)
-        print(f"Patched {custom_st}: fixed default_task extraction")
+        print(f"Patched {custom_st}: fixed default_task + trust_remote_code")
 
 # 2. modeling_eurobert.py: EuroBertModel.__init__ needs **kwargs
 #    because modeling_jina_embeddings_v5.py passes dtype= to from_pretrained,
