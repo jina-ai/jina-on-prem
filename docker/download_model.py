@@ -88,13 +88,12 @@ for eurobert in glob.glob("/model_cache/**/modeling_eurobert.py", recursive=True
             f.write(src)
         print(f"Patched {eurobert}: added **kwargs to EuroBertModel.__init__")
 
-# 3. modeling_jina_embeddings_v5.py: PeftConfig -> LoraConfig
-#    PeftConfig.from_pretrained ignores LoRA-specific fields (target_modules etc)
-#    in older peft versions, causing ValueError. LoraConfig parses them correctly.
+# 3. modeling_jina_embeddings_v5.py: multiple patches
 for modeling in glob.glob("/model_cache/**/modeling_jina_embeddings_v5.py", recursive=True):
     with open(modeling, "r") as f:
         src = f.read()
     original = src
+    # 3a. PeftConfig -> LoraConfig
     src = src.replace(
         'from peft import PeftMixedModel, PeftConfig',
         'from peft import PeftMixedModel, PeftConfig, LoraConfig'
@@ -103,10 +102,16 @@ for modeling in glob.glob("/model_cache/**/modeling_jina_embeddings_v5.py", recu
         'peft_config = PeftConfig.from_pretrained(',
         'peft_config = LoraConfig.from_pretrained('
     )
+    # 3b. Fix dtype -> torch_dtype for Qwen3Model.from_pretrained
+    #     transformers >=4.51.0 Qwen3Model doesn't accept 'dtype' kwarg
+    src = src.replace(
+        'dtype=kwargs.pop("dtype", torch.bfloat16)',
+        'torch_dtype=kwargs.pop("dtype", torch.bfloat16)'
+    )
     if src != original:
         with open(modeling, "w") as f:
             f.write(src)
-        print(f"Patched {modeling}: PeftConfig -> LoraConfig")
+        print(f"Patched {modeling}: PeftConfig->LoraConfig + dtype->torch_dtype")
 
 with open("/model_cache/MODEL_ID", "w") as f:
     f.write(model_id)
