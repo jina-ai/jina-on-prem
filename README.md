@@ -1,84 +1,63 @@
 # jina-airgap
 
-Air-gapped deployment toolkit for Jina AI models. Ship embedding, reranker, and reader models to fully disconnected environments.
+Air-gapped deployment toolkit for Jina AI models. Bundle embedding, reranker, and reader models into self-contained Docker images that run fully offline.
 
 ```mermaid
 flowchart TB
-    subgraph Phase1["Phase 1: BUNDLE, requires network"]
-        A["python jina-airgap.py bundle"] --> B["Select model and runtime"]
-        B --> C["Docker build\nweights and deps baked in"]
-        C --> D["docker save to .tar.gz"]
+    subgraph Phase1["Phase 1: BUNDLE — requires network"]
+        A["python jina-airgap.py bundle"] --> B["Select model + runtime"]
+        B --> C["Docker build\nweights + deps baked in"]
+        C --> D["docker save → .tar.gz"]
     end
 
     Phase1 -->|"USB / SCP / physical media"| Phase2
 
-    subgraph Phase2["Phase 2: DEPLOY, no network needed"]
+    subgraph Phase2["Phase 2: DEPLOY — no network needed"]
         E["docker load < model.tar.gz"] --> F["docker run -p 8080:8080"]
-        F --> G["Multi-schema API ready\n/v1/embeddings, /v1/embed, /v1/models/:embedContent"]
-        G --> H["Elasticsearch / Your App\ninference service type: openai, gemini, cohere, voyage"]
+        F --> G["Multi-schema API ready\nOpenAI / Gemini / Cohere / Voyage"]
+        G --> H["Elasticsearch / Your App"]
     end
 ```
 
-## Why
-
-- Customers in regulated, air-gapped environments: gov, finance, healthcare
-- All models fit on a single L4 GPU, 24GB VRAM
-- OpenAI-compatible API, drop-in for Elasticsearch inference service
-- Also supports Gemini, Cohere, and Voyage AI schemas out of the box
-- Per-model pinned dependency configs baked into each bundle
-- Real tok/s throughput measurement built in
-
-## Terminology
-
-This toolkit follows the two-phase terminology used by professional air-gap tools such as zarf, NVIDIA NIM, and Red Hat disconnected install:
-
-| Phase | Command | Network? | Requires | What it does |
-|-------|---------|----------|----------|--------------|
-| 1. Bundle | `bundle` | ✅ | Python 3.8+, Docker | Downloads weights, builds Docker image, saves .tar.gz |
-| 2. Deploy | n/a | ❌ | Docker only | `docker load` and `docker run`, fully offline, no repo needed |
-
-The `serve` command runs a model directly without Docker. Requires Python 3.8+, torch, transformers, sentence-transformers, and model files pre-installed.
-
 ## Quick Start
 
-### Phase 1: Bundle, connected machine
+### Bundle (connected machine)
 
 ```bash
-# List all available models
-python jina-airgap.py list
-
-# Interactive wizard: select model, build Docker image, save to .tar.gz
-python jina-airgap.py bundle
-
-# Or specify directly (fastest option for air-gap testing)
-python jina-airgap.py bundle --model jina-embeddings-v5-text-nano --output jina-v5-nano.tar.gz
-
-# CPU-only bundle (no GPU required at deploy time)
+python jina-airgap.py list                                  # show all models
+python jina-airgap.py bundle                                # interactive wizard
+python jina-airgap.py bundle --model jina-embeddings-v5-text-nano   # direct
 python jina-airgap.py bundle --model jina-embeddings-v5-text-small --cpu-only
 ```
 
-### Phase 2: Deploy, air-gapped machine, zero network
+### Deploy (air-gapped machine)
 
 No repo, no scripts, no dependencies. Just Docker.
 
 ```bash
-# Transfer the .tar.gz file via USB/SCP/physical media, then:
 docker load < jina-v5-nano.tar.gz
-docker run --gpus all -p 8080:8080 jina/jina-embeddings-v5-text-nano:gpu
-
-# CPU only
-docker run -p 8080:8080 jina/jina-embeddings-v5-text-nano:cpu
+docker run -p 8080:8080 jina/jina-embeddings-v5-text-nano:cpu       # CPU
+docker run --gpus all -p 8080:8080 jina/jina-embeddings-v5-text-nano:gpu  # GPU
+curl http://localhost:8080/health
 ```
 
-### Verify it works
+### Elasticsearch Integration
 
-```bash
-curl http://localhost:8080/health
+```json
+PUT _inference/text_embedding/jina-local
+{
+  "service": "openai",
+  "service_settings": {
+    "url": "http://your-host:8080/v1/embeddings",
+    "model_id": "jina-embeddings-v5-text-nano",
+    "api_key": "not-needed"
+  }
+}
 ```
 
 ## Available Models
 
-Models licensed under CC-BY-NC-4.0 require a commercial license for commercial use. Contact [Elastic sales](https://www.elastic.co/contact) for a waiver.
+28 models. CC-BY-NC-4.0 models require a commercial license for production use — contact [Elastic sales](https://www.elastic.co/contact).
 
 | Model | Type | Modality | Params | VRAM | Context | Dim | License |
 |-------|------|----------|--------|------|---------|-----|---------|
@@ -111,23 +90,20 @@ Models licensed under CC-BY-NC-4.0 require a commercial license for commercial u
 | jina-embeddings-v2-base-en | embedding | text | 137M | ~1GB | 8K | 768 | Apache-2.0 |
 | jina-embedding-b-en-v1 | embedding | text | 110M | ~1GB | 512 | 768 | Apache-2.0 |
 
-## API Schemas
+## API
 
-The server exposes 4 API schemas simultaneously on different endpoints. No configuration needed - all are active at startup.
+The server exposes 4 API schemas simultaneously. No configuration needed.
 
-### Schema 1: OpenAI (+ Voyage AI)
+### OpenAI (+ Voyage AI)
 
-**Endpoint:** `POST /v1/embeddings`
-
-Drop-in compatible with the OpenAI Python client and Elasticsearch inference service. Voyage AI fields (`input_type`, `output_dimension`) are also accepted.
+`POST /v1/embeddings` — drop-in for OpenAI Python client and Elasticsearch inference service.
 
 ```bash
-# OpenAI style
 curl -X POST http://localhost:8080/v1/embeddings \
   -H "Content-Type: application/json" \
-  -d '{"input": ["Hello world", "Jina AI"], "model": "jina-embeddings-v5-text-nano"}'
+  -d '{"input": ["Hello world"], "model": "jina-embeddings-v5-text-nano"}'
 
-# With task parameter
+# With task
 curl -X POST http://localhost:8080/v1/embeddings \
   -H "Content-Type: application/json" \
   -d '{"input": ["search query"], "task": "retrieval.query"}'
@@ -136,406 +112,118 @@ curl -X POST http://localhost:8080/v1/embeddings \
 curl -X POST http://localhost:8080/v1/embeddings \
   -H "Content-Type: application/json" \
   -d '{"input": ["Hello"], "dimensions": 128}'
-
-# Voyage AI style (input_type maps to Jina task)
-curl -X POST http://localhost:8080/v1/embeddings \
-  -H "Content-Type: application/json" \
-  -d '{"input": ["search query"], "input_type": "query", "output_dimension": 256}'
 ```
 
 ```python
-# OpenAI Python client
 from openai import OpenAI
 client = OpenAI(base_url="http://localhost:8080/v1", api_key="not-needed")
 resp = client.embeddings.create(model="jina-embeddings-v5-text-nano", input=["Hello world"])
-print(resp.data[0].embedding[:5])
-
-# Voyage AI Python client
-import voyageai
-vo = voyageai.Client(api_key="not-needed", base_url="http://localhost:8080")
-result = vo.embed(["Hello world"], model="jina-v5-nano", input_type="query")
-print(result.embeddings[0][:5])
 ```
 
-Response format:
-```json
-{
-  "object": "list",
-  "data": [{"object": "embedding", "embedding": [...], "index": 0}],
-  "model": "jinaai/jina-embeddings-v5-text-nano",
-  "usage": {"prompt_tokens": 4, "total_tokens": 4, "tok_per_s": 4823.7}
-}
-```
+Voyage AI fields (`input_type`, `output_dimension`) are also accepted on this endpoint.
 
-### Schema 2: Cohere
+### Cohere
 
-**Endpoint:** `POST /v1/embed`
+`POST /v1/embed`
 
 ```bash
 curl -X POST http://localhost:8080/v1/embed \
   -H "Content-Type: application/json" \
-  -d '{
-    "texts": ["Hello world", "Jina AI"],
-    "model": "jina-embeddings-v5-text-nano",
-    "input_type": "search_query"
-  }'
+  -d '{"texts": ["Hello world"], "model": "jina-v5-nano", "input_type": "search_query"}'
 ```
 
-```python
-import cohere
-co = cohere.Client(api_key="not-needed", base_url="http://localhost:8080")
-resp = co.embed(texts=["Hello world"], model="jina-v5-nano", input_type="search_query")
-print(resp.embeddings.float[0][:5])
-```
+### Google Gemini
 
-Response format:
-```json
-{
-  "id": "abc123",
-  "texts": ["Hello world", "Jina AI"],
-  "embeddings": {"float": [[...], [...]]},
-  "meta": {"api_version": {"version": "1"}, "billed_units": {"input_tokens": 4}, "tok_per_s": 4823.7},
-  "response_type": "embeddings_floats"
-}
-```
-
-Supported `input_type` values: `search_query`, `search_document`, `classification`, `clustering`
-
-### Schema 3: Google Gemini
-
-**Endpoints:**
-- `POST /v1/models/{model}:embedContent` - single text
-- `POST /v1/models/{model}:batchEmbedContents` - batch
+`POST /v1/models/{model}:embedContent` and `POST /v1/models/{model}:batchEmbedContents`
 
 ```bash
-# Single content
 curl -X POST "http://localhost:8080/v1/models/jina-embeddings-v5-text-nano:embedContent" \
   -H "Content-Type: application/json" \
-  -d '{
-    "content": {"parts": [{"text": "Hello world"}]},
-    "taskType": "RETRIEVAL_QUERY",
-    "outputDimensionality": 256
-  }'
-
-# Batch
-curl -X POST "http://localhost:8080/v1/models/jina-embeddings-v5-text-nano:batchEmbedContents" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "requests": [
-      {"content": {"parts": [{"text": "Hello"}]}, "taskType": "RETRIEVAL_DOCUMENT"},
-      {"content": {"parts": [{"text": "World"}]}, "taskType": "RETRIEVAL_DOCUMENT"}
-    ]
-  }'
+  -d '{"content": {"parts": [{"text": "Hello world"}]}, "taskType": "RETRIEVAL_QUERY"}'
 ```
 
-```python
-import google.generativeai as genai
-genai.configure(api_key="not-needed", transport="rest", client_options={"api_endpoint": "http://localhost:8080"})
-result = genai.embed_content(
-    model="models/jina-embeddings-v5-text-nano",
-    content="Hello world",
-    task_type="RETRIEVAL_QUERY",
-)
-print(result["embedding"][:5])
-```
+### Voyage AI Multimodal
 
-Supported `taskType` values: `RETRIEVAL_QUERY`, `RETRIEVAL_DOCUMENT`, `SEMANTIC_SIMILARITY`, `CLASSIFICATION`, `CLUSTERING`
-
-Single content response:
-```json
-{
-  "embedding": {"values": [...]},
-  "metadata": {"tokenCount": 4, "tok_per_s": 4823.7}
-}
-```
-
-## Throughput
-
-Measured over 10s steady state, batch size 32, mixed length input, avg 25 tokens per sentence.
-
-| Model | CPU | GPU FP16 |
-|-------|-----|----------|
-| | Intel Xeon 2.20GHz, 8 vCPU | NVIDIA L4, 24GB, 30.3 TFLOPS |
-| jina-embeddings-v5-text-nano | 842 tok/s | 6,523 tok/s |
-| jina-embeddings-v5-text-small | 38 tok/s | 2,548 tok/s |
-| jina-embeddings-v5-omni-nano | 177 tok/s | 3,828 tok/s |
-| jina-embeddings-v5-omni-small | 43 tok/s | 1,887 tok/s |
-
-GPU inference uses FP16 by default via `JINA_DTYPE=float16`. CPU inference uses all available physical cores.
-
-The `/v1/embeddings` response includes `usage.tok_per_s` for per request throughput. The `/health` endpoint reports cumulative stats.
-
-## Image Sizes
-
-Measured for jina-embeddings-v5-text-nano, 239M params.
-
-| Variant | Uncompressed | Compressed | Base image |
-|---------|-------------|------------|------------|
-| GPU | 13.5 GB | 4.86 GB | nvidia/cuda:12.2.2-runtime |
-| CPU | 2.96 GB | 828 MB | python:3.11-slim |
-
-## Multimodal Inputs (Omni Models)
-
-`jina-embeddings-v5-omni-small` and `jina-embeddings-v5-omni-nano` accept text, images, audio, and video in a shared vector space.
-
-All inputs must be base64-encoded (no URLs or file paths - air-gapped by design). Maximum 10 MB per input.
-
-### Encoding an image to base64
-
-```python
-import base64
-
-with open("photo.jpg", "rb") as f:
-    b64 = base64.b64encode(f.read()).decode()
-data_url = f"data:image/jpeg;base64,{b64}"
-```
-
-### OpenAI schema (Elastic Inference Service format)
-
-```bash
-# Single image
-curl -X POST http://localhost:8080/v1/embeddings \
-  -H "Content-Type: application/json" \
-  -d '{
-    "input": [
-      {"type": "image", "format": "base64", "value": "<BASE64_IMAGE>"}
-    ]
-  }'
-
-# Typed format with mime type
-curl -X POST http://localhost:8080/v1/embeddings \
-  -H "Content-Type: application/json" \
-  -d '{
-    "input": [
-      {"type": "image_base64", "image_base64": {"base64": "<BASE64>", "mime_type": "image/png"}},
-      {"type": "audio_base64", "audio_base64": {"base64": "<BASE64>", "mime_type": "audio/wav"}},
-      {"type": "video_base64", "video_base64": {"base64": "<BASE64>", "mime_type": "video/mp4"}}
-    ]
-  }'
-
-# Fused multimodal: text + image -> ONE embedding
-curl -X POST http://localhost:8080/v1/embeddings \
-  -H "Content-Type: application/json" \
-  -d '{
-    "input": [{
-      "content": [
-        {"type": "text", "text": "A red square on white background"},
-        {"type": "image", "format": "base64", "value": "<BASE64_IMAGE>"}
-      ]
-    }]
-  }'
-
-# Mixed batch: text and images in one request
-curl -X POST http://localhost:8080/v1/embeddings \
-  -H "Content-Type: application/json" \
-  -d '{
-    "input": [
-      "text query",
-      {"type": "image", "format": "base64", "value": "<BASE64_IMAGE>"}
-    ]
-  }'
-```
-
-```python
-import base64
-from openai import OpenAI
-
-client = OpenAI(base_url="http://localhost:8080/v1", api_key="not-needed")
-
-with open("photo.jpg", "rb") as f:
-    b64 = base64.b64encode(f.read()).decode()
-
-resp = client.embeddings.create(
-    model="jina-embeddings-v5-omni-nano",
-    input=[
-        "plain text query",
-        {"type": "image", "format": "base64", "value": b64},
-    ]
-)
-print(len(resp.data))  # 2 embeddings in shared vector space
-```
-
-### Gemini schema (inlineData)
-
-```bash
-curl -X POST "http://localhost:8080/v1/models/jina-embeddings-v5-omni-nano:embedContent" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "content": {
-      "parts": [
-        {"text": "A red square"},
-        {"inlineData": {"mimeType": "image/png", "data": "<BASE64_IMAGE>"}}
-      ]
-    },
-    "taskType": "RETRIEVAL_DOCUMENT"
-  }'
-```
-
-### Cohere schema
-
-```bash
-# Legacy format (images as data URLs)
-curl -X POST http://localhost:8080/v1/embed \
-  -H "Content-Type: application/json" \
-  -d '{
-    "images": ["data:image/png;base64,<BASE64_IMAGE>"],
-    "input_type": "search_document"
-  }'
-
-# V2 format (content blocks, same as Cohere API v2)
-curl -X POST http://localhost:8080/v1/embed \
-  -H "Content-Type: application/json" \
-  -d '{
-    "inputs": [{
-      "content": [
-        {"type": "image_url", "image_url": {"url": "data:image/png;base64,<BASE64_IMAGE>"}},
-        {"type": "text", "text": "A red square"}
-      ]
-    }],
-    "input_type": "search_document"
-  }'
-```
-
-### Voyage AI multimodal schema
+`POST /v1/multimodalembeddings`
 
 ```bash
 curl -X POST http://localhost:8080/v1/multimodalembeddings \
   -H "Content-Type: application/json" \
-  -d '{
-    "inputs": [{
-      "content": [
-        {"type": "text", "text": "A red square"},
-        {"type": "image_base64", "image_base64": "data:image/png;base64,<BASE64_IMAGE>"}
-      ]
-    }],
-    "model": "voyage-multimodal-3.5",
-    "input_type": "document"
-  }'
+  -d '{"inputs": [{"content": [{"type": "text", "text": "Hello"}]}], "model": "voyage-multimodal-3.5"}'
 ```
 
-Text-only models return HTTP 400 with a clear error if multimodal inputs are sent.
+### Multimodal Inputs (Omni Models)
 
-## Supported Tasks (v5)
+`v5-omni-small`, `v5-omni-nano`, `v4`, `jina-clip-v2` accept images, audio, and video alongside text. All media must be base64-encoded (no URLs — air-gapped by design). Max 10 MB per input.
 
-All v5 models support the `task` parameter:
+```bash
+# Image embedding (OpenAI schema)
+curl -X POST http://localhost:8080/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -d '{"input": [{"type": "image_base64", "image_base64": {"base64": "<B64>", "mime_type": "image/png"}}]}'
 
-- `retrieval` (default) - semantic search
-- `text-matching` - similarity comparison
-- `classification` - label assignment
-- `clustering` - grouping
-
-The Cohere `input_type` and Gemini `taskType` fields are mapped automatically to the task above.
-
-## Per-Model Dependency Configs
-
-Each model in `models/catalog.json` has a `deps` field with pinned version requirements:
-
-```json
-{
-  "id": "jina-embeddings-v5-text-nano",
-  "deps": {
-    "transformers": ">=4.45.0,<5.0.0",
-    "sentence-transformers": ">=3.0.0",
-    "torch": ">=2.1.0",
-    "flash-attn": null
-  }
-}
+# Fused text + image → one embedding
+curl -X POST http://localhost:8080/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -d '{"input": [{"content": [{"type": "text", "text": "A red square"}, {"type": "image", "format": "base64", "value": "<B64>"}]}]}'
 ```
 
-`null` means the dep is optional and will be skipped. The `bundle` command automatically reads these and generates model-specific requirements before building the Docker image - no manual configuration needed.
+Text-only models return HTTP 400 if multimodal inputs are sent.
 
-Models that need flash-attn for long contexts (v5-omni, v4, code embeddings, reranker-v3, readers):
-```json
-{
-  "id": "jina-embeddings-v4",
-  "deps": {
-    "transformers": ">=4.45.0,<5.0.0",
-    "sentence-transformers": ">=3.0.0",
-    "torch": ">=2.1.0",
-    "flash-attn": ">=2.5.0",
-    "timm": ">=1.0.0",
-    "Pillow": ">=10.0.0"
-  }
-}
-```
+### Tasks (v5 models)
 
-## Elasticsearch Integration
+All v5 embedding models support the `task` parameter: `retrieval` (default), `text-matching`, `classification`, `clustering`. Cohere `input_type` and Gemini `taskType` are mapped automatically.
 
-```json
-PUT _inference/text_embedding/jina-local
-{
-  "service": "openai",
-  "service_settings": {
-    "url": "http://your-host:8080/v1/embeddings",
-    "model_id": "jina-embeddings-v5-text-nano",
-    "api_key": "not-needed"
-  }
-}
-```
+## Throughput
 
-## Serve Without Docker
+10s steady-state, batch=32, avg 25 tokens/sentence.
+
+| Model | CPU (8 vCPU Xeon 2.2GHz) | GPU FP16 (L4 24GB) |
+|-------|--------------------------|---------------------|
+| v5-text-nano (239M) | 842 tok/s | 6,523 tok/s |
+| v5-text-small (677M) | 38 tok/s | 2,548 tok/s |
+| v5-omni-nano (1.04B) | 177 tok/s | 3,828 tok/s |
+| v5-omni-small (1.74B) | 43 tok/s | 1,887 tok/s |
+
+GPU uses FP16 by default (`JINA_DTYPE=float16`). The `/health` endpoint reports cumulative throughput stats; each `/v1/embeddings` response includes `usage.tok_per_s`.
+
+## Architecture
+
+**Two-phase model**: bundle (Phase 1, connected) and deploy (Phase 2, offline). Same terminology as zarf, NVIDIA NIM, and Red Hat disconnected install.
+
+- **Zero deps CLI**: `jina-airgap.py` uses Python stdlib only
+- **Weights baked in**: multi-stage Docker build downloads weights at bundle time; `HF_HUB_OFFLINE=1` + `TRANSFORMERS_OFFLINE=1` enforced at runtime
+- **Split Dockerfiles**: `Dockerfile.gpu` (pytorch/pytorch base, CUDA, FP16) and `Dockerfile.cpu` (python:3.11-slim)
+- **Per-model pinned deps**: `catalog.json` `deps` field drives exact versions per model; the `bundle` command generates `model-requirements.txt` automatically
+- **Multi-schema API**: OpenAI, Voyage AI, Cohere, Gemini — all active simultaneously
+- **GPU auto-detect**: falls back to CPU if no CUDA available
+- **Matryoshka**: pass `dimensions` to truncate embeddings to any supported size
+
+### Serve Without Docker
 
 If model dependencies are already installed:
 
 ```bash
 python jina-airgap.py serve --model jinaai/jina-embeddings-v5-text-nano --port 8080
-
-# From local path
 python jina-airgap.py serve --local-path /data/models/jina-v5-nano
 ```
-
-## Air-Gap Verification
-
-After bundling, verify the image is truly offline:
-
-```bash
-# Start with network completely disabled
-docker run --gpus all --network=none -p 8080:8080 jina/jina-embeddings-v5-text-nano:gpu
-
-# From host, test the API (port forwarding still works even with --network=none)
-curl http://localhost:8080/health
-curl -X POST http://localhost:8080/v1/embeddings \
-  -H "Content-Type: application/json" \
-  -d '{"input":["test"],"model":"test"}'
-```
-
-If anything fails with `--network=none`, the air-gap is broken. Common causes:
-- Missing `HF_HUB_OFFLINE=1` - HuggingFace Hub checking for updates
-- Missing `TRANSFORMERS_OFFLINE=1` - transformers trying to download tokenizer
-- Model custom code trying DNS lookups
-- pip trying to install at startup (should never happen in a built image)
-
-All Jina airgap images have `HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1`, and `JINA_OFFLINE=1` set at the ENV level.
-
-## Design
-
-- **Two-phase terminology**: `bundle` (Phase 1, needs network) and `deploy` (Phase 2, offline) - aligned with zarf, NVIDIA NIM, Red Hat disconnected install patterns
-- **Zero deps for TUI**: `jina-airgap.py` uses Python stdlib only
-- **Model weights baked in**: `HF_HUB_OFFLINE=1` enforced at runtime, zero downloads
-- **Split Dockerfiles**: `docker/Dockerfile.gpu` (CUDA, FP16) and `docker/Dockerfile.cpu` (python:3.11-slim, CPU-only)
-- **Per-model deps**: `catalog.json` `deps` field drives model-specific requirements; Dockerfile installs them at bundle time
-- **Multi-schema API**: OpenAI, Voyage AI, Cohere, Gemini - all active simultaneously on different endpoints
-- **Multi-stage Docker build**: lean runtime image, model weights in separate downloader stage
-- **GPU auto-detect**: falls back to CPU if no GPU
-- **FP16 by default**: `JINA_DTYPE=float16` set in GPU Dockerfile; supports `float16`, `bfloat16`, `float32`
-- **Matryoshka support**: pass `dimensions` to truncate embeddings
-- **Real tok/s**: actual tokenizer-counted throughput, not word-split estimates
 
 ## Repo Structure
 
 ```
 jina-airgap/
-├── README.md
-├── jina-airgap.py          # Main CLI tool (bundle/deploy/serve/list)
+├── jina-airgap.py             # CLI tool: bundle / deploy / serve / list
 ├── models/
-│   └── catalog.json           # 28 model registry with deps field
+│   └── catalog.json           # 28-model registry with pinned deps
 ├── docker/
-│   ├── Dockerfile.gpu         # GPU image (nvidia/cuda base, CUDA torch, FP16)
-│   ├── Dockerfile.cpu         # CPU image (python:3.11-slim, CPU torch, ~3x smaller)
-│   └── download_model.py      # Model download script (runs in build stage)
+│   ├── Dockerfile.gpu         # GPU image (pytorch base, FP16)
+│   ├── Dockerfile.cpu         # CPU image (python:3.11-slim)
+│   └── download_model.py      # Model download + patch script (build stage)
 ├── server/
-│   ├── app.py                 # FastAPI server: OpenAI, Voyage, Gemini, Cohere endpoints
-│   └── requirements.txt       # Base server deps
+│   ├── app.py                 # FastAPI server: 4 API schemas
+│   └── requirements.txt       # Server framework deps
+├── scripts/
+│   └── benchmark.py           # Throughput benchmark
 └── tests/
-    └── test_e2e.py            # E2E tests with throughput validation
+    └── test_e2e.py            # E2E air-gap tests
 ```
