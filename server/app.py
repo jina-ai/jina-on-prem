@@ -47,7 +47,7 @@ import numpy as np
 try:
     from transformers import dynamic_module_utils as _dmu
     _orig_resolve = _dmu.resolve_trust_remote_code
-    def _always_trust(trust_remote_code, model_name, has_local_code, has_remote_code):
+    def _always_trust(*args, **kwargs):
         return True
     _dmu.resolve_trust_remote_code = _always_trust
 except Exception:
@@ -392,11 +392,54 @@ def _count_tokens(texts: list) -> int:
     return sum(len(t.split()) for t in texts)
 
 
+def _resolve_task(task: str) -> str:
+    """Adapt task name to what the loaded model actually supports.
+
+    v5 models accept: retrieval, text-matching, classification, clustering.
+    v3 models accept: retrieval.query, retrieval.passage, separation,
+                      classification, text-matching.
+
+    API endpoints use fine-grained names (retrieval.query, retrieval.passage)
+    from schema mapping. This function adapts them per model.
+    """
+    short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
+    is_v3 = "v3" in short_id and "v5" not in short_id
+    is_v5 = "v5" in short_id
+
+    if is_v3:
+        v3_map = {
+            "retrieval": "retrieval.passage",
+            "retrieval.query": "retrieval.query",
+            "retrieval.passage": "retrieval.passage",
+            "text-matching": "text-matching",
+            "classification": "classification",
+            "clustering": "text-matching",
+            "separation": "separation",
+        }
+        return v3_map.get(task, "retrieval.passage")
+    elif is_v5:
+        v5_map = {
+            "retrieval": "retrieval",
+            "retrieval.query": "retrieval",
+            "retrieval.passage": "retrieval",
+            "text-matching": "text-matching",
+            "classification": "classification",
+            "clustering": "clustering",
+        }
+        return v5_map.get(task, "retrieval")
+    else:
+        # Older models: strip sub-task
+        if task.startswith("retrieval"):
+            return "retrieval"
+        return task
+
+
 def _embed(inputs: list, task: str = "retrieval", dimensions: Optional[int] = None):
     """Text-only embedding. Returns (embeddings_np, n_tokens, tok_per_s)."""
     if MODEL is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
 
+    task = _resolve_task(task)
     n_tokens = _count_tokens(inputs)
     t0 = time.perf_counter()
     ctx = torch.autocast("cuda", dtype=torch.float16) if DEVICE == "cuda" else torch.inference_mode()
@@ -432,6 +475,8 @@ def _embed_mixed(items: list, task: str = "retrieval", dimensions: Optional[int]
     """
     if MODEL is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
+
+    task = _resolve_task(task)
 
     encode_inputs = []
     text_parts = []
@@ -625,8 +670,8 @@ async def create_embeddings_openai(request: OpenAIEmbeddingRequest):
     task = request.task or "retrieval"
     if request.input_type:
         voyage_task_map = {
-            "query": "retrieval",
-            "document": "retrieval",
+            "query": "retrieval.query",
+            "document": "retrieval.passage",
             "classification": "classification",
             "clustering": "clustering",
         }
@@ -693,8 +738,8 @@ async def create_embeddings_cohere(request: CohereEmbedRequest):
       {"inputs": [{"content": [{"type": "image_url", "image_url": {"url": "data:..."}}, {"type": "text", "text": "..."}]}]}
     """
     cohere_task_map = {
-        "search_query": "retrieval",
-        "search_document": "retrieval",
+        "search_query": "retrieval.query",
+        "search_document": "retrieval.passage",
         "classification": "classification",
         "clustering": "clustering",
     }
@@ -789,8 +834,8 @@ async def create_multimodal_embeddings_voyage(request: VoyageMultimodalRequest):
     _require_omni()
 
     voyage_task_map = {
-        "query": "retrieval",
-        "document": "retrieval",
+        "query": "retrieval.query",
+        "document": "retrieval.passage",
     }
     task = voyage_task_map.get(request.input_type or "", "retrieval")
 
@@ -842,14 +887,14 @@ class GeminiBatchEmbedRequest(BaseModel):
 
 
 GEMINI_TASK_MAP = {
-    "RETRIEVAL_QUERY": "retrieval",
-    "RETRIEVAL_DOCUMENT": "retrieval",
+    "RETRIEVAL_QUERY": "retrieval.query",
+    "RETRIEVAL_DOCUMENT": "retrieval.passage",
     "SEMANTIC_SIMILARITY": "text-matching",
     "CLASSIFICATION": "classification",
     "CLUSTERING": "clustering",
-    "QUESTION_ANSWERING": "retrieval",
-    "FACT_VERIFICATION": "retrieval",
-    "CODE_RETRIEVAL_QUERY": "retrieval",
+    "QUESTION_ANSWERING": "retrieval.query",
+    "FACT_VERIFICATION": "retrieval.query",
+    "CODE_RETRIEVAL_QUERY": "retrieval.query",
 }
 
 
