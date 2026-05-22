@@ -89,6 +89,10 @@ ENV HF_HUB_OFFLINE=1 \
 # CPU threading: let runtime auto-detect core count
 # Override at runtime: docker run -e OMP_NUM_THREADS=8 ...
 
+LABEL org.opencontainers.image.source=https://github.com/jina-ai/jina-airgap
+LABEL org.opencontainers.image.description="Jina AI air-gapped embedding/reranker model - CPU variant"
+LABEL org.opencontainers.image.licenses=Apache-2.0
+
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
