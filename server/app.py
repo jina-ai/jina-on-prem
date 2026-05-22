@@ -39,6 +39,21 @@ del _hf_modules
 import torch
 import numpy as np
 
+# Patch transformers auto_factory to handle models without prepare_inputs_for_generation.
+# transformers 4.48.x add_generation_mixin_to_remote_model calls getattr without
+# a default, raising AttributeError for embedding-only models like JinaEmbeddingsV5.
+try:
+    from transformers.models.auto import auto_factory as _af
+    _orig_add_gen = getattr(_af, 'add_generation_mixin_to_remote_model', None)
+    if _orig_add_gen:
+        def _safe_add_gen(model_class):
+            if not hasattr(model_class, 'prepare_inputs_for_generation'):
+                return model_class
+            return _orig_add_gen(model_class)
+        _af.add_generation_mixin_to_remote_model = _safe_add_gen
+except Exception:
+    pass
+
 # Boost matmul precision: uses TF32 on Ampere/Ada/Hopper GPUs, ~1.2x faster on L4
 torch.set_float32_matmul_precision('high')
 from fastapi import FastAPI, HTTPException, Path as FPath
