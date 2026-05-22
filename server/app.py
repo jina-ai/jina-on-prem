@@ -16,10 +16,25 @@ import base64
 import io
 import os
 import json
+import sys
 import time
 import logging
 import threading
+from pathlib import Path
 from typing import Any, Optional, Union
+
+# Register dynamic model module directories so transformers check_imports
+# can find sibling modules (e.g. configuration_eurobert imported by
+# modeling_jina_embeddings_v5). Without this, air-gapped containers fail
+# because importlib.util.find_spec cannot locate these modules.
+_hf_modules = Path(os.environ.get("HF_HOME", "")) / "modules" / "transformers_modules"
+if _hf_modules.is_dir():
+    for _commit_dir in _hf_modules.rglob("*.py"):
+        _parent = str(_commit_dir.parent)
+        if _parent not in sys.path:
+            sys.path.insert(0, _parent)
+    del _commit_dir, _parent
+del _hf_modules
 
 import torch
 import numpy as np
