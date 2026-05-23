@@ -521,10 +521,11 @@ def _embed_mixed(items: list, task: str = "retrieval", dimensions: Optional[int]
             encode_inputs.append(item)
             text_parts.append(item)
         else:
-            # Standalone PIL.Image or BytesIO: wrap with empty string to produce a
-            # 2-element tuple (non-text first). This routes through _encode_composite_parts
-            # and avoids the _encode_single_image processor bug.
-            encode_inputs.append((item, ""))
+            # ST 3.4.1's _text_length() raises on PIL/BytesIO inside a tuple.
+            # Pass standalone media items as bare entries so ST routes through
+            # custom_st's _encode_single_image; for the multimodal models we target,
+            # that path handles pure-image input correctly.
+            encode_inputs.append(item)
 
     n_tokens = _count_tokens(text_parts) if text_parts else len(items)
 
