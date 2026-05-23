@@ -235,7 +235,7 @@
         "accelerate": "==1.2.1",
         "einops": "==0.8.1",
         "huggingface_hub": ">=0.34.0",
-        "numpy": "==1.26.4",
+        "numpy": ">=2.0.0,<2.3.0",
         "torchvision": "==0.20.1"
       }
     },
