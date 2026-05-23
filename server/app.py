@@ -677,7 +677,14 @@ def load_model():
     if MODEL is not None and hasattr(MODEL, "encode"):
         try:
             import inspect as _inspect
-            MODEL_ACCEPTS_TASK_KWARG = "task" in _inspect.signature(MODEL.encode).parameters
+            _sig = _inspect.signature(MODEL.encode)
+            _params = _sig.parameters
+            _has_var_kw = any(p.kind == _inspect.Parameter.VAR_KEYWORD for p in _params.values())
+            # ST 3.4+ exposes encode(..., **kwargs) and routes them to module forward()
+            # filtered by each module's declared kwargs list (custom_st.Transformer for
+            # v3 / code-embeddings declares ["task"], so passing task= is required for
+            # LoRA adapter routing). ST 2.7 has no **kwargs and rejects unknown kwargs.
+            MODEL_ACCEPTS_TASK_KWARG = "task" in _params or _has_var_kw
         except (ValueError, TypeError):
             MODEL_ACCEPTS_TASK_KWARG = False
         logger.info(f"MODEL.encode() accepts task= kwarg: {MODEL_ACCEPTS_TASK_KWARG}")
