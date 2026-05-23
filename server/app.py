@@ -425,16 +425,35 @@ def _count_tokens(texts: list) -> int:
     return sum(len(t.split()) for t in texts)
 
 
-def _resolve_task(task: str) -> str:
-    """Adapt task name to what the loaded model actually supports.
+def _resolve_task(task: str) -> tuple[str, str]:
+    """Return (resolved_task, prompt_name) for the loaded model.
 
-    v5 models accept: retrieval, text-matching, classification, clustering.
-    v3 models accept: retrieval.query, retrieval.passage, separation,
-                      classification, text-matching.
+    The API-level task string carries two pieces of information that
+    different model families consume in different ways:
 
-    API endpoints use fine-grained names (retrieval.query, retrieval.passage)
-    from schema mapping. This function adapts them per model.
+    1. The .query / .passage suffix picks the prompt prefix that
+       SentenceTransformer prepends for v5-omni models (mapped via
+       ``config_sentence_transformers.json -> prompts``) and selects the
+       right LoRA adapter for v4 / code-embeddings (passed straight through
+       as ``task=`` to ``custom_st.Transformer.forward``).
+    2. The base task (retrieval, text-matching, classification, ...) picks
+       the broader behavior the model supports.
+
+    Returns:
+        resolved_task: passed via ``encode(task=...)`` or assigned on
+            ``default_task``. For v4 / code-embeddings the suffix is
+            preserved so LoRA adapter routing fires. For v5 (omni and text)
+            the suffix is collapsed because their custom encode only accepts
+            the bare base task; the suffix is forwarded via ``prompt_name``
+            for omni models.
+        prompt_name: ``"query"`` for ``*.query`` and ``"document"`` for
+            everything else (``.passage``, bare ``retrieval``,
+            ``text-matching``, ``classification``, ``clustering``). Matches
+            the modeling code's default of ``"document"``. Consumed only by
+            omni models in ``_embed`` / ``_embed_mixed``.
     """
+    prompt_name = "query" if task.endswith(".query") else "document"
+
     short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
     is_v3 = "v3" in short_id and "v5" not in short_id
     is_v5 = "v5" in short_id
@@ -449,8 +468,12 @@ def _resolve_task(task: str) -> str:
             "clustering": "text-matching",
             "separation": "separation",
         }
-        return v3_map.get(task, "retrieval.passage")
-    elif is_v5:
+        return v3_map.get(task, "retrieval.passage"), prompt_name
+    if is_v5:
+        # v5-omni custom encode only accepts the bare base task; the
+        # .query / .passage suffix flows separately via prompt_name. v5-text
+        # also collapses; prompt_name is unused there (no prompts map in
+        # config_sentence_transformers.json).
         v5_map = {
             "retrieval": "retrieval",
             "retrieval.query": "retrieval",
@@ -459,12 +482,14 @@ def _resolve_task(task: str) -> str:
             "classification": "classification",
             "clustering": "clustering",
         }
-        return v5_map.get(task, "retrieval")
-    else:
-        # Older models: strip sub-task
-        if task.startswith("retrieval"):
-            return "retrieval"
-        return task
+        return v5_map.get(task, "retrieval"), prompt_name
+    # v4, code-embeddings, and any other LoRA-routed family: keep the
+    # ``retrieval.query`` / ``retrieval.passage`` suffix so the correct LoRA
+    # adapter loads inside custom_st.Transformer.forward. v1 / v2 plain
+    # models don't advertise task= via MODEL_ACCEPTS_TASK_KWARG, so this
+    # string is never forwarded to their encode() and the suffix is
+    # harmless.
+    return task, prompt_name
 
 
 def _embed(inputs: list, task: str = "retrieval", dimensions: Optional[int] = None):
@@ -477,7 +502,7 @@ def _embed(inputs: list, task: str = "retrieval", dimensions: Optional[int] = No
             detail=f"Model '{MODEL_ID}' is a VLM. Use POST /v1/chat/completions instead.",
         )
 
-    task = _resolve_task(task)
+    task, prompt_name = _resolve_task(task)
     n_tokens = _count_tokens(inputs)
     t0 = time.perf_counter()
     with torch.inference_mode(), _encode_autocast_ctx():
@@ -495,6 +520,11 @@ def _embed(inputs: list, task: str = "retrieval", dimensions: Optional[int] = No
                 if hasattr(mod, 'default_task'):
                     mod.default_task = task
                     break
+            # Omni models apply the prompt prefix ("Query: " / "Document: ") via ST's
+            # prompts mapping. Without prompt_name, the prefix is silently skipped and
+            # last-token pooling on the LLaMA/Qwen text tower diverges sharply from
+            # prod (cos ~0.16 on nano).
+            encode_kwargs["prompt_name"] = prompt_name
         elif MODEL_ACCEPTS_TASK_KWARG:
             encode_kwargs["task"] = task
         embeddings = MODEL.encode(
@@ -532,7 +562,7 @@ def _embed_mixed(items: list, task: str = "retrieval", dimensions: Optional[int]
             detail=f"Model '{MODEL_ID}' is a VLM. Use POST /v1/chat/completions instead.",
         )
 
-    task = _resolve_task(task)
+    task, prompt_name = _resolve_task(task)
 
     encode_inputs = []
     text_parts = []
@@ -571,6 +601,12 @@ def _embed_mixed(items: list, task: str = "retrieval", dimensions: Optional[int]
                 if hasattr(mod, 'default_task'):
                     mod.default_task = task
                     break
+            # Only forward prompt_name when every encode input is a string: ST
+            # prepends ``prompts[prompt_name]`` to each input verbatim and would
+            # raise on PIL.Image / BytesIO / fused tuple items. Pure-multimodal
+            # calls keep working via the model's internal default.
+            if all(isinstance(x, str) for x in encode_inputs):
+                encode_kwargs["prompt_name"] = prompt_name
         elif MODEL_ACCEPTS_TASK_KWARG:
             encode_kwargs["task"] = task
         embeddings = MODEL.encode(
