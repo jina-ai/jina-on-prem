@@ -64,18 +64,6 @@ try:
 except Exception:
     pass
 
-# region agent log
-import json as _agent_json_dbg, os as _agent_os_dbg, time as _agent_time_dbg
-def _agent_dbg(msg, data=None, hyp=None):
-    try:
-        path = _agent_os_dbg.environ.get("AGENT_DBG_LOG", "/var/debug/clip-v2.log")
-        rec = {"sessionId": "1a8ada", "timestamp": int(_agent_time_dbg.time()*1000),
-               "location": "server/app.py", "message": msg, "data": data or {},
-               "hypothesisId": hyp, "runId": "preload-investigation"}
-        with open(path, "a") as f: f.write(_agent_json_dbg.dumps(rec) + "\n")
-    except Exception: pass
-# endregion
-
 # Boost matmul precision: uses TF32 on Ampere/Ada/Hopper GPUs, ~1.2x faster on L4
 torch.set_float32_matmul_precision('high')
 from fastapi import FastAPI, HTTPException, Path as FPath
@@ -604,49 +592,21 @@ def load_model():
         MODEL_INFO = {"model": model_id, "type": "reranker"}
         logger.info(f"Loaded as CrossEncoder (reranker): {model_id}")
     else:
-        # region agent log
-        try:
-            from sentence_transformers import SentenceTransformer
-            # Omni models need default_task set at load time because their custom_st.py
-            # forward() receives task from SentenceTransformer internals, and st 3.4.1
-            # doesn't pass task= through to forward(). Setting default_task ensures the
-            # model always has a valid task.
-            # region agent log
-            try:
-                import sentence_transformers as _st_mod_dbg
-                _agent_dbg("preload context", {
-                    "MODEL_ID": MODEL_ID, "model_id_arg": model_id,
-                    "st_version": getattr(_st_mod_dbg, "__version__", "?"),
-                    "is_omni_model": _is_omni_model(),
-                    "device": DEVICE,
-                }, hyp="H1")
-            except Exception as _e:
-                _agent_dbg("preload context err", {"err": repr(_e)}, hyp="H1")
-            # endregion
-            st_kwargs = {}
-            # v5-omni models pass model_kwargs={"default_task": ...} to their underlying
-            # transformer; other multimodal models (clip-v1/v2, v4, reranker-m0, vlm)
-            # use older custom_st code that forwards model_kwargs straight to the model
-            # ctor, which rejects unknown kwargs.
-            _short = model_id.split("/")[-1]
-            if _short in {"jina-embeddings-v5-omni-small", "jina-embeddings-v5-omni-nano"}:
-                st_kwargs["model_kwargs"] = {"default_task": "retrieval"}
-            # region agent log
-            _agent_dbg("about to call SentenceTransformer", {"st_kwargs": st_kwargs}, hyp="H1")
-            # endregion
-            MODEL = SentenceTransformer(model_id, trust_remote_code=True, device=DEVICE, **st_kwargs)
-            # region agent log
-            _agent_dbg("SentenceTransformer constructed OK", {"type": type(MODEL).__name__}, hyp="H1")
-            # endregion
-            MODEL_INFO = {"model": model_id, "type": "embedding"}
-        except BaseException as _e:
-            import traceback as _tb_dbg
-            _agent_dbg("MODEL load EXCEPTION", {
-                "exc_type": type(_e).__name__, "exc_str": str(_e),
-                "traceback": _tb_dbg.format_exc(),
-            }, hyp="H1")
-            raise
-        # endregion
+        from sentence_transformers import SentenceTransformer
+        # Omni models need default_task set at load time because their custom_st.py
+        # forward() receives task from SentenceTransformer internals, and st 3.4.1
+        # doesn't pass task= through to forward(). Setting default_task ensures the
+        # model always has a valid task.
+        st_kwargs = {}
+        # v5-omni models pass model_kwargs={"default_task": ...} to their underlying
+        # transformer; other multimodal models (clip-v1/v2, v4, reranker-m0, vlm)
+        # use older custom_st code that forwards model_kwargs straight to the model
+        # ctor, which rejects unknown kwargs.
+        _short = model_id.split("/")[-1]
+        if _short in {"jina-embeddings-v5-omni-small", "jina-embeddings-v5-omni-nano"}:
+            st_kwargs["model_kwargs"] = {"default_task": "retrieval"}
+        MODEL = SentenceTransformer(model_id, trust_remote_code=True, device=DEVICE, **st_kwargs)
+        MODEL_INFO = {"model": model_id, "type": "embedding"}
 
     try:
         from transformers import AutoTokenizer

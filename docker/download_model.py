@@ -139,37 +139,4 @@ for req_file in glob.glob("/model_cache/**/**/requirements.txt", recursive=True)
 with open("/model_cache/MODEL_ID", "w") as f:
     f.write(model_id)
 
-# region agent log
-import hashlib as _h_dbg
-import os as _o_dbg
-import json as _j_dbg
-_dbg_path = "/model_cache/build-debug.log"
-def _dbg(msg, data=None, hyp=None):
-    rec = {"sessionId": "1a8ada", "timestamp": 0, "location": "download_model.py",
-           "message": msg, "data": data or {}, "hypothesisId": hyp,
-           "runId": "preload-investigation"}
-    with open(_dbg_path, "a") as f:
-        f.write(_j_dbg.dumps(rec) + "\n")
-
-# H3 + H4: cache contents
-cache_root = "/model_cache/hub"
-if _o_dbg.path.isdir(cache_root):
-    repos = sorted(_o_dbg.listdir(cache_root))
-else:
-    repos = []
-_dbg("hub cache repos", {"count": len(repos), "names": repos}, hyp="H3,H4")
-
-# H2: list custom_st.py files and sha256
-import glob as _g_dbg
-custom_sts = sorted(_g_dbg.glob("/model_cache/**/custom_st.py", recursive=True))
-hashes = {}
-for p in custom_sts:
-    with open(p, "rb") as f:
-        hashes[p] = _h_dbg.sha256(f.read()).hexdigest()[:12]
-_dbg("post-patch custom_st files", {"count": len(custom_sts), "hashes": hashes}, hyp="H2")
-
-# also dump the model_id we built for, for sanity
-_dbg("build summary", {"model_id": model_id}, hyp="H1,H2,H3,H4")
-# endregion
-
 print("Done.")
