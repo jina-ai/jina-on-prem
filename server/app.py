@@ -114,6 +114,9 @@ MODEL = None
 TOKENIZER = None
 PROCESSOR = None  # VLM processor (AutoProcessor); None for embedding/reranker models
 MODEL_INFO = {}
+# True if MODEL.encode() accepts a `task` kwarg (v3/v4/v5/code-embeddings/clip have
+# custom_st.py that defines it; v1/v2 use stock SentenceTransformer.encode which does not).
+MODEL_ACCEPTS_TASK_KWARG = False
 
 # --- Throughput stats (thread-safe) ---
 _stats_lock = threading.Lock()
@@ -469,14 +472,15 @@ def _embed(inputs: list, task: str = "retrieval", dimensions: Optional[int] = No
         }
         # Omni models: set default_task on the module before encode instead of passing
         # task= kwarg (st 3.4.1 doesn't forward it to the module's forward()).
-        # Text models (v3/v5-text): their custom_st.py encode() accepts task= directly.
+        # Task-aware text models (v3/v4/v5-text/code-embeddings): their custom_st.py
+        # encode() accepts task= directly. Plain models (v1/v2) use stock ST encode
+        # which rejects unknown kwargs.
         if _is_omni_model():
-            # Set default_task on the first module (the custom_st Transformer module)
             for mod in MODEL.modules():
                 if hasattr(mod, 'default_task'):
                     mod.default_task = task
                     break
-        else:
+        elif MODEL_ACCEPTS_TASK_KWARG:
             encode_kwargs["task"] = task
         embeddings = MODEL.encode(
             inputs,
@@ -553,7 +557,7 @@ def _embed_mixed(items: list, task: str = "retrieval", dimensions: Optional[int]
                 if hasattr(mod, 'default_task'):
                     mod.default_task = task
                     break
-        else:
+        elif MODEL_ACCEPTS_TASK_KWARG:
             encode_kwargs["task"] = task
         embeddings = MODEL.encode(
             encode_inputs,
@@ -596,7 +600,7 @@ def _is_reranker_model() -> bool:
 
 
 def load_model():
-    global MODEL, TOKENIZER, PROCESSOR, MODEL_INFO
+    global MODEL, TOKENIZER, PROCESSOR, MODEL_INFO, MODEL_ACCEPTS_TASK_KWARG
 
     model_id = MODEL_ID
     if not model_id:
@@ -655,6 +659,14 @@ def load_model():
             st_kwargs["model_kwargs"] = {"default_task": "retrieval"}
         MODEL = SentenceTransformer(model_id, trust_remote_code=True, device=DEVICE, **st_kwargs)
         MODEL_INFO = {"model": model_id, "type": "embedding"}
+
+    if MODEL is not None and hasattr(MODEL, "encode"):
+        try:
+            import inspect as _inspect
+            MODEL_ACCEPTS_TASK_KWARG = "task" in _inspect.signature(MODEL.encode).parameters
+        except (ValueError, TypeError):
+            MODEL_ACCEPTS_TASK_KWARG = False
+        logger.info(f"MODEL.encode() accepts task= kwarg: {MODEL_ACCEPTS_TASK_KWARG}")
 
     try:
         from transformers import AutoTokenizer
