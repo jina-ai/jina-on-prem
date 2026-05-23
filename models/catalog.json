@@ -947,6 +947,7 @@
         "fine-tuning"
       ],
       "api_endpoint": "/v1/embeddings",
+      "gpu_dtype": "float32",
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
