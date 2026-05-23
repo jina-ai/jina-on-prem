@@ -585,7 +585,10 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.20.1"
-      }
+      },
+      "extra_repos": [
+        "jinaai/xlm-roberta-flash-implementation"
+      ]
     },
     {
       "id": "jina-colbert-v2",
