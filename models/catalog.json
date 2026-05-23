@@ -491,6 +491,11 @@
     {
       "id": "jina-clip-v2",
       "hf_repo": "jinaai/jina-clip-v2",
+      "extra_repos": [
+        "jinaai/jina-clip-implementation",
+        "jinaai/jina-embeddings-v3",
+        "jinaai/xlm-roberta-flash-implementation"
+      ],
       "type": "embedding",
       "family": "clip",
       "parameters": "865M",

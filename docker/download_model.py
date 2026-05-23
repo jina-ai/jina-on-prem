@@ -27,6 +27,20 @@ snapshot_download(
 
 print(f"Downloaded {model_id} to /model_cache")
 
+# Fetch auxiliary code/weight repos required for offline model load.
+# Driven by `extra_repos` field in models/catalog.json, passed via EXTRA_REPOS env var
+# (comma-separated). For multi-encoder models (clip-v2, clip-v1, v4 etc.) the main HF
+# snapshot does not cover the dynamically referenced implementation repos.
+_extra_repos_raw = os.environ.get("EXTRA_REPOS", "")
+for _repo in (r.strip() for r in _extra_repos_raw.split(",") if r.strip()):
+    print(f"Downloading extra repo: {_repo}")
+    snapshot_download(
+        _repo,
+        token=token,
+        ignore_patterns=["*.ot", "*.msgpack", "flax_model*", "tf_model*", "rust_model*"],
+    )
+    print(f"  cached {_repo}")
+
 # Pre-load with SentenceTransformer to cache dynamic modules
 # This ensures trust_remote_code modules are in the HF cache for offline use
 try:

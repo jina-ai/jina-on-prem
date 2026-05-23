@@ -338,6 +338,7 @@ def cmd_bundle(args):
         "--build-arg", f"MODEL_ID={model['hf_repo']}",
         "-t", image_tag,
     ]
+    build_args += ["--build-arg", f"EXTRA_REPOS={','.join(model.get('extra_repos', []))}"]
     if args.hf_token:
         build_args += ["--build-arg", f"HF_TOKEN={args.hf_token}"]
     build_args.append(str(SCRIPT_DIR))
