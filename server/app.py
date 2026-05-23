@@ -709,16 +709,29 @@ def load_model():
         else:
             logger.info(f"Running in FP32 (JINA_DTYPE={dtype_env})")
 
-        # torch.compile: fuses ops, ~10-30% additional speedup
+        # torch.compile: fuses ops, ~10-30% additional speedup. xlm-roberta-flash
+        # models (jina-embeddings-v3 family, jina-clip-* text tower) mutate an
+        # internal rotary _cos_cached tensor inside the forward pass; CUDA
+        # Graphs (reduce-overhead) sees it as constant and raises "accessing
+        # tensor output of CUDAGraphs that has been overwritten by a subsequent
+        # run" the first time the captured-shape changes (e.g. different task
+        # prompt length). Detect xlm-roberta-flash and skip compile for those.
         try:
             first_module = MODEL._first_module()
             if hasattr(first_module, "auto_model"):
-                first_module.auto_model = torch.compile(
-                    first_module.auto_model,
-                    mode="reduce-overhead",
-                    fullgraph=False,
+                _auto = first_module.auto_model
+                _is_flash_rotary = "xlm-roberta-flash-implementation" in (
+                    getattr(type(_auto), "__module__", "") or ""
                 )
-                logger.info("torch.compile(reduce-overhead) applied to encoder")
+                if _is_flash_rotary:
+                    logger.info("torch.compile skipped: xlm-roberta-flash rotary cache is incompatible with CUDA Graphs")
+                else:
+                    first_module.auto_model = torch.compile(
+                        _auto,
+                        mode="reduce-overhead",
+                        fullgraph=False,
+                    )
+                    logger.info("torch.compile(reduce-overhead) applied to encoder")
         except Exception as e:
             logger.warning(f"torch.compile skipped: {e}")
 
