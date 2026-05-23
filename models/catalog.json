@@ -408,7 +408,7 @@
         "sentence-transformers": "==3.4.1",
         "torch": "==2.5.1",
         "einops": "==0.8.1",
-        "peft": "==0.14.0",
+        "peft": "==0.15.2",
         "accelerate": "==1.2.1",
         "huggingface_hub": ">=0.34.0",
         "numpy": ">=2.0.0,<2.3.0",
