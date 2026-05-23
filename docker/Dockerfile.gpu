@@ -8,7 +8,7 @@
 
 ARG MODEL_ID=jinaai/jina-embeddings-v5-text-nano
 ARG HF_TOKEN=""
-ARG TORCH_BASE=pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime
+ARG TORCH_BASE=pytorch/pytorch:2.5.1-cuda12.1-cudnn9-devel
 
 # ---------------------------------------------------------------------------
 # Stage 1: Download model weights and pre-cache dynamic modules
@@ -72,18 +72,7 @@ RUN grep -v '^\s*#' /tmp/model-requirements.txt | grep -v '^\s*$' | \
 # Install flash-attn if listed in requirements
 RUN if grep -qi '^flash-attn' /tmp/model-requirements.txt; then \
         FLASH_VER=$(grep -i '^flash-attn' /tmp/model-requirements.txt | head -1 | sed 's/flash-attn//') && \
-        CUDA_VER=$(nvcc --version 2>/dev/null | grep -oP 'V\K[0-9]+\.[0-9]+' || echo '') && \
-        if [ -z "$CUDA_VER" ]; then \
-            CUDA_MAJOR=$(ls /usr/local/cuda/lib64/libcudart.so.* 2>/dev/null | head -1 | grep -oP '\d+\.\d+' || echo '12.4') && \
-            CUDA_PKG="cuda-nvcc-$(echo $CUDA_MAJOR | tr '.' '-')" ; \
-        else \
-            CUDA_PKG="cuda-nvcc-$(echo $CUDA_VER | tr '.' '-')" ; \
-        fi && \
-        echo "Installing $CUDA_PKG for flash-attn compilation" && \
-        apt-get update && apt-get install -y --no-install-recommends $CUDA_PKG && \
-        pip install --no-cache-dir "flash-attn${FLASH_VER}" --no-build-isolation && \
-        apt-get remove -y $CUDA_PKG && apt-get autoremove -y && \
-        rm -rf /var/lib/apt/lists/*; \
+        pip install --no-cache-dir "flash-attn${FLASH_VER}" --no-build-isolation; \
     else \
         echo "flash-attn not required for this model"; \
     fi
