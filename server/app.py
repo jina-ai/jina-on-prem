@@ -203,10 +203,16 @@ def _is_v5_omni_text_model() -> bool:
 def _default_task() -> str:
     """Default task when the caller omits ``task`` from the request.
 
-    Matches prod ``/v1/embeddings`` behaviour: omni and v4 default to
-    ``text-matching`` (the prompt-context-free task), everything else to
-    ``retrieval``. Without this alignment, no-task local vs prod cos sits
-    around 0.70 instead of >0.99.
+    Matches prod ``/v1/embeddings`` behaviour (probed against api.jina.ai):
+
+      - omni-nano, omni-small, v4 -> ``text-matching`` (prod no-task ==
+        prod task=text-matching at cos 1.0000 / 0.9998 / 0.9998).
+      - code-embeddings (0.5b / 1.5b) -> ``nl2code.query`` (prod no-task
+        == prod task=nl2code.query at cos 1.0000).
+      - everything else -> ``retrieval`` (back-compat for v3 / v1 / v2 / b-en-v1).
+
+    Without this alignment, no-task local vs prod cos for the affected
+    families sits at 0.70 – 0.90 instead of >0.99.
     """
     short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
     if short_id in {
@@ -215,6 +221,8 @@ def _default_task() -> str:
         "jina-embeddings-v4",
     }:
         return "text-matching"
+    if "code-embeddings" in short_id:
+        return "nl2code.query"
     return "retrieval"
 
 
@@ -234,22 +242,32 @@ def _map_prompt_name(task: str, prompts: Optional[dict]) -> Optional[str]:
       - ``{base}.query`` -> first hit of ``{base}_query``, ``query``
       - ``{base}.passage`` -> first hit of ``{base}_document``, ``document``,
         ``passage``
-      - no suffix -> None (model uses its built-in default, which is no prefix
-        when ``default_prompt_name`` is null)
+      - no suffix (bare task like ``text-matching``, ``classification``,
+        ``retrieval``): prod uses each model's own canonical encode default,
+        which differs by family — v5-omni's ``JinaEmbeddingsV5OmniModel.encode``
+        defaults ``prompt_name="document"`` (prepends ``"Document: "``);
+        v4's ``JinaEmbeddingsV4Model.encode`` defaults to ``"query"``
+        (prepends ``"Query: "``). We mirror that fallback when the model
+        prompts dict has the matching key. Code-embeddings has neither key,
+        return None.
     """
     if not prompts or not task:
         return None
     base, _, suffix = task.partition(".")
-    if not suffix:
-        return None
     if suffix == "query":
         for cand in (f"{base}_query", "query"):
             if cand in prompts:
                 return cand
-    elif suffix == "passage":
+        return None
+    if suffix == "passage":
         for cand in (f"{base}_document", "document", "passage"):
             if cand in prompts:
                 return cand
+        return None
+    if "document" in prompts:
+        return "document"
+    if "query" in prompts:
+        return "query"
     return None
 
 
