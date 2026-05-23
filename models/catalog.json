@@ -229,13 +229,13 @@
       "api_endpoint": "/v1/chat/completions",
       "paper": "https://arxiv.org/abs/2512.04032",
       "deps": {
-        "transformers": "==4.48.3",
+        "transformers": "==4.57.0",
         "torch": "==2.5.1",
         "Pillow": "==10.4.0",
         "accelerate": "==1.2.1",
-        "huggingface_hub": "==0.27.1",
+        "einops": "==0.8.1",
+        "huggingface_hub": ">=0.34.0",
         "numpy": "==1.26.4",
-        "flash-attn": "==2.7.3",
         "torchvision": "==0.20.1"
       }
     },
