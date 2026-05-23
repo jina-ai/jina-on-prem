@@ -623,7 +623,12 @@ def load_model():
                 _agent_dbg("preload context err", {"err": repr(_e)}, hyp="H1")
             # endregion
             st_kwargs = {}
-            if _is_omni_model():
+            # v5-omni models pass model_kwargs={"default_task": ...} to their underlying
+            # transformer; other multimodal models (clip-v1/v2, v4, reranker-m0, vlm)
+            # use older custom_st code that forwards model_kwargs straight to the model
+            # ctor, which rejects unknown kwargs.
+            _short = model_id.split("/")[-1]
+            if _short in {"jina-embeddings-v5-omni-small", "jina-embeddings-v5-omni-nano"}:
                 st_kwargs["model_kwargs"] = {"default_task": "retrieval"}
             # region agent log
             _agent_dbg("about to call SentenceTransformer", {"st_kwargs": st_kwargs}, hyp="H1")
