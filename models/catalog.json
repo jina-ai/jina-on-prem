@@ -100,9 +100,6 @@
         "huggingface_hub": ">=0.34.0",
         "numpy": "==1.26.4",
         "Pillow": "==10.4.0",
-        "librosa": "==0.10.2",
-        "av": "==12.3.0",
-        "flash-attn": "==2.7.3",
         "torchvision": "==0.20.1"
       }
     },
