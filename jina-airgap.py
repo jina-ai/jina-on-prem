@@ -341,6 +341,10 @@ def cmd_bundle(args):
     build_args += ["--build-arg", f"EXTRA_REPOS={','.join(model.get('extra_repos', []))}"]
     if args.hf_token:
         build_args += ["--build-arg", f"HF_TOKEN={args.hf_token}"]
+    # GPU dtype override per model — some architectures (jina-bert ALiBi: v1/v2-base)
+    # overflow to NaN under fp16. Defaults to float16 in the Dockerfile if absent.
+    if not args.cpu_only and model.get("gpu_dtype"):
+        build_args += ["--build-arg", f"DTYPE={model['gpu_dtype']}"]
     build_args.append(str(SCRIPT_DIR))
 
     err(f"  {DIM}Running: DOCKER_BUILDKIT=1 docker build ... -t {image_tag}{RESET}")

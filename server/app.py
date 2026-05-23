@@ -102,6 +102,22 @@ torch.set_num_interop_threads(max(1, _n_cpu_threads // 2))
 if DEVICE == "cuda":
     torch.backends.cudnn.benchmark = True
 
+
+def _encode_autocast_ctx():
+    """Autocast context for embedding/reranker encode().
+
+    Honours JINA_DTYPE: float32 → no autocast (some models — notably jinaai/jina-bert
+    variants with ALiBi — produce NaN under fp16 due to attention-score overflow).
+    """
+    if DEVICE != "cuda":
+        return nullcontext()
+    _dtype = os.environ.get("JINA_DTYPE", "float16").lower()
+    if _dtype in ("float16", "fp16", "half"):
+        return torch.autocast("cuda", dtype=torch.float16)
+    if _dtype in ("bfloat16", "bf16"):
+        return torch.autocast("cuda", dtype=torch.bfloat16)
+    return nullcontext()
+
 app = FastAPI(
     title="Jina AI Air-Gapped Server",
     version="4.0.0",
@@ -464,8 +480,7 @@ def _embed(inputs: list, task: str = "retrieval", dimensions: Optional[int] = No
     task = _resolve_task(task)
     n_tokens = _count_tokens(inputs)
     t0 = time.perf_counter()
-    ctx = torch.autocast("cuda", dtype=torch.float16) if DEVICE == "cuda" else torch.inference_mode()
-    with torch.inference_mode(), ctx:
+    with torch.inference_mode(), _encode_autocast_ctx():
         encode_kwargs = {
             "convert_to_numpy": True,
             "normalize_embeddings": True,
@@ -546,8 +561,7 @@ def _embed_mixed(items: list, task: str = "retrieval", dimensions: Optional[int]
     n_tokens = _count_tokens(text_parts) if text_parts else len(items)
 
     t0 = time.perf_counter()
-    ctx = torch.autocast("cuda", dtype=torch.float16) if DEVICE == "cuda" else torch.inference_mode()
-    with torch.inference_mode(), ctx:
+    with torch.inference_mode(), _encode_autocast_ctx():
         encode_kwargs = {
             "convert_to_numpy": True,
             "normalize_embeddings": True,
