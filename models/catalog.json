@@ -980,6 +980,7 @@
       ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2310.19923",
+      "gpu_dtype": "float32",
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
