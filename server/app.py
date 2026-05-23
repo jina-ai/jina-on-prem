@@ -20,6 +20,7 @@ import sys
 import time
 import logging
 import threading
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, Optional, Union
 
@@ -111,6 +112,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 # --- Global model holder ---
 MODEL = None
 TOKENIZER = None
+PROCESSOR = None  # VLM processor (AutoProcessor); None for embedding/reranker models
 MODEL_INFO = {}
 
 # --- Throughput stats (thread-safe) ---
@@ -132,6 +134,12 @@ MULTIMODAL_MODEL_IDS = {
     "jina-clip-v2",
     "jina-clip-v1",
     "jina-reranker-m0",
+    "jina-vlm",
+}
+
+# VLM (vision-language) models served via /v1/chat/completions.
+# These bypass SentenceTransformer and load AutoProcessor + AutoModelForCausalLM directly.
+VLM_MODEL_IDS = {
     "jina-vlm",
 }
 
@@ -159,6 +167,12 @@ def _is_omni_model() -> bool:
     """True if the loaded model supports multimodal (image/audio/video) inputs."""
     short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
     return short_id in MULTIMODAL_MODEL_IDS
+
+
+def _is_vlm_model() -> bool:
+    """True if the loaded model is a vision-language model served via /v1/chat/completions."""
+    short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
+    return short_id in VLM_MODEL_IDS
 
 
 def _require_omni():
@@ -438,6 +452,11 @@ def _embed(inputs: list, task: str = "retrieval", dimensions: Optional[int] = No
     """Text-only embedding. Returns (embeddings_np, n_tokens, tok_per_s)."""
     if MODEL is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
+    if _is_vlm_model():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model '{MODEL_ID}' is a VLM. Use POST /v1/chat/completions instead.",
+        )
 
     task = _resolve_task(task)
     n_tokens = _count_tokens(inputs)
@@ -488,6 +507,11 @@ def _embed_mixed(items: list, task: str = "retrieval", dimensions: Optional[int]
     """
     if MODEL is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
+    if _is_vlm_model():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model '{MODEL_ID}' is a VLM. Use POST /v1/chat/completions instead.",
+        )
 
     task = _resolve_task(task)
 
@@ -572,7 +596,7 @@ def _is_reranker_model() -> bool:
 
 
 def load_model():
-    global MODEL, TOKENIZER, MODEL_INFO
+    global MODEL, TOKENIZER, PROCESSOR, MODEL_INFO
 
     model_id = MODEL_ID
     if not model_id:
@@ -580,7 +604,31 @@ def load_model():
 
     logger.info(f"Loading model: {model_id}")
 
-    if _is_reranker_model():
+    if _is_vlm_model():
+        from transformers import AutoProcessor, AutoModelForCausalLM
+        # VLM target dtype: fp16 on cuda (no bf16 native on L4), fp32 on cpu/mps
+        if DEVICE == "cuda":
+            dtype_env = os.environ.get("JINA_DTYPE", "float16").lower()
+            vlm_dtype = torch.bfloat16 if dtype_env in ("bfloat16", "bf16") else torch.float16
+        else:
+            vlm_dtype = torch.float32
+        # Flash-attn is intentionally not installed (no nvcc/git in runtime image);
+        # sdpa is the supported fallback and matches HF's documented CPU/non-fa path.
+        PROCESSOR = AutoProcessor.from_pretrained(model_id, trust_remote_code=True, use_fast=False)
+        MODEL = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            trust_remote_code=True,
+            torch_dtype=vlm_dtype,
+            low_cpu_mem_usage=True,
+            device_map=DEVICE if DEVICE != "mps" else None,
+            attn_implementation="sdpa",
+        )
+        if DEVICE == "mps":
+            MODEL = MODEL.to(DEVICE)
+        MODEL.eval()
+        MODEL_INFO = {"model": model_id, "type": "vlm"}
+        logger.info(f"Loaded as VLM (AutoModelForCausalLM): {model_id} dtype={vlm_dtype}")
+    elif _is_reranker_model():
         from sentence_transformers import CrossEncoder
         MODEL = CrossEncoder(model_id, trust_remote_code=True, device=DEVICE)
         # Set pad_token if missing (qwen3-based rerankers need this for batched inference)
@@ -615,8 +663,9 @@ def load_model():
     except Exception as e:
         logger.warning(f"Could not load tokenizer ({e}), will use word-split approximation")
 
-    # --- Apply dtype optimization (GPU only) ---
-    if DEVICE == "cuda" and not _is_reranker_model():
+    # --- Apply dtype optimization (GPU only, embedding/reranker models) ---
+    # VLM dtype is set at load_pretrained time; skip the ST-style .half() / torch.compile path.
+    if DEVICE == "cuda" and not _is_reranker_model() and not _is_vlm_model():
         dtype_env = os.environ.get("JINA_DTYPE", "float16").lower()
         if dtype_env in ("float16", "fp16", "half"):
             MODEL.half()
@@ -1113,6 +1162,181 @@ async def rerank(request: RerankRequest):
         "model": MODEL_ID,
         "results": results,
         "meta": {"elapsed_ms": round(elapsed * 1000, 1)},
+    }
+
+
+# =============================================================================
+# Schema 6: OpenAI Chat Completions (POST /v1/chat/completions)
+#
+# For VLM / reader models. Supports OpenAI message format with optional images:
+#   messages = [{"role": "user", "content": "hello"}]                          (text-only)
+#   messages = [{"role": "user", "content": [                                  (vision)
+#       {"type": "text", "text": "What is in this image?"},
+#       {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}},
+#   ]}]
+# =============================================================================
+
+class ChatCompletionRequest(BaseModel):
+    model: Optional[str] = None
+    messages: list
+    max_tokens: Optional[int] = 256
+    temperature: Optional[float] = 0.0
+    top_p: Optional[float] = 1.0
+    stream: Optional[bool] = False
+
+
+def _openai_msg_to_vlm_content(msg: dict) -> tuple:
+    """Convert one OpenAI-style message to (role, content_parts, images).
+
+    content_parts: list of {"type": "text"|"image", ...} for processor.apply_chat_template
+    images: list of PIL.Image for processor(images=...)
+    """
+    role = msg.get("role", "user")
+    content = msg.get("content", "")
+    parts = []
+    images = []
+    if isinstance(content, str):
+        parts.append({"type": "text", "text": content})
+    elif isinstance(content, list):
+        for p in content:
+            if not isinstance(p, dict):
+                continue
+            t = p.get("type", "")
+            if t == "text":
+                parts.append({"type": "text", "text": p.get("text", "")})
+            elif t == "image_url":
+                url = p.get("image_url", {})
+                if isinstance(url, dict):
+                    url = url.get("url", "")
+                if not isinstance(url, str):
+                    raise HTTPException(status_code=400, detail="image_url.url must be a string")
+                if url.startswith("data:"):
+                    raw, mime = _decode_b64(url)
+                    img = _bytes_to_st_input(raw, mime)
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="image_url.url must be a base64 data URL (offline server cannot fetch http(s) URLs)",
+                    )
+                parts.append({"type": "image", "image": img})
+                images.append(img)
+            elif t == "image":
+                # Elastic-style {"type":"image","format":"base64","value":"..."}
+                if p.get("format") == "base64":
+                    raw, mime = _decode_b64(p.get("value", ""))
+                    img = _bytes_to_st_input(raw, mime)
+                    parts.append({"type": "image", "image": img})
+                    images.append(img)
+                else:
+                    raise HTTPException(status_code=400, detail="image part requires format=base64")
+            else:
+                raise HTTPException(status_code=400, detail=f"Unsupported content part type: {t!r}")
+    else:
+        raise HTTPException(status_code=400, detail="message.content must be a string or list of parts")
+    return role, parts, images
+
+
+@app.post("/v1/chat/completions", tags=["OpenAI Chat"])
+async def chat_completions(request: ChatCompletionRequest):
+    """OpenAI-compatible chat completions endpoint (VLM / reader models)."""
+    if MODEL is None or PROCESSOR is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Chat completions endpoint requires a VLM model (jina-vlm). Loaded model: "
+                   f"{MODEL_ID}",
+        )
+    if request.stream:
+        raise HTTPException(status_code=400, detail="stream=true is not supported in this build")
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="messages must be a non-empty list")
+
+    conversation = []
+    all_images = []
+    for msg in request.messages:
+        if not isinstance(msg, dict):
+            raise HTTPException(status_code=400, detail="each message must be a dict")
+        role, parts, imgs = _openai_msg_to_vlm_content(msg)
+        conversation.append({"role": role, "content": parts})
+        all_images.extend(imgs)
+
+    max_sequence_length = getattr(MODEL.config, "max_sequence_length", 32768)
+
+    t0 = time.perf_counter()
+    # apply_chat_template returns the templated string for ONE conversation when given a single list
+    texts = PROCESSOR.apply_chat_template([conversation], add_generation_prompt=True)
+    proc_inputs = PROCESSOR(
+        text=texts,
+        images=[all_images] if all_images else None,
+        padding="longest",
+        max_length=max_sequence_length,
+        return_tensors="pt",
+    )
+
+    device_inputs = {}
+    dtype = next(MODEL.parameters()).dtype
+    for k, v in proc_inputs.items():
+        if k == "labels":
+            continue
+        if isinstance(v, torch.Tensor):
+            if v.is_floating_point():
+                device_inputs[k] = v.to(DEVICE, dtype=dtype, non_blocking=True)
+            else:
+                device_inputs[k] = v.to(DEVICE, non_blocking=True)
+        else:
+            device_inputs[k] = v
+
+    from transformers import GenerationConfig
+    gen_config = GenerationConfig(
+        max_new_tokens=request.max_tokens or 256,
+        do_sample=(request.temperature is not None and request.temperature > 0.0),
+        temperature=request.temperature if (request.temperature and request.temperature > 0.0) else None,
+        top_p=request.top_p,
+    )
+
+    autocast_ctx = (
+        torch.autocast(DEVICE, dtype=dtype)
+        if DEVICE in ("cuda",) and dtype != torch.float32
+        else nullcontext()
+    )
+    with torch.inference_mode(), autocast_ctx:
+        output = MODEL.generate(
+            **device_inputs,
+            generation_config=gen_config,
+            return_dict_in_generate=True,
+            use_model_defaults=True,
+        )
+
+    input_ids = device_inputs["input_ids"]
+    input_len = input_ids.shape[1]
+    out_tokens = output.sequences[0][input_len:]
+    n_completion_tokens = int(out_tokens.shape[0])
+    response_text = PROCESSOR.tokenizer.decode(out_tokens, skip_special_tokens=True)
+    elapsed = time.perf_counter() - t0
+
+    prompt_tokens = int(input_len)
+    _update_stats(n_completion_tokens, elapsed)
+    logger.info(
+        f"Chat: prompt={prompt_tokens} tok | gen={n_completion_tokens} tok | "
+        f"{elapsed*1000:.0f}ms | images={len(all_images)}"
+    )
+
+    return {
+        "id": f"chatcmpl-{int(time.time()*1000)}",
+        "object": "chat.completion",
+        "created": int(time.time()),
+        "model": MODEL_ID,
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": response_text},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": n_completion_tokens,
+            "total_tokens": prompt_tokens + n_completion_tokens,
+        },
     }
 
 
