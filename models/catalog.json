@@ -882,7 +882,7 @@
       "api_endpoint": "/v1/rerank",
       "deps": {
         "transformers": "==4.48.3",
-        "sentence-transformers": "==3.4.1",
+        "sentence-transformers": "==5.3.0",
         "torch": "==2.5.1",
         "einops": "==0.8.0",
         "peft": "==0.14.0",
@@ -890,8 +890,12 @@
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "torchvision": "==0.20.1"
-      }
+        "torchvision": "==0.20.1",
+        "pylate": "==1.4.0"
+      },
+      "extra_repos": [
+        "jinaai/jina-bert-implementation"
+      ]
     },
     {
       "id": "jina-embeddings-v2-base-es",

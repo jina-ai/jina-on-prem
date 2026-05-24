@@ -743,10 +743,20 @@ RERANKER_MODEL_IDS = {
     "jina-colbert-v1-en",
 }
 
+COLBERT_MODEL_IDS = {
+    "jina-colbert-v1-en",
+    "jina-colbert-v2",
+}
+
 
 def _is_reranker_model() -> bool:
     short = MODEL_ID.split("/")[-1] if MODEL_ID else ""
     return any(r in short for r in RERANKER_MODEL_IDS)
+
+
+def _is_colbert_model() -> bool:
+    short = MODEL_ID.split("/")[-1] if MODEL_ID else ""
+    return short in COLBERT_MODEL_IDS
 
 
 def load_model():
@@ -782,6 +792,17 @@ def load_model():
         MODEL.eval()
         MODEL_INFO = {"model": model_id, "type": "vlm"}
         logger.info(f"Loaded as VLM (AutoModelForCausalLM): {model_id} dtype={vlm_dtype}")
+    elif _is_colbert_model():
+        from pylate import models as pylate_models
+        # PyLate wraps sentence-transformers and handles ColBERT-specific Q/D
+        # markers, query expansion, and the 128-dim projection head.
+        MODEL = pylate_models.ColBERT(
+            model_name_or_path=model_id,
+            trust_remote_code=True,
+            device=DEVICE,
+        )
+        MODEL_INFO = {"model": model_id, "type": "colbert"}
+        logger.info(f"Loaded as pylate ColBERT (late-interaction): {model_id}")
     elif _is_reranker_model():
         from sentence_transformers import CrossEncoder
         MODEL = CrossEncoder(model_id, trust_remote_code=True, device=DEVICE)
@@ -1326,17 +1347,49 @@ async def rerank(request: RerankRequest):
 
     t0 = time.perf_counter()
     with torch.inference_mode():
-        pairs = [[request.query, doc] for doc in docs]
-        try:
-            # convert_to_tensor=True keeps the model's native dtype (e.g. bf16 for
-            # jina-reranker-v2-base-multilingual); cast to fp32 before numpy because
-            # numpy has no bf16 dtype.
-            scores = MODEL.predict(pairs, convert_to_numpy=False, convert_to_tensor=True)
-        except AttributeError:
-            raise HTTPException(status_code=400, detail="Loaded model does not support reranking")
-        if hasattr(scores, "float"):
-            scores = scores.float().detach().cpu().numpy()
+        if _is_colbert_model():
+            # ColBERT late-interaction: encode query and docs as token-level
+            # multi-vectors and score via MaxSim. pylate.rank.rerank takes a
+            # nested-by-query layout, so wrap our single query in a 1-element
+            # outer list and pop the result back out.
+            from pylate import rank as pylate_rank
+            queries_emb = MODEL.encode([request.query], is_query=True, convert_to_tensor=True)
+            docs_emb = MODEL.encode([docs], is_query=False, convert_to_tensor=True)
+            reranked = pylate_rank.rerank(
+                documents_ids=[list(range(len(docs)))],
+                queries_embeddings=queries_emb,
+                documents_embeddings=docs_emb,
+            )
+            colbert_results = reranked[0]
+        else:
+            pairs = [[request.query, doc] for doc in docs]
+            try:
+                # convert_to_tensor=True keeps the model's native dtype (e.g. bf16 for
+                # jina-reranker-v2-base-multilingual); cast to fp32 before numpy because
+                # numpy has no bf16 dtype.
+                scores = MODEL.predict(pairs, convert_to_numpy=False, convert_to_tensor=True)
+            except AttributeError:
+                raise HTTPException(status_code=400, detail="Loaded model does not support reranking")
+            if hasattr(scores, "float"):
+                scores = scores.float().detach().cpu().numpy()
     elapsed = time.perf_counter() - t0
+
+    if _is_colbert_model():
+        results = [
+            {
+                "index": int(item["id"]),
+                "relevance_score": float(item["score"]),
+                "document": {"text": docs[int(item["id"])]} if request.return_documents else None,
+            }
+            for item in colbert_results
+        ]
+        if request.top_n:
+            results = results[: request.top_n]
+        return {
+            "model": MODEL_ID,
+            "results": results,
+            "meta": {"elapsed_ms": round(elapsed * 1000, 1)},
+        }
 
     results = [
         {"index": i, "relevance_score": float(s), "document": {"text": docs[i]} if request.return_documents else None}
