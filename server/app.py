@@ -1350,15 +1350,20 @@ async def rerank(request: RerankRequest):
         if _is_colbert_model():
             # ColBERT late-interaction: encode query and docs as token-level
             # multi-vectors and score via MaxSim. pylate.rank.rerank takes a
-            # nested-by-query layout, so wrap our single query in a 1-element
-            # outer list and pop the result back out.
+            # nested-by-query layout (one inner list per query); since we have
+            # one query we pass a 1-element outer list and pop result[0] back
+            # out. NOTE: encode() with a nested-list documents arg internally
+            # torch.stack()s per-doc embeddings without padding and crashes on
+            # variable-length docs (jina-colbert returns (n_tokens, 128) per
+            # doc, n_tokens varies). So encode docs as a flat list and wrap the
+            # returned list-of-tensors for rerank.
             from pylate import rank as pylate_rank
             queries_emb = MODEL.encode([request.query], is_query=True, convert_to_tensor=True)
-            docs_emb = MODEL.encode([docs], is_query=False, convert_to_tensor=True)
+            docs_emb_flat = MODEL.encode(docs, is_query=False, convert_to_tensor=True)
             reranked = pylate_rank.rerank(
                 documents_ids=[list(range(len(docs)))],
                 queries_embeddings=queries_emb,
-                documents_embeddings=docs_emb,
+                documents_embeddings=[docs_emb_flat],
             )
             colbert_results = reranked[0]
         else:
