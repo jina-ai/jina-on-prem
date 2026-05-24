@@ -77,6 +77,25 @@ RUN grep -v '^\s*#' /tmp/model-requirements.txt | grep -v '^\s*$' | \
     grep -iv '^torch' | grep -iv '^flash-attn' | \
     xargs --no-run-if-empty pip install --no-cache-dir
 
+# Sync torchvision when a transitive dep bumps torch off the base image.
+# Base: torch 2.5.1 + torchvision 0.20.1 (cu121). When e.g. pylate 1.5 pulls
+# torch 2.9.x via fast-plaid, torchvision must be re-installed in lockstep
+# or torchvision::nms registration fails at import. Conservative: only act
+# when installed torch differs from the 2.5.x base AND the catalog pins a
+# torchvision version (existing models hit the skip branch — no regression).
+RUN INSTALLED_TORCH=$(python -c 'import torch; print(torch.__version__.split("+")[0])') && \
+    case "$INSTALLED_TORCH" in \
+        2.5.*) echo "torch matches base ($INSTALLED_TORCH); torchvision sync skipped" ;; \
+        *) \
+            TV_VER=$(grep -i '^torchvision==' /tmp/model-requirements.txt | head -1 | sed 's/torchvision//'); \
+            if [ -n "$TV_VER" ]; then \
+                echo "torch bumped from base 2.5.1 to $INSTALLED_TORCH; syncing torchvision${TV_VER}" && \
+                pip install --no-cache-dir "torchvision${TV_VER}"; \
+            else \
+                echo "WARN: torch bumped to $INSTALLED_TORCH but catalog has no torchvision pin"; \
+            fi ;; \
+    esac
+
 # Install flash-attn if listed in requirements
 RUN if grep -qi '^flash-attn' /tmp/model-requirements.txt; then \
         FLASH_VER=$(grep -i '^flash-attn' /tmp/model-requirements.txt | head -1 | sed 's/flash-attn//') && \
