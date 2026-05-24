@@ -1328,9 +1328,14 @@ async def rerank(request: RerankRequest):
     with torch.inference_mode():
         pairs = [[request.query, doc] for doc in docs]
         try:
-            scores = MODEL.predict(pairs)
+            # convert_to_tensor=True keeps the model's native dtype (e.g. bf16 for
+            # jina-reranker-v2-base-multilingual); cast to fp32 before numpy because
+            # numpy has no bf16 dtype.
+            scores = MODEL.predict(pairs, convert_to_numpy=False, convert_to_tensor=True)
         except AttributeError:
             raise HTTPException(status_code=400, detail="Loaded model does not support reranking")
+        if hasattr(scores, "float"):
+            scores = scores.float().detach().cpu().numpy()
     elapsed = time.perf_counter() - t0
 
     results = [
