@@ -96,8 +96,12 @@ RUN INSTALLED_TORCH=$(python -c 'import torch; print(torch.__version__.split("+"
             fi ;; \
     esac
 
-# Install flash-attn if listed in requirements
-RUN if grep -qi '^flash-attn' /tmp/model-requirements.txt; then \
+# Install flash-attn if listed in requirements. Prefer prebuilt wheel from
+# the upstream releases page when version matches our torch/python/cuda combo.
+RUN if grep -qi '^flash-attn==2.7.3' /tmp/model-requirements.txt; then \
+        pip install --no-cache-dir https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.3/flash_attn-2.7.3+cu12torch2.5cxx11abiFALSE-cp311-cp311-linux_x86_64.whl ; \
+    elif grep -qi '^flash-attn' /tmp/model-requirements.txt; then \
+        apt-get update && apt-get install -y --no-install-recommends git && \
         FLASH_VER=$(grep -i '^flash-attn' /tmp/model-requirements.txt | head -1 | sed 's/flash-attn//') && \
         pip install --no-cache-dir "flash-attn${FLASH_VER}" --no-build-isolation; \
     else \
