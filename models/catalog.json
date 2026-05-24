@@ -891,7 +891,7 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.20.1",
-        "pylate": "==1.4.0"
+        "pylate": "==1.5.0"
       },
       "extra_repos": [
         "jinaai/jina-bert-implementation"
