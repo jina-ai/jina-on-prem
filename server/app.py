@@ -759,6 +759,17 @@ def _is_colbert_model() -> bool:
     return short in COLBERT_MODEL_IDS
 
 
+def _is_reranker_v3() -> bool:
+    """jina-reranker-v3 is a Qwen3-based listwise reranker with a custom
+    JinaForRanking class (auto_map.AutoModel -> modeling.JinaForRanking) that
+    exposes its own ``.rerank(query, documents)``. It is NOT a
+    sentence-transformers CrossEncoder, so it needs a dedicated load + rerank
+    branch separate from the generic reranker path.
+    """
+    short = MODEL_ID.split("/")[-1] if MODEL_ID else ""
+    return short == "jina-reranker-v3"
+
+
 def load_model():
     global MODEL, TOKENIZER, PROCESSOR, MODEL_INFO, MODEL_ACCEPTS_TASK_KWARG
 
@@ -803,6 +814,22 @@ def load_model():
         )
         MODEL_INFO = {"model": model_id, "type": "colbert"}
         logger.info(f"Loaded as pylate ColBERT (late-interaction): {model_id}")
+    elif _is_reranker_v3():
+        from transformers import AutoModel
+        # jina-reranker-v3: AutoModel + trust_remote_code loads the custom
+        # JinaForRanking (Qwen3ForCausalLM subclass with a 1024->512->256 MLP
+        # projector). Native dtype is bf16; keep it on cuda, use fp32 on cpu
+        # because generic x86_64 has no bf16 SIMD.
+        v3_dtype = torch.bfloat16 if DEVICE == "cuda" else torch.float32
+        MODEL = AutoModel.from_pretrained(
+            model_id,
+            trust_remote_code=True,
+            torch_dtype=v3_dtype,
+            low_cpu_mem_usage=True,
+        )
+        MODEL = MODEL.to(DEVICE).eval()
+        MODEL_INFO = {"model": model_id, "type": "reranker"}
+        logger.info(f"Loaded as JinaForRanking (reranker-v3): {model_id} dtype={v3_dtype}")
     elif _is_reranker_model():
         from sentence_transformers import CrossEncoder
         MODEL = CrossEncoder(model_id, trust_remote_code=True, device=DEVICE)
@@ -1366,6 +1393,11 @@ async def rerank(request: RerankRequest):
                 documents_embeddings=[docs_emb_flat],
             )
             colbert_results = reranked[0]
+        elif _is_reranker_v3():
+            # jina-reranker-v3 ships its own block-wise listwise .rerank() that
+            # already returns docs sorted by relevance_score descending, with
+            # top_n applied. No need for a manual sort pass.
+            v3_results = MODEL.rerank(request.query, docs, top_n=request.top_n)
         else:
             pairs = [[request.query, doc] for doc in docs]
             try:
@@ -1390,6 +1422,21 @@ async def rerank(request: RerankRequest):
         ]
         if request.top_n:
             results = results[: request.top_n]
+        return {
+            "model": MODEL_ID,
+            "results": results,
+            "meta": {"elapsed_ms": round(elapsed * 1000, 1)},
+        }
+
+    if _is_reranker_v3():
+        results = [
+            {
+                "index": int(item["index"]),
+                "relevance_score": float(item["relevance_score"]),
+                "document": {"text": docs[int(item["index"])]} if request.return_documents else None,
+            }
+            for item in v3_results
+        ]
         return {
             "model": MODEL_ID,
             "results": results,
