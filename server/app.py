@@ -1666,12 +1666,18 @@ async def chat_completions(request: ChatCompletionRequest):
         if DEVICE in ("cuda",) and dtype != torch.float32
         else nullcontext()
     )
+    generate_kwargs = {
+        "generation_config": gen_config,
+        "return_dict_in_generate": True,
+    }
+    # use_model_defaults was added in transformers >=4.51; reader-lm pins 4.48.3.
+    if not _is_text_chat_model():
+        generate_kwargs["use_model_defaults"] = True
+
     with torch.inference_mode(), autocast_ctx:
         output = MODEL.generate(
             **device_inputs,
-            generation_config=gen_config,
-            return_dict_in_generate=True,
-            use_model_defaults=True,
+            **generate_kwargs,
         )
 
     input_ids = device_inputs["input_ids"]
