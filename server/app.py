@@ -166,6 +166,7 @@ VLM_MODEL_IDS = {
 # AutoProcessor — load AutoTokenizer + AutoModelForCausalLM directly.
 TEXT_CHAT_MODEL_IDS = {
     "reader-lm-0.5b",
+    "reader-lm-1.5b",
 }
 
 MAX_MEDIA_BYTES = 10 * 1024 * 1024  # 10 MB per input
