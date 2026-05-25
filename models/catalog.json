@@ -475,7 +475,7 @@
       "api_endpoint": "/v1/chat/completions",
       "paper": "https://arxiv.org/abs/2503.01151",
       "deps": {
-        "transformers": "==4.44.2",
+        "transformers": "==4.48.3",
         "sentence-transformers": "==2.7.0",
         "torch": "==2.4.1",
         "huggingface_hub": "==0.27.1",
