@@ -162,6 +162,12 @@ VLM_MODEL_IDS = {
     "jina-vlm",
 }
 
+# Text-only chat models served via /v1/chat/completions. No vision tower, no
+# AutoProcessor — load AutoTokenizer + AutoModelForCausalLM directly.
+TEXT_CHAT_MODEL_IDS = {
+    "reader-lm-0.5b",
+}
+
 MAX_MEDIA_BYTES = 10 * 1024 * 1024  # 10 MB per input
 
 IMAGE_MIMES = {
@@ -275,6 +281,17 @@ def _is_vlm_model() -> bool:
     """True if the loaded model is a vision-language model served via /v1/chat/completions."""
     short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
     return short_id in VLM_MODEL_IDS
+
+
+def _is_text_chat_model() -> bool:
+    """True if the loaded model is a text-only chat/reader model served via /v1/chat/completions."""
+    short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
+    return short_id in TEXT_CHAT_MODEL_IDS
+
+
+def _is_chat_model() -> bool:
+    """True for any model served via /v1/chat/completions (VLM or text-only chat)."""
+    return _is_vlm_model() or _is_text_chat_model()
 
 
 def _require_omni():
@@ -594,10 +611,10 @@ def _embed(inputs: list, task: Optional[str] = None, dimensions: Optional[int] =
     """Text-only embedding. Returns (embeddings_np, n_tokens, tok_per_s)."""
     if MODEL is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
-    if _is_vlm_model():
+    if _is_chat_model():
         raise HTTPException(
             status_code=400,
-            detail=f"Model '{MODEL_ID}' is a VLM. Use POST /v1/chat/completions instead.",
+            detail=f"Model '{MODEL_ID}' is a chat model. Use POST /v1/chat/completions instead.",
         )
 
     task, prompt_name = _resolve_task(task)
@@ -656,10 +673,10 @@ def _embed_mixed(items: list, task: Optional[str] = None, dimensions: Optional[i
     """
     if MODEL is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
-    if _is_vlm_model():
+    if _is_chat_model():
         raise HTTPException(
             status_code=400,
-            detail=f"Model '{MODEL_ID}' is a VLM. Use POST /v1/chat/completions instead.",
+            detail=f"Model '{MODEL_ID}' is a chat model. Use POST /v1/chat/completions instead.",
         )
 
     task, prompt_name = _resolve_task(task)
@@ -803,6 +820,28 @@ def load_model():
         MODEL.eval()
         MODEL_INFO = {"model": model_id, "type": "vlm"}
         logger.info(f"Loaded as VLM (AutoModelForCausalLM): {model_id} dtype={vlm_dtype}")
+    elif _is_text_chat_model():
+        from transformers import AutoTokenizer, AutoModelForCausalLM
+        # Text-only chat target dtype: fp16 on cuda (no bf16 native on L4), fp32 on cpu/mps.
+        if DEVICE == "cuda":
+            dtype_env = os.environ.get("JINA_DTYPE", "float16").lower()
+            chat_dtype = torch.bfloat16 if dtype_env in ("bfloat16", "bf16") else torch.float16
+        else:
+            chat_dtype = torch.float32
+        TOKENIZER = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+        MODEL = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            trust_remote_code=True,
+            torch_dtype=chat_dtype,
+            low_cpu_mem_usage=True,
+            device_map=DEVICE if DEVICE != "mps" else None,
+            attn_implementation="sdpa",
+        )
+        if DEVICE == "mps":
+            MODEL = MODEL.to(DEVICE)
+        MODEL.eval()
+        MODEL_INFO = {"model": model_id, "type": "chat"}
+        logger.info(f"Loaded as text chat (AutoModelForCausalLM): {model_id} dtype={chat_dtype}")
     elif _is_colbert_model():
         from pylate import models as pylate_models
         # PyLate wraps sentence-transformers and handles ColBERT-specific Q/D
@@ -881,8 +920,9 @@ def load_model():
         logger.warning(f"Could not load tokenizer ({e}), will use word-split approximation")
 
     # --- Apply dtype optimization (GPU only, embedding/reranker models) ---
-    # VLM dtype is set at load_pretrained time; skip the ST-style .half() / torch.compile path.
-    if DEVICE == "cuda" and not _is_reranker_model() and not _is_vlm_model():
+    # VLM / text-chat dtype is set at load_pretrained time; skip the ST-style
+    # .half() / torch.compile path for those.
+    if DEVICE == "cuda" and not _is_reranker_model() and not _is_chat_model():
         dtype_env = os.environ.get("JINA_DTYPE", "float16").lower()
         if dtype_env in ("float16", "fp16", "half"):
             MODEL.half()
@@ -1532,11 +1572,11 @@ def _openai_msg_to_vlm_content(msg: dict) -> tuple:
 
 @app.post("/v1/chat/completions", tags=["OpenAI Chat"])
 async def chat_completions(request: ChatCompletionRequest):
-    """OpenAI-compatible chat completions endpoint (VLM / reader models)."""
-    if MODEL is None or PROCESSOR is None:
+    """OpenAI-compatible chat completions endpoint (VLM / text-chat / reader models)."""
+    if MODEL is None or (PROCESSOR is None and not _is_text_chat_model()):
         raise HTTPException(
             status_code=503,
-            detail="Chat completions endpoint requires a VLM model (jina-vlm). Loaded model: "
+            detail="Chat completions endpoint requires a chat/VLM model. Loaded model: "
                    f"{MODEL_ID}",
         )
     if request.stream:
@@ -1550,21 +1590,55 @@ async def chat_completions(request: ChatCompletionRequest):
         if not isinstance(msg, dict):
             raise HTTPException(status_code=400, detail="each message must be a dict")
         role, parts, imgs = _openai_msg_to_vlm_content(msg)
+        if imgs and _is_text_chat_model():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Model '{MODEL_ID}' is text-only and does not accept image inputs.",
+            )
         conversation.append({"role": role, "content": parts})
         all_images.extend(imgs)
 
-    max_sequence_length = getattr(MODEL.config, "max_sequence_length", 32768)
+    max_sequence_length = (
+        getattr(MODEL.config, "max_sequence_length", None)
+        or getattr(MODEL.config, "max_position_embeddings", None)
+        or 32768
+    )
 
     t0 = time.perf_counter()
-    # apply_chat_template returns the templated string for ONE conversation when given a single list
-    texts = PROCESSOR.apply_chat_template([conversation], add_generation_prompt=True)
-    proc_inputs = PROCESSOR(
-        text=texts,
-        images=[all_images] if all_images else None,
-        padding="longest",
-        max_length=max_sequence_length,
-        return_tensors="pt",
-    )
+    if _is_text_chat_model():
+        # Text-only path: AutoTokenizer's apply_chat_template only needs role+text.
+        text_messages = [
+            {
+                "role": m["role"],
+                "content": "".join(
+                    p.get("text", "") for p in m["content"] if p.get("type") == "text"
+                ),
+            }
+            for m in conversation
+        ]
+        templated = TOKENIZER.apply_chat_template(
+            text_messages,
+            add_generation_prompt=True,
+            tokenize=False,
+        )
+        proc_inputs = TOKENIZER(
+            templated,
+            return_tensors="pt",
+            truncation=True,
+            max_length=max_sequence_length,
+        )
+        decoder_tokenizer = TOKENIZER
+    else:
+        # apply_chat_template returns the templated string for ONE conversation when given a single list
+        texts = PROCESSOR.apply_chat_template([conversation], add_generation_prompt=True)
+        proc_inputs = PROCESSOR(
+            text=texts,
+            images=[all_images] if all_images else None,
+            padding="longest",
+            max_length=max_sequence_length,
+            return_tensors="pt",
+        )
+        decoder_tokenizer = PROCESSOR.tokenizer
 
     device_inputs = {}
     dtype = next(MODEL.parameters()).dtype
@@ -1604,7 +1678,7 @@ async def chat_completions(request: ChatCompletionRequest):
     input_len = input_ids.shape[1]
     out_tokens = output.sequences[0][input_len:]
     n_completion_tokens = int(out_tokens.shape[0])
-    response_text = PROCESSOR.tokenizer.decode(out_tokens, skip_special_tokens=True)
+    response_text = decoder_tokenizer.decode(out_tokens, skip_special_tokens=True)
     elapsed = time.perf_counter() - t0
 
     prompt_tokens = int(input_len)
