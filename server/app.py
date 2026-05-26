@@ -266,6 +266,14 @@ def _map_prompt_name(task: str, prompts: Optional[dict]) -> Optional[str]:
     """
     if not prompts or not task:
         return None
+    # v3 keys its prompts dict by the task name itself (e.g.
+    # ``"retrieval.passage": "Represent the document for retrieval: "``) rather
+    # than the standard ST ``query``/``passage`` keys. Try the literal task
+    # first; for other families this is a no-op because their task names — e.g.
+    # ``"retrieval.passage"`` for v4, ``"nl2code.query"`` for code-embeddings —
+    # are not present as prompts keys, so the suffix logic below still applies.
+    if task in prompts:
+        return task
     base, _, suffix = task.partition(".")
     if suffix == "query":
         for cand in (f"{base}_query", "query"):
@@ -532,7 +540,7 @@ def _count_tokens(texts: list) -> int:
     return sum(len(t.split()) for t in texts)
 
 
-def _resolve_task(task: Optional[str]) -> tuple[str, Optional[str]]:
+def _resolve_task(task: Optional[str]) -> tuple[Optional[str], Optional[str]]:
     """Return (task_for_encode, prompt_name) for the loaded model.
 
     The API-level task string carries two pieces of info that different model
@@ -557,22 +565,33 @@ def _resolve_task(task: Optional[str]) -> tuple[str, Optional[str]]:
             ``.query``/``.passage`` form). For v3 the suffix is preserved
             because v3's task vocabulary IS ``retrieval.query`` /
             ``retrieval.passage``. For v5 the suffix is collapsed because
-            v5's custom encode only accepts the bare base task.
+            v5's custom encode only accepts the bare base task. ``None``
+            signals "do not pass ``task=`` to encode" — currently only used
+            by v3 + no-task to match prod's raw-base behaviour.
         prompt_name: passed via ``encode(prompt_name=...)`` when set, ``None``
             otherwise. Mapped from the suffix against the model's actual
             prompts dict, so we never pass an unknown key (which would raise
             ``ValueError: Prompt name 'X' not found...``).
     """
+    short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
+    is_v3 = "v3" in short_id and "v5" not in short_id
+    is_v5 = "v5" in short_id
+    is_v4 = short_id == "jina-embeddings-v4"
+
+    # v3 no-task: prod runs the raw base xlm-roberta with no LoRA and no
+    # prefix when ``task`` is omitted (verified against api.jina.ai —
+    # prod_no_task vs prod_task=retrieval.passage cos≈0.63). Skip the
+    # generic _default_task() fallback so we mirror that behaviour;
+    # otherwise the default ``retrieval`` would route into v3_map below and
+    # encode with the retrieval LoRA + "Represent the document..." prefix.
+    if is_v3 and not task:
+        return None, None
+
     if not task:
         task = _default_task()
 
     prompts = getattr(MODEL, "prompts", None) if MODEL is not None else None
     prompt_name = _map_prompt_name(task, prompts)
-
-    short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
-    is_v3 = "v3" in short_id and "v5" not in short_id
-    is_v5 = "v5" in short_id
-    is_v4 = short_id == "jina-embeddings-v4"
 
     if is_v3:
         v3_map = {
@@ -584,7 +603,13 @@ def _resolve_task(task: Optional[str]) -> tuple[str, Optional[str]]:
             "clustering": "text-matching",
             "separation": "separation",
         }
-        return v3_map.get(task, "retrieval.passage"), prompt_name
+        mapped_task = v3_map.get(task, "retrieval.passage")
+        # Re-resolve prompt against the MAPPED task because v3's prompts are
+        # keyed by task name. Without this, the suffix-less ``retrieval``
+        # alias would skip the prompt lookup and encode without v3's
+        # required ``"Represent the document for retrieval: "`` prefix —
+        # previously observed as cos≈0.92 vs prod for retrieval.passage.
+        return mapped_task, _map_prompt_name(mapped_task, prompts)
     if is_v5:
         # v5 (omni and text): custom encode only accepts the bare base task.
         # For omni the .query/.passage suffix is forwarded via prompt_name
@@ -643,6 +668,8 @@ def _embed(inputs: list, task: Optional[str] = None, dimensions: Optional[int] =
         #            (ST doesn't forward task= to its forward()).
         #   v3/v4/code-embeddings (ST 3.4+ with **kwargs): pass via task=.
         #   v1/v2 (older ST): MODEL_ACCEPTS_TASK_KWARG is False, skip task=.
+        #   task=None (v3 + no-task): skip the kwarg so MODEL.encode falls
+        #            through to its native "no task" path (raw base, no LoRA).
         # Prompt routing (always when the model exposes a matching prompts entry):
         #   v5-omni: "Query: "/"Document: " prefix; without prompt_name, last-token
         #            pooling on the LLaMA/Qwen text tower drifts (cos ~0.16 on nano).
@@ -653,7 +680,7 @@ def _embed(inputs: list, task: Optional[str] = None, dimensions: Optional[int] =
                 if hasattr(mod, 'default_task'):
                     mod.default_task = task
                     break
-        elif MODEL_ACCEPTS_TASK_KWARG:
+        elif MODEL_ACCEPTS_TASK_KWARG and task is not None:
             encode_kwargs["task"] = task
         if prompt_name is not None:
             encode_kwargs["prompt_name"] = prompt_name
@@ -737,7 +764,7 @@ def _embed_mixed(items: list, task: Optional[str] = None, dimensions: Optional[i
                 if hasattr(mod, 'default_task'):
                     mod.default_task = task
                     break
-        elif MODEL_ACCEPTS_TASK_KWARG:
+        elif MODEL_ACCEPTS_TASK_KWARG and task is not None:
             encode_kwargs["task"] = task
         # Only forward prompt_name when every encode input is a string: ST
         # prepends ``prompts[prompt_name]`` to each input verbatim and would
