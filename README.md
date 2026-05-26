@@ -50,11 +50,28 @@ Need a builder machine? [`scripts/bootstrap-gcp.sh`](scripts/bootstrap-gcp.sh) p
 No repo, no scripts, no Python. Just Docker.
 
 ```bash
-docker load < jina-MODEL.tar.gz
+docker load < MODEL.tar.gz
 docker run -p 8080:8080 jina/MODEL:cpu                           # CPU
 docker run --gpus all -p 8080:8080 jina/MODEL:gpu                # GPU
 curl http://localhost:8080/health
 ```
+
+Or via docker compose:
+
+```bash
+MODEL=jina-embeddings-v5-text-nano RUNTIME=cpu docker compose up -d
+# for embed + rerank side-by-side:
+docker compose -f docker-compose.multi.yml up -d
+```
+
+### Python client
+
+```bash
+uv pip install openai requests
+python examples/python_client.py
+```
+
+Drops in via OpenAI SDK with `base_url="http://your-host:8080/v1"`.
 
 ## Models
 

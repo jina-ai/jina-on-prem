@@ -9,12 +9,14 @@
 - [Customer Scenarios](Customer-Scenarios)
 - [Picking a Model](Picking-A-Model)
 - [Sizing & Hardware](Sizing-And-Hardware)
+- [Comparison vs alternatives](Comparison)
 
 ### Deploy
 
 - [Bundling Guide](Bundling-Guide)
 - [API Reference](API-Reference)
 - [Architecture](Architecture)
+- [Versioning & Updates](Versioning-And-Updates)
 
 ### Reference
 

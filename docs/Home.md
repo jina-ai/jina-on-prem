@@ -42,9 +42,11 @@ That's the whole product. The connected machine has internet to fetch model weig
 | You are... | Start here |
 |---|---|
 | An SA/sales engineer evaluating jina-airgap for a customer | [Why Air-Gap](Why-Airgap), then [Customer Scenarios](Customer-Scenarios) |
+| Comparing this against Ollama / vLLM / ONNX / hosted API | [Comparison vs alternatives](Comparison) |
 | A field engineer deploying at a customer site | [Quick Start](Quick-Start), then [Sizing & Hardware](Sizing-And-Hardware) |
 | A developer integrating the API | [API Reference](API-Reference) |
 | Building a new bundle from scratch | [Bundling Guide](Bundling-Guide) |
+| Rolling out a new model version | [Versioning & Updates](Versioning-And-Updates) |
 | Hitting an error | [Troubleshooting](Troubleshooting), [FAQ](FAQ) |
 
 ## License note

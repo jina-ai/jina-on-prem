@@ -76,6 +76,10 @@ logger = logging.getLogger(__name__)
 
 # --- Config from env ---
 MODEL_ID = os.environ.get("JINA_MODEL_ID", "")
+# Short form used in API responses (matches catalog id, what users typed in `model` field).
+# MODEL_ID stays as the full HF path because it's the on-disk model directory under
+# the HF cache, used by from_pretrained() during load_model().
+SHORT_MODEL_ID = MODEL_ID.split("/")[-1] if MODEL_ID else ""
 if os.environ.get("JINA_OFFLINE", "0") == "1":
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
@@ -303,7 +307,7 @@ def _require_omni():
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Model '{MODEL_ID}' is text-only and does not accept image/audio/video inputs. "
+                f"Model '{SHORT_MODEL_ID}' is text-only and does not accept image/audio/video inputs. "
                 f"Use one of: {sorted(MULTIMODAL_MODEL_IDS)}"
             ),
         )
@@ -617,7 +621,13 @@ def _embed(inputs: list, task: Optional[str] = None, dimensions: Optional[int] =
     if _is_chat_model():
         raise HTTPException(
             status_code=400,
-            detail=f"Model '{MODEL_ID}' is a chat model. Use POST /v1/chat/completions instead.",
+            detail=f"Model '{SHORT_MODEL_ID}' is a chat model. Use POST /v1/chat/completions instead.",
+        )
+    if _is_reranker_model() or _is_colbert_model():
+        kind = "ColBERT (late-interaction)" if _is_colbert_model() else "reranker"
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model '{SHORT_MODEL_ID}' is a {kind} model. Use POST /v1/rerank instead.",
         )
 
     task, prompt_name = _resolve_task(task)
@@ -679,7 +689,13 @@ def _embed_mixed(items: list, task: Optional[str] = None, dimensions: Optional[i
     if _is_chat_model():
         raise HTTPException(
             status_code=400,
-            detail=f"Model '{MODEL_ID}' is a chat model. Use POST /v1/chat/completions instead.",
+            detail=f"Model '{SHORT_MODEL_ID}' is a chat model. Use POST /v1/chat/completions instead.",
+        )
+    if _is_reranker_model() or _is_colbert_model():
+        kind = "ColBERT (late-interaction)" if _is_colbert_model() else "reranker"
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model '{SHORT_MODEL_ID}' is a {kind} model. Use POST /v1/rerank instead.",
         )
 
     task, prompt_name = _resolve_task(task)
@@ -988,7 +1004,7 @@ async def health():
 
     resp = {
         "status": "ok",
-        "model": MODEL_ID,
+        "model": SHORT_MODEL_ID,
         "device": DEVICE,
         "ready": MODEL is not None,
         "multimodal": _is_omni_model(),
@@ -1084,7 +1100,7 @@ async def create_embeddings_openai(request: OpenAIEmbeddingRequest):
 
     return OpenAIEmbeddingResponse(
         data=data,
-        model=MODEL_ID,
+        model=SHORT_MODEL_ID,
         usage={
             "prompt_tokens": n_tokens,
             "total_tokens": n_tokens,
@@ -1242,7 +1258,7 @@ async def create_multimodal_embeddings_voyage(request: VoyageMultimodalRequest):
         "text_tokens": n_tokens,
         "image_pixels": 0,  # not tracked
         "total_tokens": n_tokens,
-        "model": MODEL_ID,
+        "model": SHORT_MODEL_ID,
     }
 
 
@@ -1466,7 +1482,7 @@ async def rerank(request: RerankRequest):
         if request.top_n:
             results = results[: request.top_n]
         return {
-            "model": MODEL_ID,
+            "model": SHORT_MODEL_ID,
             "results": results,
             "meta": {"elapsed_ms": round(elapsed * 1000, 1)},
         }
@@ -1481,7 +1497,7 @@ async def rerank(request: RerankRequest):
             for item in v3_results
         ]
         return {
-            "model": MODEL_ID,
+            "model": SHORT_MODEL_ID,
             "results": results,
             "meta": {"elapsed_ms": round(elapsed * 1000, 1)},
         }
@@ -1496,7 +1512,7 @@ async def rerank(request: RerankRequest):
         results = results[:request.top_n]
 
     return {
-        "model": MODEL_ID,
+        "model": SHORT_MODEL_ID,
         "results": results,
         "meta": {"elapsed_ms": round(elapsed * 1000, 1)},
     }
@@ -1596,7 +1612,7 @@ async def chat_completions(request: ChatCompletionRequest):
         if imgs and _is_text_chat_model():
             raise HTTPException(
                 status_code=400,
-                detail=f"Model '{MODEL_ID}' is text-only and does not accept image inputs.",
+                detail=f"Model '{SHORT_MODEL_ID}' is text-only and does not accept image inputs.",
             )
         conversation.append({"role": role, "content": parts})
         all_images.extend(imgs)
@@ -1701,7 +1717,7 @@ async def chat_completions(request: ChatCompletionRequest):
         "id": f"chatcmpl-{int(time.time()*1000)}",
         "object": "chat.completion",
         "created": int(time.time()),
-        "model": MODEL_ID,
+        "model": SHORT_MODEL_ID,
         "choices": [
             {
                 "index": 0,
