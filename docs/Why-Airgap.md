@@ -1,5 +1,7 @@
 # Why Air-Gap?
 
+![hero](images/hero-why-airgap.png)
+
 Some customers cannot - or will not - send data to a third-party API. They want the latest AI capabilities on their own infrastructure, with zero outbound network calls. That is the audience jina-airgap is built for.
 
 ## Who needs this

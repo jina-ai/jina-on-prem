@@ -1,0 +1,144 @@
+# Kubernetes manifest for a jina-airgap deployment.
+#
+# Single-model deploy with HPA, Service, optional Ingress. Adjust `image`
+# to your local registry path or load the image onto each node manually.
+#
+# Quickstart:
+#   1) Load the image on each node (or push to a registry the cluster can reach):
+#        for n in node-1 node-2; do
+#          docker save jina/jina-embeddings-v5-text-small:gpu \
+#            | ssh $n "docker load"
+#        done
+#   2) kubectl apply -f k8s/jina-airgap.yaml
+#   3) kubectl port-forward svc/jina-embed 8080:8080
+#   4) curl http://localhost:8080/health
+#
+# For multi-model (embed + rerank), duplicate the Deployment+Service blocks
+# with different names, images, and ports.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jina-airgap
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jina-embed
+  namespace: jina-airgap
+  labels:
+    app: jina-embed
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: jina-embed
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: jina-embed
+    spec:
+      # nodeSelector requires GPU; remove for CPU image
+      nodeSelector:
+        nvidia.com/gpu.product: NVIDIA-L4
+      containers:
+      - name: jina-embed
+        image: jina/jina-embeddings-v5-text-small:gpu
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        # Already baked into the image; setting explicitly is belt-and-suspenders.
+        - name: HF_HUB_OFFLINE
+          value: "1"
+        - name: TRANSFORMERS_OFFLINE
+          value: "1"
+        resources:
+          requests:
+            cpu: "1"
+            memory: 4Gi
+          limits:
+            nvidia.com/gpu: 1
+            cpu: "4"
+            memory: 8Gi
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 6
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 90
+          periodSeconds: 30
+          failureThreshold: 3
+        # The image is self-contained; no volumes needed.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jina-embed
+  namespace: jina-airgap
+spec:
+  type: ClusterIP
+  selector:
+    app: jina-embed
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+---
+# Horizontal Pod Autoscaler - scale based on CPU. For request-rate-based scaling,
+# install Prometheus Adapter + define a Custom Metric.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: jina-embed
+  namespace: jina-airgap
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: jina-embed
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+---
+# Optional Ingress - depends on your ingress controller. Example for nginx-ingress.
+# Comment out if not using Ingress; ClusterIP + port-forward / NodePort also works.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jina-embed
+  namespace: jina-airgap
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "32m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: jina-embed.internal
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: jina-embed
+            port:
+              name: http
