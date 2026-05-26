@@ -44,6 +44,24 @@ docker tag jina/MODEL:cpu ghcr.io/jina-ai/jina-airgap/MODEL:cpu
 docker push ghcr.io/jina-ai/jina-airgap/MODEL:cpu
 ```
 
+### Making the pushed package PUBLIC
+
+**Critical**: GHCR packages default to **private**, even when the source repo is public. There is **no REST or GraphQL API** to change package visibility - it must be done once via the web UI per package.
+
+After pushing a new model to GHCR:
+
+1. Open `https://github.com/orgs/jina-ai/packages/container/jina-airgap%2FMODEL/settings`
+2. Scroll to **Danger Zone** → **Change package visibility** → **Public**
+3. Type the package name to confirm
+
+To verify the current state of all prebuilt packages:
+
+```bash
+./scripts/check-prebuilt-visibility.sh
+```
+
+To avoid repeating this for every new model, set the org-level default to public at https://github.com/organizations/jina-ai/settings/packages.
+
 ### Batch build all 6 priority models
 
 ```bash
