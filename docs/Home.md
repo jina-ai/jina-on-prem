@@ -2,7 +2,7 @@
 
 **Deploy Jina AI's embedding, reranker, and reader models inside customer environments that cannot reach the internet.**
 
-![demo](images/03-deploy.gif)
+![hero](images/hero-bundle-flow.png)
 
 For sales/SA/field engineers walking a customer through their first deployment, start with **[Why Air-Gap](Why-Airgap)**, then **[Quick Start](Quick-Start)**. For developers integrating the API into an application, start with **[API Reference](API-Reference)**.
 
@@ -28,6 +28,8 @@ on port 8080"]:::out
 ```
 
 That's the whole product. The connected machine has internet to fetch model weights and dependencies. Everything is baked into a single Docker image and exported as a `.tar.gz`. The offline machine only needs Docker.
+
+![demo](images/03-deploy.gif)
 
 ## What's supported
 

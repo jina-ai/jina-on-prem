@@ -2,6 +2,8 @@
 
 How the pieces fit together. Useful for SAs answering "what is this thing made of?" and for engineers debugging.
 
+![hero](images/hero-server-shielded.png)
+
 ## The two-phase model
 
 ```mermaid
