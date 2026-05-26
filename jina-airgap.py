@@ -264,7 +264,7 @@ def cmd_bundle(args):
 
     # Derived values
     image_tag   = f"jina/{model['id'].lower()}:{runtime}"
-    output_file = args.output or f"jina-{model['id'].lower()}-{runtime}.tar.gz"
+    output_file = args.output or f"{model['id'].lower()}-{runtime}.tar.gz"
 
     if args.dry_run:
         print_banner()
@@ -327,7 +327,7 @@ def cmd_bundle(args):
 
     # Build Docker image
     err(f"\n{BOLD}Step 3/4{RESET} Building Docker image...")
-    err(f"  {DIM}This downloads model weights - may take 10-30 minutes{RESET}")
+    err(f"  {DIM}This downloads model weights - 3-30 min depending on model and network{RESET}")
 
     build_env = os.environ.copy()
     build_env["DOCKER_BUILDKIT"] = "1"
@@ -407,16 +407,16 @@ def cmd_bundle(args):
     else:
         err(f"\n{GREEN}{BOLD}Bundle ready!{RESET} {size_mb:.0f} MB saved to: {output_file}")
         gpu_flag = " --gpu" if runtime == "gpu" else ""
-        network_flag = " --network=none" if runtime == "gpu" else ""
+        raw_gpu = " --gpus all" if runtime == "gpu" else ""
         err(f"\n{BOLD}Deploy on air-gapped machine:{RESET}")
         err(f"  python jina-airgap.py deploy --image {output_file}{gpu_flag}")
         err(f"\n{BOLD}Or raw Docker:{RESET}")
-        raw_gpu = " --gpus all" if runtime == "gpu" else ""
         err(f"  docker load < {output_file}")
-        err(f"  docker run{raw_gpu}{network_flag} -p 8080:8080 {image_tag}")
-        err(f"\n{BOLD}Air-gap verification:{RESET}")
-        err(f"  docker run{raw_gpu} --network=none -p 8080:8080 {image_tag}")
-        err(f"  curl http://localhost:8080/health  # from host")
+        err(f"  docker run{raw_gpu} -p 8080:8080 {image_tag}")
+        err(f"  curl http://localhost:8080/health")
+        err(f"\n{DIM}Air-gap is enforced by HF_HUB_OFFLINE=1 + TRANSFORMERS_OFFLINE=1 baked into")
+        err(f"the image - no network mode flag needed. To prove it, run on a host with no")
+        err(f"egress route and watch docker logs.{RESET}")
 
     sys.exit(EXIT_OK)
 

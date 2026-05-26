@@ -1,15 +1,45 @@
 # API Reference
 
-A deployed jina-airgap server exposes four API schemas on the same port simultaneously. Pick whichever your client already speaks - they all hit the same underlying model.
+A deployed jina-airgap server exposes four embedding API schemas (and a reranker endpoint) on the same port. Pick whichever your client already speaks - they all hit the same model.
+
+```mermaid
+flowchart TB
+    classDef sch fill:#e8f0ff,stroke:#3b6ad6
+
+    OAI[POST /v1/embeddings]:::sch
+    VOY[POST /v1/embeddings
+input_type / output_dimension]:::sch
+    COH[POST /v1/embed]:::sch
+    GEM["POST /v1/models/{model}:embedContent
+and :batchEmbedContents"]:::sch
+    RER[POST /v1/rerank]:::sch
+    HLT[GET /health]:::sch
+
+    OAI --> SRV[FastAPI server
+server/app.py]
+    VOY --> SRV
+    COH --> SRV
+    GEM --> SRV
+    RER --> SRV
+    HLT --> SRV
+
+    SRV --> MOD[Model encode
+once per request]
+    MOD --> SHAPE[Schema-specific
+response shaper]
+    SHAPE -.- OAI
+    SHAPE -.- COH
+    SHAPE -.- GEM
+```
 
 | Schema | Endpoint | Drop-in for |
 |---|---|---|
 | OpenAI | `POST /v1/embeddings` | OpenAI SDK, Elasticsearch inference, LlamaIndex, LangChain |
-| Cohere | `POST /v1/embed` | Cohere SDK, anything that speaks Cohere |
-| Google Gemini | `POST /v1/models/{model}:embedContent` | Google AI SDK |
-| Voyage AI multimodal | `POST /v1/multimodalembeddings` | Voyage SDK |
-| (utility) | `GET /health` | health checks |
-| (utility) | `POST /v1/rerank` | reranker models |
+| Voyage AI | `POST /v1/embeddings` (with `input_type` / `output_dimension`) | Voyage SDK |
+| Cohere | `POST /v1/embed` | Cohere SDK |
+| Google Gemini | `POST /v1/models/{model}:embedContent`, `:batchEmbedContents` | Google AI SDK |
+| Reranker | `POST /v1/rerank` | Cohere reranker SDK |
+| Utility | `GET /health` | health checks |
 
 ![api-schemas](images/04-schemas.gif)
 
@@ -19,30 +49,41 @@ A deployed jina-airgap server exposes four API schemas on the same port simultan
 curl http://localhost:8080/health
 ```
 ```json
-{"status": "ok", "model": "jina-embeddings-v5-text-nano", "device": "cpu", "vram_gb": 0, "multimodal": false}
+{"status":"ok","model":"jinaai/jina-embeddings-v5-text-nano","device":"cpu","ready":true,"multimodal":false,"schemas":["openai","voyage","gemini","cohere"]}
 ```
 
-## OpenAI (+ Voyage AI)
+## OpenAI / Voyage
 
 ```bash
 curl -s http://localhost:8080/v1/embeddings \
   -H 'Content-Type: application/json' \
-  -d '{"input": ["Hello world"], "model": "jina-embeddings-v5-text-nano"}'
+  -d '{"input": ["Hello world"]}'
 ```
 
 Optional fields:
 
-- `task` - one of the model's supported tasks (see [task list](#embedding-tasks))
-- `dimensions` - truncate to any supported matryoshka dim (e.g. 128, 256, 512)
-- `input_type` (Voyage) - `query` / `document`, mapped to the model's `task`
-- `output_dimension` (Voyage) - alias for `dimensions`
+| Field | Schema | Notes |
+|---|---|---|
+| `model` | OpenAI / Voyage | accepted; echoed in response. The actual model is fixed by the container |
+| `task` | (extension) | `retrieval`, `text-matching`, `classification`, `clustering` for v5; `retrieval.query` / `.passage` for v3. Unknown values silently fall back to default |
+| `input_type` | Voyage | `query` / `document` - mapped to `task` automatically |
+| `dimensions` | OpenAI | matryoshka truncation - request any supported dim (32-768/1024/2048) |
+| `output_dimension` | Voyage | alias for `dimensions` |
 
 Python:
-
 ```python
 from openai import OpenAI
 client = OpenAI(base_url="http://localhost:8080/v1", api_key="not-needed")
 resp = client.embeddings.create(model="jina-embeddings-v5-text-nano", input=["Hello world"])
+```
+
+Matryoshka:
+```bash
+curl -s http://localhost:8080/v1/embeddings \
+  -d '{"input":["Hello"], "dimensions": 128}' \
+  -H 'Content-Type: application/json' \
+  | jq '.data[0].embedding | length'
+# 128
 ```
 
 ## Cohere
@@ -50,78 +91,117 @@ resp = client.embeddings.create(model="jina-embeddings-v5-text-nano", input=["He
 ```bash
 curl -s http://localhost:8080/v1/embed \
   -H 'Content-Type: application/json' \
-  -d '{"texts": ["Hello world"], "model": "jina-v5-nano", "input_type": "search_query"}'
+  -d '{"texts": ["Hello world"], "input_type": "search_query"}'
 ```
 
-`input_type` maps to the model's task: `search_query` -> retrieval (query side), `search_document` -> retrieval (passage side), `classification`, `clustering`.
+Response shape (matches Cohere's `/v1/embed`):
+```json
+{
+  "id": "...",
+  "texts": ["Hello world"],
+  "embeddings": {"float": [[ ... 1024 floats ... ]]},
+  "meta": {...},
+  "response_type": "embedding"
+}
+```
+
+`input_type` -> `task` mapping:
+- `search_query` -> retrieval (query side)
+- `search_document` -> retrieval (passage side)
+- `classification` -> classification
+- `clustering` -> clustering
 
 ## Gemini
 
 ```bash
+# single
 curl -s "http://localhost:8080/v1/models/jina-embeddings-v5-text-nano:embedContent" \
   -H 'Content-Type: application/json' \
-  -d '{"content": {"parts": [{"text": "Hello world"}]}, "taskType": "RETRIEVAL_QUERY"}'
-```
+  -d '{"content": {"parts": [{"text": "Hello"}]}, "taskType": "RETRIEVAL_QUERY"}'
 
-Batch: `:batchEmbedContents` with `{"requests": [...]}`.
-
-## Voyage AI Multimodal
-
-```bash
-curl -s http://localhost:8080/v1/multimodalembeddings \
+# batch
+curl -s "http://localhost:8080/v1/models/jina-embeddings-v5-text-nano:batchEmbedContents" \
   -H 'Content-Type: application/json' \
-  -d '{"inputs": [{"content": [{"type": "text", "text": "Hello"}]}], "model": "voyage-multimodal-3.5"}'
+  -d '{"requests": [
+    {"content": {"parts": [{"text": "first"}]}},
+    {"content": {"parts": [{"text": "second"}]}}
+  ]}'
 ```
 
-## Reranker models
+Response uses Gemini's shape: `{"embedding": {"values": [...]}}` for single, `{"embeddings": [...]}` for batch.
+
+`taskType` mapping: `RETRIEVAL_QUERY`, `RETRIEVAL_DOCUMENT`, `SEMANTIC_SIMILARITY`, `CLASSIFICATION`, `CLUSTERING`.
+
+## Reranker
 
 ```bash
 curl -s http://localhost:8080/v1/rerank \
   -H 'Content-Type: application/json' \
   -d '{
-    "query": "best embedding model",
-    "documents": ["jina-v5 is multilingual", "weather is sunny", "embeddings represent semantic meaning"],
+    "query": "best programming language for AI",
+    "documents": [
+      "Python is the most popular language for ML",
+      "Bananas are yellow",
+      "PyTorch and TensorFlow use Python"
+    ],
     "top_n": 2
   }'
 ```
 
-The reranker endpoint follows Cohere's `/v1/rerank` shape: `query`, `documents`, optional `top_n`, returns `{"results": [{"index": i, "relevance_score": s}, ...]}`.
+Response (Cohere-compatible):
+```json
+{
+  "model": "jinaai/jina-reranker-v3",
+  "results": [
+    {"index": 0, "relevance_score": 0.21, "document": {"text": "Python is the most popular..."}},
+    {"index": 2, "relevance_score": -0.003, "document": {"text": "PyTorch and TensorFlow..."}}
+  ],
+  "meta": {"elapsed_ms": 1573.1}
+}
+```
 
-## Multimodal inputs (omni / clip / vlm)
+> Reranker containers expose `/v1/rerank` only - calling `/v1/embeddings` on a reranker returns HTTP 500.
 
-`v5-omni-small`, `v5-omni-nano`, `v4`, `jina-clip-v2`, and `jina-vlm` accept images, audio, and video alongside text. Media must be base64-encoded (no URLs - the air-gap guarantee forbids outbound fetches). Max 10 MB per input.
+## Multimodal inputs (omni / clip / v4 / vlm)
+
+Multimodal models accept images, audio, and video alongside text. Media must be base64-encoded inline (no URLs - air-gap forbids outbound fetches). Max 10 MB per input.
 
 ```bash
-# Single image
+# Image-only embedding
 curl -s http://localhost:8080/v1/embeddings \
   -H 'Content-Type: application/json' \
-  -d '{"input": [{"type": "image_base64", "image_base64": {"base64": "<B64>", "mime_type": "image/png"}}]}'
+  -d '{"input": [{"type": "image_base64",
+                   "image_base64": {"base64": "<B64>", "mime_type": "image/png"}}]}'
 
 # Fused text + image -> single embedding
 curl -s http://localhost:8080/v1/embeddings \
   -H 'Content-Type: application/json' \
-  -d '{"input": [{"content": [{"type": "text", "text": "A red square"}, {"type": "image", "format": "base64", "value": "<B64>"}]}]}'
+  -d '{"input": [{"content": [
+          {"type": "text", "text": "A red square"},
+          {"type": "image", "format": "base64", "value": "<B64>"}
+       ]}]}'
 ```
 
-Text-only models return HTTP 400 if multimodal inputs are sent.
+Text-only models return HTTP 400 with a helpful list of multimodal-capable model IDs if you send multimodal input.
 
 ## Embedding tasks
 
-Pass `task` to optimize embeddings for your use case. The server maps Cohere's `input_type` and Gemini's `taskType` automatically.
+`task` is the high-leverage field. Embeddings optimized for retrieval differ from those for classification or clustering.
 
 | Model family | Supported tasks |
 |---|---|
 | v5-text / v5-omni | `retrieval` (default), `text-matching`, `classification`, `clustering` |
 | v4 | `retrieval` (default), `text-matching`, `code` |
 | v3 | `retrieval.query`, `retrieval.passage`, `text-matching`, `classification`, `separation` |
-| v2 / v1 | (no task field; passing one is ignored) |
+| v2 / v1 | no task field; passed values are ignored |
+
+The same model called with `retrieval.query` vs `retrieval.passage` (v3) returns **different** vectors - this is the asymmetric retrieval pattern.
 
 ## Elasticsearch integration
 
-Drop-in for ES inference service:
-
+Embeddings (`service: openai`):
 ```json
-PUT _inference/text_embedding/jina-local
+PUT _inference/text_embedding/jina-embed
 {
   "service": "openai",
   "service_settings": {
@@ -132,8 +212,25 @@ PUT _inference/text_embedding/jina-local
 }
 ```
 
-Then index and query as usual via the `inference_id`. The `api_key` is required by the ES schema but unused server-side.
+Reranker (`service: cohere`):
+```json
+PUT _inference/rerank/jina-rerank
+{
+  "service": "cohere",
+  "service_settings": {
+    "url": "http://your-host:8080/v1/rerank",
+    "model_id": "jina-reranker-v3",
+    "api_key": "not-needed"
+  }
+}
+```
+
+Then query as usual via the `inference_id`. The `api_key` is required by the ES schema but unused server-side.
+
+## Auto-generated docs
+
+Run the server and hit `GET /docs` for the FastAPI-generated Swagger UI - it's always in sync with the deployed code.
 
 ## Source of truth
 
-The full request/response shapes live in [`server/app.py`](https://github.com/jina-ai/jina-airgap/blob/main/server/app.py). Run the server, hit `GET /docs` for the auto-generated Swagger UI.
+Full request/response shapes: [`server/app.py`](https://github.com/jina-ai/jina-airgap/blob/main/server/app.py).

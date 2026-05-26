@@ -29,9 +29,9 @@ flowchart TB
 
 ```bash
 ./scripts/pull-prebuilt.sh jina-embeddings-v5-text-nano cpu
-# produces jina-jina-embeddings-v5-text-nano-cpu.tar.gz
+# produces jina-embeddings-v5-text-nano-cpu.tar.gz
 # transfer it, then on the offline machine:
-docker load < jina-jina-embeddings-v5-text-nano-cpu.tar.gz
+docker load < jina-embeddings-v5-text-nano-cpu.tar.gz
 docker run -p 8080:8080 jina/jina-embeddings-v5-text-nano:cpu
 ```
 

@@ -1,32 +1,29 @@
 # Documentation
 
-The same content also lives in the [GitHub Wiki](https://github.com/jina-ai/jina-airgap/wiki). The wiki version renders the sidebar nav; this folder is the source of truth and what gets edited via pull requests.
+Mirror of the [GitHub Wiki](https://github.com/jina-ai/jina-airgap/wiki). Edit here via pull request, then run `./scripts/sync-wiki.sh` to push to the wiki.
 
 ## Pages
 
-- [Home](Home.md) - overview and nav
-- [Quick Start](Quick-Start.md) - 5-minute path with a prebuilt image
-- [Bundling Guide](Bundling-Guide.md) - build your own, GCP L4 walkthrough
-- [Model Catalog](Model-Catalog.md) - all 28 models, auto-generated from `models/catalog.json`
-- [API Reference](API-Reference.md) - four schemas + multimodal + ES integration
-- [Troubleshooting](Troubleshooting.md) - common errors and fixes
+- [Home](Home.md) - overview + navigation
+- [Why Air-Gap?](Why-Airgap.md) - explains the concept, compares with SaaS/VPC endpoints
+- [Quick Start](Quick-Start.md) - 5-minute walkthrough using a prebuilt image
+- [Customer Scenarios](Customer-Scenarios.md) - per-industry playbooks
+- [Picking a Model](Picking-A-Model.md) - decision tree for the 28 models
+- [Sizing & Hardware](Sizing-And-Hardware.md) - capacity planning, k8s, throughput
+- [Bundling Guide](Bundling-Guide.md) - build your own .tar.gz
+- [API Reference](API-Reference.md) - four schemas + reranker + ES integration
+- [Architecture](Architecture.md) - how the pieces fit
+- [Model Catalog](Model-Catalog.md) - auto-generated, regenerate via `python3 scripts/gen_catalog_md.py`
+- [FAQ](FAQ.md) - common SA / customer / sales-objection questions
+- [Troubleshooting](Troubleshooting.md) - errors and fixes
 
-## Syncing to wiki
+## Wiki-only files
 
-GitHub wikis must be initialized via the web UI (no API). Once initialized:
-
-```bash
-./scripts/sync-wiki.sh
-```
-
-That clones `jina-airgap.wiki.git`, copies these markdown files + `images/`, and pushes.
+The wiki also has `_Sidebar.md` and `_Footer.md` which provide persistent navigation. They live only in the wiki repo (not synced from docs/) because they reference wiki-relative paths.
 
 ## Regenerating the Model Catalog
 
-`Model-Catalog.md` is generated from [`models/catalog.json`](../models/catalog.json):
-
 ```bash
 python3 scripts/gen_catalog_md.py > docs/Model-Catalog.md
+./scripts/sync-wiki.sh
 ```
-
-Run this whenever you add a model or change a `prebuilt` entry in `scripts/gen_catalog_md.py`.

@@ -1,35 +1,52 @@
 # jina-airgap
 
-Air-gapped deployment toolkit for Jina AI embedding, reranker, and reader models. Bundle a model into a self-contained Docker image on a connected machine, transfer the `.tar.gz`, run it offline on the air-gapped machine. No license server, no phone-home, no runtime network calls.
+**Deploy Jina AI's embedding, reranker, and reader models inside customer environments that cannot reach the internet.**
 
-> **New here?** Start with the [Quick Start](Quick-Start) - first inference in under 5 minutes using a prebuilt image.
+![demo](images/03-deploy.gif)
 
-![overview](images/03-deploy.gif)
+For sales/SA/field engineers walking a customer through their first deployment, start with **[Why Air-Gap](Why-Airgap)**, then **[Quick Start](Quick-Start)**. For developers integrating the API into an application, start with **[API Reference](API-Reference)**.
 
-## Two phases
+## At a glance
 
 ```mermaid
 flowchart LR
-    A[Bundle on networked machine] -->|USB / SCP / physical media| B[Deploy on air-gapped machine]
-    B --> C[Multi-schema API ready]
-    C --> D[Elasticsearch / your app]
+    classDef phase fill:#e8f0ff,stroke:#3b6ad6,color:#1a2a4a
+    classDef hop fill:#fff3d6,stroke:#c08800,color:#3a2c00
+    classDef out fill:#d9f5e0,stroke:#1f8f3a,color:#0d3315
+
+    A["1 - BUNDLE
+on a connected machine
+python jina-airgap.py bundle"]:::phase --> B["2 - TRANSFER
+USB / SCP / approved channel
+single .tar.gz file"]:::hop
+    B --> C["3 - DEPLOY
+on the offline machine
+docker load and docker run"]:::phase
+    C --> D["Multi-schema API
+OpenAI / Cohere / Gemini / Voyage
+on port 8080"]:::out
 ```
 
-1. **Bundle** (connected): `python jina-airgap.py bundle --model X` downloads weights and pinned deps, bakes them into a Docker image, exports as `.tar.gz`.
-2. **Deploy** (offline): `docker load < X.tar.gz && docker run -p 8080:8080 jina/X` brings up a server that simultaneously speaks OpenAI, Cohere, Gemini, and Voyage AI API schemas.
+That's the whole product. The connected machine has internet to fetch model weights and dependencies. Everything is baked into a single Docker image and exported as a `.tar.gz`. The offline machine only needs Docker.
 
-If a prebuilt image already exists for your model, skip phase 1 entirely - see [Quick Start](Quick-Start).
+## What's supported
 
-## Wiki contents
+- **28 models**: Jina embeddings (v5, v4, v3, v2), rerankers, ColBERT, CLIP, ReaderLM, VLM. See [Model Catalog](Model-Catalog).
+- **4 API schemas simultaneously**: OpenAI, Cohere, Google Gemini, Voyage AI - drop-in for any client.
+- **Multimodal**: text + image + audio + video on omni/clip/v4 models.
+- **GPU and CPU**: same model can be packaged either way.
+- **Elasticsearch inference service**: works as a `service: openai` endpoint out of the box.
 
-- [Quick Start](Quick-Start) - 5-minute happy path using a prebuilt image
-- [Bundling Guide](Bundling-Guide) - build your own bundle from a connected machine (GCP L4 walkthrough inside)
-- [Model Catalog](Model-Catalog) - all 28 supported models with VRAM, context, output dims
-- [API Reference](API-Reference) - the four API schemas, tasks, multimodal inputs
-- [Troubleshooting](Troubleshooting) - common errors and the fixes that work
+## Pick your starting point
 
-Contributing? See [CONTRIBUTING.md](https://github.com/jina-ai/jina-airgap/blob/main/CONTRIBUTING.md).
+| You are... | Start here |
+|---|---|
+| An SA/sales engineer evaluating jina-airgap for a customer | [Why Air-Gap](Why-Airgap), then [Customer Scenarios](Customer-Scenarios) |
+| A field engineer deploying at a customer site | [Quick Start](Quick-Start), then [Sizing & Hardware](Sizing-And-Hardware) |
+| A developer integrating the API | [API Reference](API-Reference) |
+| Building a new bundle from scratch | [Bundling Guide](Bundling-Guide) |
+| Hitting an error | [Troubleshooting](Troubleshooting), [FAQ](FAQ) |
 
-## Licensing
+## License note
 
-Most v5 / v4 / v3 models are **CC-BY-NC-4.0** - commercial use needs a license. Contact [Elastic sales](https://www.elastic.co/contact). v2 and v1 models are Apache-2.0 and free for commercial use. See the [Model Catalog](Model-Catalog) for per-model license.
+Most Jina v5/v4/v3 models are **CC-BY-NC-4.0**: commercial use needs a license. Contact [Elastic sales](https://www.elastic.co/contact). v2 and v1 models are Apache-2.0 and free for any use. Per-model license is in the [Model Catalog](Model-Catalog).
