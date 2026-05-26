@@ -135,39 +135,29 @@ flowchart TB
 - **Active-active** with two hosts behind any L4 load balancer. Models are stateless so any request can go to any replica. Use this for production. Maintain spare image tarballs on disk so you can rebuild a host without rebundling.
 - **Kubernetes** if the customer is already running it. Each pod is `docker run` with a `Service` and `Deployment`. Persistent volume not needed (model is in the image). NodeSelector for GPU nodes if you mix GPU and CPU.
 
-K8s example (one pod, GPU):
+A ready-to-apply manifest with Namespace + Deployment + Service + HPA + Ingress lives at [`k8s/jina-airgap.yaml`](https://github.com/jina-ai/jina-airgap/blob/main/k8s/jina-airgap.yaml):
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: jina-embed
-spec:
-  replicas: 2
-  selector: {matchLabels: {app: jina-embed}}
-  template:
-    metadata: {labels: {app: jina-embed}}
-    spec:
-      containers:
-      - name: jina-embed
-        image: jina/jina-embeddings-v5-text-small:gpu
-        ports: [{containerPort: 8080}]
-        resources:
-          limits:
-            nvidia.com/gpu: 1
-            memory: 8Gi
-        readinessProbe:
-          httpGet: {path: /health, port: 8080}
-          initialDelaySeconds: 30
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: jina-embed
-spec:
-  selector: {app: jina-embed}
-  ports: [{port: 8080, targetPort: 8080}]
+```bash
+# Load the image on every node (no internal registry needed):
+for n in node-1 node-2 node-3; do
+  docker save jina/jina-embeddings-v5-text-small:gpu | ssh $n "docker load"
+done
+
+kubectl apply -f k8s/jina-airgap.yaml
+kubectl -n jina-airgap rollout status deployment/jina-embed
+kubectl -n jina-airgap port-forward svc/jina-embed 8080:8080
+curl http://localhost:8080/health
 ```
+
+The manifest includes:
+
+- `Deployment` with 2 replicas, rolling update strategy, GPU `nodeSelector`
+- `Service` (ClusterIP) on port 8080
+- `HorizontalPodAutoscaler` that scales 2-8 pods based on CPU
+- `Ingress` example for nginx-ingress (comment out if not using)
+- Readiness probe (30s initial, 60s grace) + liveness probe (90s initial)
+
+To run two models (embed + rerank), copy the Deployment+Service blocks with different names and images.
 
 ## Customer-side prerequisites checklist
 

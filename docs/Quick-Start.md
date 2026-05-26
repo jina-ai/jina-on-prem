@@ -1,5 +1,7 @@
 # Quick Start
 
+![hero](images/hero-quick-start.png)
+
 Get your first `/v1/embeddings` response in five minutes.
 
 We'll use a **prebuilt CPU image** of `jina-embeddings-v5-text-nano`. No GPU needed, no Python, no bundle phase. Pure Docker.
