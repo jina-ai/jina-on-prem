@@ -3,6 +3,7 @@
 - [Home](Home)
 - [Why air-gap?](Why-Airgap)
 - [Quick Start](Quick-Start)
+- [Cheat Sheet](Cheat-Sheet)
 
 ### Customer playbooks
 
@@ -21,6 +22,7 @@
 ### Reference
 
 - [Model Catalog](Model-Catalog)
+- [Glossary](Glossary)
 - [FAQ](FAQ)
 - [Troubleshooting](Troubleshooting)
 
