@@ -1,16 +1,28 @@
 ### Start here
 
 - [Home](Home)
+- [Why air-gap?](Why-Airgap)
 - [Quick Start](Quick-Start)
 
-### Deep dives
+### Customer playbooks
+
+- [Customer Scenarios](Customer-Scenarios)
+- [Picking a Model](Picking-A-Model)
+- [Sizing & Hardware](Sizing-And-Hardware)
+
+### Deploy
 
 - [Bundling Guide](Bundling-Guide)
-- [Model Catalog](Model-Catalog)
 - [API Reference](API-Reference)
+- [Architecture](Architecture)
 
-### Help
+### Reference
 
+- [Model Catalog](Model-Catalog)
+- [FAQ](FAQ)
 - [Troubleshooting](Troubleshooting)
-- [Issues](https://github.com/jina-ai/jina-airgap/issues)
+
+### Contribute
+
 - [CONTRIBUTING](https://github.com/jina-ai/jina-airgap/blob/main/CONTRIBUTING.md)
+- [Open issue](https://github.com/jina-ai/jina-airgap/issues/new)

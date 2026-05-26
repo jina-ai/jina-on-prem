@@ -9,7 +9,7 @@
 #   ./scripts/pull-prebuilt.sh jina-embeddings-v5-text-nano        # default: cpu
 #   ./scripts/pull-prebuilt.sh jina-embeddings-v5-text-small gpu
 #
-# Output: jina-MODEL-RUNTIME.tar.gz in the current directory.
+# Output: MODEL-RUNTIME.tar.gz in the current directory.
 
 set -euo pipefail
 
@@ -31,10 +31,27 @@ fi
 REGISTRY="ghcr.io/jina-ai/jina-airgap"
 SRC="${REGISTRY}/${MODEL}:${RUNTIME}"
 LOCAL_TAG="jina/${MODEL}:${RUNTIME}"
-OUTPUT="jina-${MODEL}-${RUNTIME}.tar.gz"
+OUTPUT="${MODEL}-${RUNTIME}.tar.gz"
 
 echo "Pulling $SRC ..."
-docker pull "$SRC"
+if ! docker pull "$SRC" 2>&1 | tee /tmp/pull-prebuilt.log; then
+  if grep -q "unauthorized\|denied" /tmp/pull-prebuilt.log; then
+    cat >&2 <<EOF
+
+Pull failed with unauthorized/denied. GHCR requires authentication.
+
+Login first:
+  echo YOUR_GH_TOKEN | docker login ghcr.io -u YOUR_GH_USERNAME --password-stdin
+
+Create a token at https://github.com/settings/tokens/new?scopes=read:packages
+
+If you use sudo, run docker login as both user and root (separate credential stores).
+EOF
+  fi
+  rm -f /tmp/pull-prebuilt.log
+  exit 1
+fi
+rm -f /tmp/pull-prebuilt.log
 
 echo "Retagging as $LOCAL_TAG ..."
 docker tag "$SRC" "$LOCAL_TAG"

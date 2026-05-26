@@ -1,0 +1,73 @@
+# Why Air-Gap?
+
+Some customers cannot - or will not - send data to a third-party API. They want the latest AI capabilities on their own infrastructure, with zero outbound network calls. That is the audience jina-airgap is built for.
+
+## Who needs this
+
+| Industry | Why air-gap | Typical setup |
+|---|---|---|
+| **Banking / Finance** | Customer data, trading signals, internal research cannot leave the network. Regulatory perimeter is hard. | Private VPC, on-prem ES cluster, locked-down inference |
+| **Government / Defense** | Classified or controlled-unclassified data. Approved-vendor lists, no SaaS. | SCIF / IL5 environments, no inbound or outbound internet |
+| **Healthcare** | HIPAA, GDPR, patient records that legally cannot transit a third-party API. | Hospital data center, on-prem ES, sometimes air-gapped clinical research VLANs |
+| **Industrial / OT** | Plant networks isolated from corporate IT. Mission-critical with no tolerance for upstream outages. | Operational tech network, edge inference next to sensors |
+| **Sovereign / Localized AI** | Data residency law (EU AI Act, China CSL, India DPDPA). The model must run in-country, often in-customer-DC. | National cloud, customer DC, government-approved region |
+
+If your customer says any of these, jina-airgap is in scope:
+
+- "Our procurement won't approve a SaaS endpoint."
+- "We can't send `<sensitive>` to a vendor API."
+- "The host has no outbound internet."
+- "We need this to keep working if the upstream goes down."
+- "Audit needs to see the model artifacts on our disks."
+
+## How it compares
+
+```mermaid
+flowchart TB
+    classDef saas fill:#ffe0e0,stroke:#c44
+    classDef airgap fill:#d9f5e0,stroke:#1f8f3a
+
+    subgraph SaaS["Hosted API - api.openai.com, api.cohere.com, api.jina.ai"]
+        S1[Customer app] -->|every request leaves the network| S2[Vendor API]
+        S2 -->|logs / retention / vendor-side compliance| S1
+    end
+
+    subgraph Airgap["jina-airgap - inside customer environment"]
+        A1[Customer app] -->|HTTP localhost or internal DNS| A2[jina-airgap container]
+        A2 -.->|no outbound calls| A3[X - blocked by design]
+    end
+
+    class S1,S2 saas
+    class A1,A2 airgap
+```
+
+| | Hosted API (SaaS) | Customer-managed VPC endpoint | jina-airgap |
+|---|---|---|---|
+| Data leaves customer network | yes | no, but vendor still operates the endpoint | no |
+| Works without internet | no | partial (depends on auth/control plane) | yes |
+| Customer holds model weights | no | no | yes |
+| Per-request cost | yes | reserved capacity | hardware only |
+| Latency | network RTT to vendor | network RTT inside VPC | localhost / LAN |
+| Audit story | vendor compliance docs | vendor compliance docs | customer owns the artifacts |
+| Time to first request | minutes | hours | minutes once the image is on disk |
+
+The price for full air-gap is that the customer has to manage the host (a GPU box or a CPU machine). For most enterprises this is already true for the rest of their stack.
+
+## What "air-gap" means in this project
+
+A jina-airgap container does **not** call out to:
+
+- HuggingFace Hub (`HF_HUB_OFFLINE=1` baked in)
+- Any model registry (`TRANSFORMERS_OFFLINE=1` baked in)
+- A license server (there isn't one)
+- Telemetry or logging endpoints (none exist)
+
+All weights, tokenizers, processors, and Python dependencies are baked into the Docker image at bundle time. After the image is loaded onto the offline machine, the only "network" it speaks is the HTTP API on port 8080.
+
+> **Common misunderstanding**: `docker run --network=none` is **not** how you verify the air-gap. That mode disables host-to-container reachability so `curl http://localhost:8080` from the host returns nothing - useless. The guarantee is in the env vars and image contents, not the network mode. See [Troubleshooting -> Don't use --network=none](Troubleshooting#dont-use---networknone-for-air-gap-testing).
+
+## Next
+
+- [Quick Start](Quick-Start) - get the first response back in 5 minutes
+- [Customer Scenarios](Customer-Scenarios) - concrete playbooks per industry
+- [Sizing & Hardware](Sizing-And-Hardware) - GPU/CPU sizing for your customer's volume
