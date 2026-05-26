@@ -229,13 +229,13 @@
       "api_endpoint": "/v1/chat/completions",
       "paper": "https://arxiv.org/abs/2512.04032",
       "deps": {
-        "transformers": "==4.48.3",
+        "transformers": "==4.57.0",
         "torch": "==2.5.1",
         "Pillow": "==10.4.0",
         "accelerate": "==1.2.1",
-        "huggingface_hub": "==0.27.1",
-        "numpy": "==1.26.4",
-        "flash-attn": "==2.7.3",
+        "einops": "==0.8.1",
+        "huggingface_hub": ">=0.34.0",
+        "numpy": ">=2.0.0,<2.3.0",
         "torchvision": "==0.20.1"
       }
     },
@@ -319,7 +319,6 @@
         "timm": "==1.0.12",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": "==2.7.3",
         "torchvision": "==0.20.1"
       }
     },
@@ -367,7 +366,6 @@
         "timm": "==1.0.12",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": "==2.7.3",
         "torchvision": "==0.20.1"
       }
     },
@@ -406,17 +404,16 @@
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2506.18902",
       "deps": {
-        "transformers": "==4.48.3",
+        "transformers": "==4.57.0",
         "sentence-transformers": "==3.4.1",
         "torch": "==2.5.1",
-        "einops": "==0.8.0",
-        "peft": "==0.14.0",
+        "einops": "==0.8.1",
+        "peft": "==0.15.2",
         "accelerate": "==1.2.1",
-        "huggingface_hub": "==0.27.1",
-        "numpy": "==1.26.4",
-        "flash-attn": "==2.7.3",
+        "huggingface_hub": ">=0.34.0",
+        "numpy": ">=2.0.0,<2.3.0",
         "timm": ">=1.0.0",
-        "Pillow": ">=10.0.0",
+        "Pillow": "==10.4.0",
         "torchvision": "==0.20.1"
       }
     },
@@ -442,17 +439,17 @@
       ],
       "api_endpoint": "/v1/rerank",
       "deps": {
-        "transformers": "==4.48.3",
-        "sentence-transformers": "==3.4.1",
+        "transformers": "==5.7.0",
+        "sentence-transformers": "==5.4.1",
         "torch": "==2.5.1",
         "einops": "==0.8.0",
-        "peft": "==0.14.0",
+        "peft": ">=0.15.0",
         "accelerate": "==1.2.1",
-        "huggingface_hub": "==0.27.1",
+        "huggingface_hub": ">=0.34.0",
         "numpy": "==1.26.4",
-        "flash-attn": "==2.7.3",
-        "Pillow": ">=10.0.0",
-        "timm": ">=1.0.0",
+        "flash-attn": null,
+        "Pillow": "==10.4.0",
+        "timm": "==1.0.12",
         "torchvision": "==0.20.1"
       }
     },
@@ -478,7 +475,7 @@
       "api_endpoint": "/v1/chat/completions",
       "paper": "https://arxiv.org/abs/2503.01151",
       "deps": {
-        "transformers": "==4.44.2",
+        "transformers": "==4.48.3",
         "sentence-transformers": "==2.7.0",
         "torch": "==2.4.1",
         "huggingface_hub": "==0.27.1",
@@ -588,7 +585,10 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.20.1"
-      }
+      },
+      "extra_repos": [
+        "jinaai/xlm-roberta-flash-implementation"
+      ]
     },
     {
       "id": "jina-colbert-v2",
@@ -621,14 +621,21 @@
       "api_endpoint": "/v1/rerank",
       "paper": "https://arxiv.org/abs/2408.16672",
       "deps": {
-        "transformers": "==4.44.2",
-        "sentence-transformers": "==2.7.0",
-        "torch": "==2.4.1",
+        "transformers": "==4.48.3",
+        "sentence-transformers": "==5.3.0",
+        "torch": "==2.9.0",
+        "einops": "==0.8.0",
+        "peft": "==0.14.0",
+        "accelerate": "==1.2.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "torchvision": "==0.19.1"
-      }
+        "torchvision": "==0.24.0",
+        "pylate": "==1.5.0"
+      },
+      "extra_repos": [
+        "jinaai/xlm-roberta-flash-implementation"
+      ]
     },
     {
       "id": "reader-lm-1.5b",
@@ -720,6 +727,7 @@
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
         "torch": "==2.4.1",
+        "einops": "==0.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
@@ -729,6 +737,10 @@
     {
       "id": "jina-clip-v1",
       "hf_repo": "jinaai/jina-clip-v1",
+      "extra_repos": [
+        "jinaai/jina-clip-implementation",
+        "jinaai/jina-bert-flash-implementation"
+      ],
       "type": "embedding",
       "family": "clip",
       "parameters": "223M",
@@ -753,8 +765,10 @@
       "paper": "https://arxiv.org/abs/2405.20204",
       "deps": {
         "transformers": "==4.44.2",
-        "sentence-transformers": "==2.7.0",
+        "sentence-transformers": "==3.4.1",
         "torch": "==2.4.1",
+        "einops": "==0.8.0",
+        "timm": "==1.0.12",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
@@ -878,16 +892,20 @@
       "api_endpoint": "/v1/rerank",
       "deps": {
         "transformers": "==4.48.3",
-        "sentence-transformers": "==3.4.1",
-        "torch": "==2.5.1",
+        "sentence-transformers": "==5.3.0",
+        "torch": "==2.9.0",
         "einops": "==0.8.0",
         "peft": "==0.14.0",
         "accelerate": "==1.2.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "torchvision": "==0.20.1"
-      }
+        "torchvision": "==0.24.0",
+        "pylate": "==1.5.0"
+      },
+      "extra_repos": [
+        "jinaai/jina-bert-implementation"
+      ]
     },
     {
       "id": "jina-embeddings-v2-base-es",
@@ -913,6 +931,7 @@
       ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2310.19923",
+      "gpu_dtype": "float32",
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
@@ -946,6 +965,7 @@
         "fine-tuning"
       ],
       "api_endpoint": "/v1/embeddings",
+      "gpu_dtype": "float32",
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
@@ -980,6 +1000,7 @@
       ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2310.19923",
+      "gpu_dtype": "float32",
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
@@ -1014,6 +1035,7 @@
       ],
       "api_endpoint": "/v1/embeddings",
       "paper": "https://arxiv.org/abs/2310.19923",
+      "gpu_dtype": "float32",
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
