@@ -64,6 +64,32 @@ A jina-airgap container does **not** call out to:
 
 All weights, tokenizers, processors, and Python dependencies are baked into the Docker image at bundle time. After the image is loaded onto the offline machine, the only "network" it speaks is the HTTP API on port 8080.
 
+### Where data goes - request lifecycle
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App as Customer app
+    participant LB as Optional LB
+    participant Cont as jina-airgap container
+    participant GPU as GPU/CPU
+    participant Disk as Local disk
+    participant Net as Internet
+
+    App->>LB: POST /v1/embeddings {input}
+    LB->>Cont: forward
+    Cont->>Disk: read weights (already cached)
+    Cont->>GPU: encode tokens -> tensors
+    GPU-->>Cont: embeddings
+    Cont-->>LB: 200 OK {embeddings}
+    LB-->>App: 200 OK
+    Note over Cont,Net: No call to Internet at any step.
+HF_HUB_OFFLINE=1 + TRANSFORMERS_OFFLINE=1
+make download attempts fail-fast.
+```
+
+The request never crosses the customer perimeter. The container has no code path that could make an outbound call - the offline env vars cause `huggingface_hub` and `transformers` to refuse downloads at the function-call layer, not at the network layer. Even if the container had egress, nothing in the request path would try to use it.
+
 > **Common misunderstanding**: `docker run --network=none` is **not** how you verify the air-gap. That mode disables host-to-container reachability so `curl http://localhost:8080` from the host returns nothing - useless. The guarantee is in the env vars and image contents, not the network mode. See [Troubleshooting -> Don't use --network=none](Troubleshooting#dont-use---networknone-for-air-gap-testing).
 
 ## Next

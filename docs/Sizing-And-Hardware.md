@@ -78,6 +78,39 @@ For higher throughput:
 3. **Multiple replicas.** A 4-vCPU + 1xL4 host can run one container. Two hosts -> 2x. Load balance with anything (nginx, HAProxy, ALB).
 4. **Bigger GPU.** A10G is ~2x L4, A100 ~4x for these models.
 
+## Deployment topologies in the customer environment
+
+Where the jina-airgap container sits in a typical customer architecture:
+
+```mermaid
+flowchart LR
+    classDef cust fill:#e8f0ff,stroke:#3b6ad6
+    classDef air fill:#d9f5e0,stroke:#1f8f3a
+    classDef ext fill:#ffe0e0,stroke:#c44
+
+    subgraph Outside["Outside customer network"]
+      U[End user / client app]:::ext
+    end
+
+    subgraph Perimeter["Customer perimeter (firewall, VPN, ZTNA)"]
+      U -->|TLS| ING[Ingress / API gateway]:::cust
+      ING --> APP[Customer app / RAG service]:::cust
+      APP -->|HTTP localhost or internal DNS| JINA[jina-airgap container
+port 8080]:::air
+      APP --> ES[(Elasticsearch
+on-prem)]:::cust
+      ES -.->|optional inference call| JINA
+    end
+
+    JINA -.x INET[No outbound to internet]:::ext
+```
+
+Three common placements:
+
+- **Sidecar to the app**: jina-airgap and the calling app on the same VM/pod. Lowest latency (localhost). Best when the app needs many embedding calls per request.
+- **Shared service**: one jina-airgap host serving multiple apps via internal DNS. Easier to right-size; one place to patch.
+- **Behind Elasticsearch**: ES inference service calls jina-airgap at indexing and query time. Apps talk only to ES. Cleanest for search-only stacks.
+
 ## Redundancy
 
 Three patterns:
