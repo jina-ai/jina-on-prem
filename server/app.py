@@ -941,6 +941,17 @@ def load_model():
         if _short in {"jina-embeddings-v5-omni-small", "jina-embeddings-v5-omni-nano"}:
             st_kwargs["model_kwargs"] = {"default_task": "retrieval"}
         MODEL = SentenceTransformer(model_id, trust_remote_code=True, device=DEVICE, **st_kwargs)
+        if _short in {"jina-embeddings-v5-omni-small", "jina-embeddings-v5-omni-nano"}:
+            # Force custom_st._build_eval_image_prompt into its bare-prompt fallback so
+            # image inputs emit `<|vision_start|><|image_pad|><|vision_end|>` directly;
+            # chat-template wrapping shifts last-token pooling and drops image cos
+            # vs api.jina.ai from ~1.0 to ~0.90 (issue #23).
+            _inner = MODEL[0]
+            if getattr(_inner, "processor", None) is not None:
+                _inner.processor.chat_template = None
+                _tok = getattr(_inner.processor, "tokenizer", None)
+                if _tok is not None:
+                    _tok.chat_template = None
         MODEL_INFO = {"model": model_id, "type": "embedding"}
 
     if MODEL is not None and hasattr(MODEL, "encode"):
