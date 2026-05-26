@@ -778,6 +778,7 @@
       "api_endpoint": "/v1/rerank",
       "deps": {
         "transformers": "==4.44.2",
+        "sentence-transformers": "==2.7.0",
         "torch": "==2.4.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
@@ -807,6 +808,7 @@
       "api_endpoint": "/v1/rerank",
       "deps": {
         "transformers": "==4.44.2",
+        "sentence-transformers": "==2.7.0",
         "torch": "==2.4.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
@@ -836,6 +838,7 @@
       "api_endpoint": "/v1/rerank",
       "deps": {
         "transformers": "==4.44.2",
+        "sentence-transformers": "==2.7.0",
         "torch": "==2.4.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
