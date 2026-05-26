@@ -9,6 +9,10 @@
 ARG MODEL_ID=jinaai/jina-embeddings-v5-text-nano
 ARG HF_TOKEN=""
 ARG TORCH_BASE=pytorch/pytorch:2.5.1-cuda12.1-cudnn9-devel
+# Default GPU dtype for the encode loop. Override per model via --build-arg
+# DTYPE=float32 for models that produce NaN/Inf under fp16 (e.g. jina-bert
+# ALiBi variants — v1/v2-base series).
+ARG DTYPE=float16
 
 # ---------------------------------------------------------------------------
 # Stage 1: Download model weights and pre-cache dynamic modules
@@ -49,6 +53,8 @@ RUN python /tmp/download_model.py
 # ---------------------------------------------------------------------------
 FROM ${TORCH_BASE} AS runtime
 
+ARG DTYPE=float16
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -71,8 +77,31 @@ RUN grep -v '^\s*#' /tmp/model-requirements.txt | grep -v '^\s*$' | \
     grep -iv '^torch' | grep -iv '^flash-attn' | \
     xargs --no-run-if-empty pip install --no-cache-dir
 
-# Install flash-attn if listed in requirements
-RUN if grep -qi '^flash-attn' /tmp/model-requirements.txt; then \
+# Sync torchvision when a transitive dep bumps torch off the base image.
+# Base: torch 2.5.1 + torchvision 0.20.1 (cu121). When e.g. pylate 1.5 pulls
+# torch 2.9.x via fast-plaid, torchvision must be re-installed in lockstep
+# or torchvision::nms registration fails at import. Conservative: only act
+# when installed torch differs from the 2.5.x base AND the catalog pins a
+# torchvision version (existing models hit the skip branch — no regression).
+RUN INSTALLED_TORCH=$(python -c 'import torch; print(torch.__version__.split("+")[0])') && \
+    case "$INSTALLED_TORCH" in \
+        2.5.*) echo "torch matches base ($INSTALLED_TORCH); torchvision sync skipped" ;; \
+        *) \
+            TV_VER=$(grep -i '^torchvision==' /tmp/model-requirements.txt | head -1 | sed 's/torchvision//'); \
+            if [ -n "$TV_VER" ]; then \
+                echo "torch bumped from base 2.5.1 to $INSTALLED_TORCH; syncing torchvision${TV_VER}" && \
+                pip install --no-cache-dir "torchvision${TV_VER}"; \
+            else \
+                echo "WARN: torch bumped to $INSTALLED_TORCH but catalog has no torchvision pin"; \
+            fi ;; \
+    esac
+
+# Install flash-attn if listed in requirements. Prefer prebuilt wheel from
+# the upstream releases page when version matches our torch/python/cuda combo.
+RUN if grep -qi '^flash-attn==2.7.3' /tmp/model-requirements.txt; then \
+        pip install --no-cache-dir https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.3/flash_attn-2.7.3+cu12torch2.5cxx11abiFALSE-cp311-cp311-linux_x86_64.whl ; \
+    elif grep -qi '^flash-attn' /tmp/model-requirements.txt; then \
+        apt-get update && apt-get install -y --no-install-recommends git && \
         FLASH_VER=$(grep -i '^flash-attn' /tmp/model-requirements.txt | head -1 | sed 's/flash-attn//') && \
         pip install --no-cache-dir "flash-attn${FLASH_VER}" --no-build-isolation; \
     else \
@@ -94,7 +123,7 @@ ENV HF_HUB_OFFLINE=1 \
     HF_HOME=/model_cache \
     TRUST_REMOTE_CODE=1 \
     HF_HUB_TRUST_REMOTE_CODE=1 \
-    JINA_DTYPE=float16
+    JINA_DTYPE=${DTYPE}
 
 LABEL org.opencontainers.image.source=https://github.com/jina-ai/jina-airgap
 LABEL org.opencontainers.image.description="Jina AI air-gapped embedding/reranker model - GPU variant"

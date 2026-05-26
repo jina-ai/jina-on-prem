@@ -20,6 +20,7 @@ import sys
 import time
 import logging
 import threading
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, Optional, Union
 
@@ -101,6 +102,22 @@ torch.set_num_interop_threads(max(1, _n_cpu_threads // 2))
 if DEVICE == "cuda":
     torch.backends.cudnn.benchmark = True
 
+
+def _encode_autocast_ctx():
+    """Autocast context for embedding/reranker encode().
+
+    Honours JINA_DTYPE: float32 → no autocast (some models — notably jinaai/jina-bert
+    variants with ALiBi — produce NaN under fp16 due to attention-score overflow).
+    """
+    if DEVICE != "cuda":
+        return nullcontext()
+    _dtype = os.environ.get("JINA_DTYPE", "float16").lower()
+    if _dtype in ("float16", "fp16", "half"):
+        return torch.autocast("cuda", dtype=torch.float16)
+    if _dtype in ("bfloat16", "bf16"):
+        return torch.autocast("cuda", dtype=torch.bfloat16)
+    return nullcontext()
+
 app = FastAPI(
     title="Jina AI Air-Gapped Server",
     version="4.0.0",
@@ -111,7 +128,11 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 # --- Global model holder ---
 MODEL = None
 TOKENIZER = None
+PROCESSOR = None  # VLM processor (AutoProcessor); None for embedding/reranker models
 MODEL_INFO = {}
+# True if MODEL.encode() accepts a `task` kwarg (v3/v4/v5/code-embeddings/clip have
+# custom_st.py that defines it; v1/v2 use stock SentenceTransformer.encode which does not).
+MODEL_ACCEPTS_TASK_KWARG = False
 
 # --- Throughput stats (thread-safe) ---
 _stats_lock = threading.Lock()
@@ -133,6 +154,21 @@ MULTIMODAL_MODEL_IDS = {
     "jina-clip-v1",
     "jina-reranker-m0",
     "jina-vlm",
+}
+
+# VLM (vision-language) models served via /v1/chat/completions.
+# These bypass SentenceTransformer and load AutoProcessor + AutoModelForCausalLM directly.
+VLM_MODEL_IDS = {
+    "jina-vlm",
+}
+
+# Text-only chat models served via /v1/chat/completions. No vision tower, no
+# AutoProcessor — load AutoTokenizer + AutoModelForCausalLM directly.
+TEXT_CHAT_MODEL_IDS = {
+    "reader-lm-0.5b",
+    "reader-lm-1.5b",
+    "ReaderLM-v2",
+    "readerlm-v2",
 }
 
 MAX_MEDIA_BYTES = 10 * 1024 * 1024  # 10 MB per input
@@ -159,6 +195,106 @@ def _is_omni_model() -> bool:
     """True if the loaded model supports multimodal (image/audio/video) inputs."""
     short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
     return short_id in MULTIMODAL_MODEL_IDS
+
+
+def _is_v5_omni_text_model() -> bool:
+    """True only for v5-omni-nano / v5-omni-small.
+
+    These two models share a custom_st module that picks the LoRA adapter via
+    a ``default_task`` attribute on the module rather than accepting ``task=``
+    via encode kwargs. Other multimodal models (v4, clip-v1, clip-v2,
+    reranker-m0) route task differently and must not take this branch.
+    """
+    short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
+    return short_id in {"jina-embeddings-v5-omni-nano", "jina-embeddings-v5-omni-small"}
+
+
+def _default_task() -> str:
+    """Default task when the caller omits ``task`` from the request.
+
+    Matches prod ``/v1/embeddings`` behaviour (probed against api.jina.ai):
+
+      - omni-nano, omni-small, v4 -> ``text-matching`` (prod no-task ==
+        prod task=text-matching at cos 1.0000 / 0.9998 / 0.9998).
+      - code-embeddings (0.5b / 1.5b) -> ``nl2code.query`` (prod no-task
+        == prod task=nl2code.query at cos 1.0000).
+      - everything else -> ``retrieval`` (back-compat for v3 / v1 / v2 / b-en-v1).
+
+    Without this alignment, no-task local vs prod cos for the affected
+    families sits at 0.70 – 0.90 instead of >0.99.
+    """
+    short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
+    if short_id in {
+        "jina-embeddings-v5-omni-nano",
+        "jina-embeddings-v5-omni-small",
+        "jina-embeddings-v4",
+    }:
+        return "text-matching"
+    if "code-embeddings" in short_id:
+        return "nl2code.query"
+    return "retrieval"
+
+
+def _map_prompt_name(task: str, prompts: Optional[dict]) -> Optional[str]:
+    """Pick the matching ST prompt_name for ``task`` from the model's prompts dict.
+
+    Different model families use different key conventions:
+      - v4: ``{"query": ..., "passage": ...}``
+      - v5-omni: ``{"query": ..., "document": ...}``
+      - code-embeddings: ``{"nl2code_query": ..., "nl2code_document": ...,
+        "qa_query": ..., "code2code_query": ..., ...}``
+
+    Mapping rules (data-driven against the model's actual prompts dict so we
+    never pass a key that would raise
+    ``ValueError: Prompt name 'X' not found in...``):
+
+      - ``{base}.query`` -> first hit of ``{base}_query``, ``query``
+      - ``{base}.passage`` -> first hit of ``{base}_document``, ``document``,
+        ``passage``
+      - no suffix (bare task like ``text-matching``, ``classification``,
+        ``retrieval``): prod uses each model's own canonical encode default,
+        which differs by family — v5-omni's ``JinaEmbeddingsV5OmniModel.encode``
+        defaults ``prompt_name="document"`` (prepends ``"Document: "``);
+        v4's ``JinaEmbeddingsV4Model.encode`` defaults to ``"query"``
+        (prepends ``"Query: "``). We mirror that fallback when the model
+        prompts dict has the matching key. Code-embeddings has neither key,
+        return None.
+    """
+    if not prompts or not task:
+        return None
+    base, _, suffix = task.partition(".")
+    if suffix == "query":
+        for cand in (f"{base}_query", "query"):
+            if cand in prompts:
+                return cand
+        return None
+    if suffix == "passage":
+        for cand in (f"{base}_document", "document", "passage"):
+            if cand in prompts:
+                return cand
+        return None
+    if "document" in prompts:
+        return "document"
+    if "query" in prompts:
+        return "query"
+    return None
+
+
+def _is_vlm_model() -> bool:
+    """True if the loaded model is a vision-language model served via /v1/chat/completions."""
+    short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
+    return short_id in VLM_MODEL_IDS
+
+
+def _is_text_chat_model() -> bool:
+    """True if the loaded model is a text-only chat/reader model served via /v1/chat/completions."""
+    short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
+    return short_id in TEXT_CHAT_MODEL_IDS
+
+
+def _is_chat_model() -> bool:
+    """True for any model served via /v1/chat/completions (VLM or text-only chat)."""
+    return _is_vlm_model() or _is_text_chat_model()
 
 
 def _require_omni():
@@ -392,19 +528,47 @@ def _count_tokens(texts: list) -> int:
     return sum(len(t.split()) for t in texts)
 
 
-def _resolve_task(task: str) -> str:
-    """Adapt task name to what the loaded model actually supports.
+def _resolve_task(task: Optional[str]) -> tuple[str, Optional[str]]:
+    """Return (task_for_encode, prompt_name) for the loaded model.
 
-    v5 models accept: retrieval, text-matching, classification, clustering.
-    v3 models accept: retrieval.query, retrieval.passage, separation,
-                      classification, text-matching.
+    The API-level task string carries two pieces of info that different model
+    families consume in different ways:
 
-    API endpoints use fine-grained names (retrieval.query, retrieval.passage)
-    from schema mapping. This function adapts them per model.
+    1. The base task name (``retrieval``, ``text-matching``, ``code``, ...)
+       picks the LoRA adapter (v3, v4) or the omni model's ``default_task``.
+       Code-embeddings has no LoRA — it ignores base task entirely.
+    2. The ``.query`` / ``.passage`` suffix picks the prompt prefix that ST's
+       ``encode()`` prepends, looked up in the model's ``prompts`` dict from
+       ``config_sentence_transformers.json``. The actual prompt KEY differs
+       per model (v4 uses ``query``/``passage``; v5-omni uses ``query``/
+       ``document``; code-embeddings uses ``{base}_query``/``{base}_document``),
+       so we resolve it data-driven via ``_map_prompt_name``.
+
+    Returns:
+        task_for_encode: passed via ``encode(task=...)`` (for ST 3.4+ models
+            whose custom_st declares ``task`` in its kwargs list — v3, v4) or
+            assigned on ``default_task`` for v5-omni. For v4 the suffix is
+            stripped to the base (v4's ``config.task_names`` lists
+            ``retrieval``/``text-matching``/``code`` only, with no
+            ``.query``/``.passage`` form). For v3 the suffix is preserved
+            because v3's task vocabulary IS ``retrieval.query`` /
+            ``retrieval.passage``. For v5 the suffix is collapsed because
+            v5's custom encode only accepts the bare base task.
+        prompt_name: passed via ``encode(prompt_name=...)`` when set, ``None``
+            otherwise. Mapped from the suffix against the model's actual
+            prompts dict, so we never pass an unknown key (which would raise
+            ``ValueError: Prompt name 'X' not found...``).
     """
+    if not task:
+        task = _default_task()
+
+    prompts = getattr(MODEL, "prompts", None) if MODEL is not None else None
+    prompt_name = _map_prompt_name(task, prompts)
+
     short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
     is_v3 = "v3" in short_id and "v5" not in short_id
     is_v5 = "v5" in short_id
+    is_v4 = short_id == "jina-embeddings-v4"
 
     if is_v3:
         v3_map = {
@@ -416,8 +580,12 @@ def _resolve_task(task: str) -> str:
             "clustering": "text-matching",
             "separation": "separation",
         }
-        return v3_map.get(task, "retrieval.passage")
-    elif is_v5:
+        return v3_map.get(task, "retrieval.passage"), prompt_name
+    if is_v5:
+        # v5 (omni and text): custom encode only accepts the bare base task.
+        # For omni the .query/.passage suffix is forwarded via prompt_name
+        # (resolved above). v5-text has no prompts map so prompt_name stays
+        # None.
         v5_map = {
             "retrieval": "retrieval",
             "retrieval.query": "retrieval",
@@ -426,39 +594,59 @@ def _resolve_task(task: str) -> str:
             "classification": "classification",
             "clustering": "clustering",
         }
-        return v5_map.get(task, "retrieval")
-    else:
-        # Older models: strip sub-task
-        if task.startswith("retrieval"):
-            return "retrieval"
-        return task
+        return v5_map.get(task, "retrieval"), prompt_name
+    if is_v4:
+        # v4 task_names = ["retrieval", "text-matching", "code"]; the .query /
+        # .passage suffix would fail v4's task validator, so strip to base.
+        # The suffix is carried into prompt_name (v4 prompts dict has
+        # "query"/"passage" keys).
+        base, _, _ = task.partition(".")
+        return base, prompt_name
+    # Plain models (v1/v2/b-en-v1) and code-embeddings: pass task through.
+    # code-embeddings has no LoRA — its standard sentence_transformers
+    # Transformer ignores unknown kwargs, so task= is a no-op; the prompt
+    # routing happens entirely via prompts/prompt_name. v1/v2 have
+    # MODEL_ACCEPTS_TASK_KWARG=False so the caller never forwards task=.
+    return task, prompt_name
 
 
-def _embed(inputs: list, task: str = "retrieval", dimensions: Optional[int] = None):
+def _embed(inputs: list, task: Optional[str] = None, dimensions: Optional[int] = None):
     """Text-only embedding. Returns (embeddings_np, n_tokens, tok_per_s)."""
     if MODEL is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
+    if _is_chat_model():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model '{MODEL_ID}' is a chat model. Use POST /v1/chat/completions instead.",
+        )
 
-    task = _resolve_task(task)
+    task, prompt_name = _resolve_task(task)
     n_tokens = _count_tokens(inputs)
     t0 = time.perf_counter()
-    ctx = torch.autocast("cuda", dtype=torch.float16) if DEVICE == "cuda" else torch.inference_mode()
-    with torch.inference_mode(), ctx:
+    with torch.inference_mode(), _encode_autocast_ctx():
         encode_kwargs = {
             "convert_to_numpy": True,
             "normalize_embeddings": True,
         }
-        # Omni models: set default_task on the module before encode instead of passing
-        # task= kwarg (st 3.4.1 doesn't forward it to the module's forward()).
-        # Text models (v3/v5-text): their custom_st.py encode() accepts task= directly.
-        if _is_omni_model():
-            # Set default_task on the first module (the custom_st Transformer module)
+        # Task routing:
+        #   v5-omni: custom_st module reads default_task; mutate it before encode
+        #            (ST doesn't forward task= to its forward()).
+        #   v3/v4/code-embeddings (ST 3.4+ with **kwargs): pass via task=.
+        #   v1/v2 (older ST): MODEL_ACCEPTS_TASK_KWARG is False, skip task=.
+        # Prompt routing (always when the model exposes a matching prompts entry):
+        #   v5-omni: "Query: "/"Document: " prefix; without prompt_name, last-token
+        #            pooling on the LLaMA/Qwen text tower drifts (cos ~0.16 on nano).
+        #   v4: "Query: "/"Passage: " prefix on retrieval/code LoRAs.
+        #   code-embeddings: "Find the most relevant ..."/"Candidate ..." per task family.
+        if _is_v5_omni_text_model():
             for mod in MODEL.modules():
                 if hasattr(mod, 'default_task'):
                     mod.default_task = task
                     break
-        else:
+        elif MODEL_ACCEPTS_TASK_KWARG:
             encode_kwargs["task"] = task
+        if prompt_name is not None:
+            encode_kwargs["prompt_name"] = prompt_name
         embeddings = MODEL.encode(
             inputs,
             **encode_kwargs,
@@ -476,7 +664,7 @@ def _embed(inputs: list, task: str = "retrieval", dimensions: Optional[int] = No
     return embeddings, n_tokens, tok_per_s
 
 
-def _embed_mixed(items: list, task: str = "retrieval", dimensions: Optional[int] = None):
+def _embed_mixed(items: list, task: Optional[str] = None, dimensions: Optional[int] = None):
     """
     Embed a mixed list of inputs (text strings, PIL.Images, BytesIO, or lists for fused multimodal).
 
@@ -488,8 +676,13 @@ def _embed_mixed(items: list, task: str = "retrieval", dimensions: Optional[int]
     """
     if MODEL is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
+    if _is_chat_model():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model '{MODEL_ID}' is a chat model. Use POST /v1/chat/completions instead.",
+        )
 
-    task = _resolve_task(task)
+    task, prompt_name = _resolve_task(task)
 
     encode_inputs = []
     text_parts = []
@@ -518,19 +711,24 @@ def _embed_mixed(items: list, task: str = "retrieval", dimensions: Optional[int]
     n_tokens = _count_tokens(text_parts) if text_parts else len(items)
 
     t0 = time.perf_counter()
-    ctx = torch.autocast("cuda", dtype=torch.float16) if DEVICE == "cuda" else torch.inference_mode()
-    with torch.inference_mode(), ctx:
+    with torch.inference_mode(), _encode_autocast_ctx():
         encode_kwargs = {
             "convert_to_numpy": True,
             "normalize_embeddings": True,
         }
-        if _is_omni_model():
+        if _is_v5_omni_text_model():
             for mod in MODEL.modules():
                 if hasattr(mod, 'default_task'):
                     mod.default_task = task
                     break
-        else:
+        elif MODEL_ACCEPTS_TASK_KWARG:
             encode_kwargs["task"] = task
+        # Only forward prompt_name when every encode input is a string: ST
+        # prepends ``prompts[prompt_name]`` to each input verbatim and would
+        # raise on PIL.Image / BytesIO / fused tuple items. Pure-multimodal
+        # calls keep working via the model's internal default.
+        if prompt_name is not None and all(isinstance(x, str) for x in encode_inputs):
+            encode_kwargs["prompt_name"] = prompt_name
         embeddings = MODEL.encode(
             encode_inputs,
             **encode_kwargs,
@@ -565,14 +763,35 @@ RERANKER_MODEL_IDS = {
     "jina-colbert-v1-en",
 }
 
+COLBERT_MODEL_IDS = {
+    "jina-colbert-v1-en",
+    "jina-colbert-v2",
+}
+
 
 def _is_reranker_model() -> bool:
     short = MODEL_ID.split("/")[-1] if MODEL_ID else ""
     return any(r in short for r in RERANKER_MODEL_IDS)
 
 
+def _is_colbert_model() -> bool:
+    short = MODEL_ID.split("/")[-1] if MODEL_ID else ""
+    return short in COLBERT_MODEL_IDS
+
+
+def _is_reranker_v3() -> bool:
+    """jina-reranker-v3 is a Qwen3-based listwise reranker with a custom
+    JinaForRanking class (auto_map.AutoModel -> modeling.JinaForRanking) that
+    exposes its own ``.rerank(query, documents)``. It is NOT a
+    sentence-transformers CrossEncoder, so it needs a dedicated load + rerank
+    branch separate from the generic reranker path.
+    """
+    short = MODEL_ID.split("/")[-1] if MODEL_ID else ""
+    return short == "jina-reranker-v3"
+
+
 def load_model():
-    global MODEL, TOKENIZER, MODEL_INFO
+    global MODEL, TOKENIZER, PROCESSOR, MODEL_INFO, MODEL_ACCEPTS_TASK_KWARG
 
     model_id = MODEL_ID
     if not model_id:
@@ -580,7 +799,80 @@ def load_model():
 
     logger.info(f"Loading model: {model_id}")
 
-    if _is_reranker_model():
+    if _is_vlm_model():
+        from transformers import AutoProcessor, AutoModelForCausalLM
+        # VLM target dtype: fp16 on cuda (no bf16 native on L4), fp32 on cpu/mps
+        if DEVICE == "cuda":
+            dtype_env = os.environ.get("JINA_DTYPE", "float16").lower()
+            vlm_dtype = torch.bfloat16 if dtype_env in ("bfloat16", "bf16") else torch.float16
+        else:
+            vlm_dtype = torch.float32
+        # Flash-attn is intentionally not installed (no nvcc/git in runtime image);
+        # sdpa is the supported fallback and matches HF's documented CPU/non-fa path.
+        PROCESSOR = AutoProcessor.from_pretrained(model_id, trust_remote_code=True, use_fast=False)
+        MODEL = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            trust_remote_code=True,
+            torch_dtype=vlm_dtype,
+            low_cpu_mem_usage=True,
+            device_map=DEVICE if DEVICE != "mps" else None,
+            attn_implementation="sdpa",
+        )
+        if DEVICE == "mps":
+            MODEL = MODEL.to(DEVICE)
+        MODEL.eval()
+        MODEL_INFO = {"model": model_id, "type": "vlm"}
+        logger.info(f"Loaded as VLM (AutoModelForCausalLM): {model_id} dtype={vlm_dtype}")
+    elif _is_text_chat_model():
+        from transformers import AutoTokenizer, AutoModelForCausalLM
+        # Text-only chat target dtype: fp16 on cuda (no bf16 native on L4), fp32 on cpu/mps.
+        if DEVICE == "cuda":
+            dtype_env = os.environ.get("JINA_DTYPE", "float16").lower()
+            chat_dtype = torch.bfloat16 if dtype_env in ("bfloat16", "bf16") else torch.float16
+        else:
+            chat_dtype = torch.float32
+        TOKENIZER = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+        MODEL = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            trust_remote_code=True,
+            torch_dtype=chat_dtype,
+            low_cpu_mem_usage=True,
+            device_map=DEVICE if DEVICE != "mps" else None,
+            attn_implementation="sdpa",
+        )
+        if DEVICE == "mps":
+            MODEL = MODEL.to(DEVICE)
+        MODEL.eval()
+        MODEL_INFO = {"model": model_id, "type": "chat"}
+        logger.info(f"Loaded as text chat (AutoModelForCausalLM): {model_id} dtype={chat_dtype}")
+    elif _is_colbert_model():
+        from pylate import models as pylate_models
+        # PyLate wraps sentence-transformers and handles ColBERT-specific Q/D
+        # markers, query expansion, and the 128-dim projection head.
+        MODEL = pylate_models.ColBERT(
+            model_name_or_path=model_id,
+            trust_remote_code=True,
+            device=DEVICE,
+        )
+        MODEL_INFO = {"model": model_id, "type": "colbert"}
+        logger.info(f"Loaded as pylate ColBERT (late-interaction): {model_id}")
+    elif _is_reranker_v3():
+        from transformers import AutoModel
+        # jina-reranker-v3: AutoModel + trust_remote_code loads the custom
+        # JinaForRanking (Qwen3ForCausalLM subclass with a 1024->512->256 MLP
+        # projector). Native dtype is bf16; keep it on cuda, use fp32 on cpu
+        # because generic x86_64 has no bf16 SIMD.
+        v3_dtype = torch.bfloat16 if DEVICE == "cuda" else torch.float32
+        MODEL = AutoModel.from_pretrained(
+            model_id,
+            trust_remote_code=True,
+            torch_dtype=v3_dtype,
+            low_cpu_mem_usage=True,
+        )
+        MODEL = MODEL.to(DEVICE).eval()
+        MODEL_INFO = {"model": model_id, "type": "reranker"}
+        logger.info(f"Loaded as JinaForRanking (reranker-v3): {model_id} dtype={v3_dtype}")
+    elif _is_reranker_model():
         from sentence_transformers import CrossEncoder
         MODEL = CrossEncoder(model_id, trust_remote_code=True, device=DEVICE)
         # Set pad_token if missing (qwen3-based rerankers need this for batched inference)
@@ -608,6 +900,21 @@ def load_model():
         MODEL = SentenceTransformer(model_id, trust_remote_code=True, device=DEVICE, **st_kwargs)
         MODEL_INFO = {"model": model_id, "type": "embedding"}
 
+    if MODEL is not None and hasattr(MODEL, "encode"):
+        try:
+            import inspect as _inspect
+            _sig = _inspect.signature(MODEL.encode)
+            _params = _sig.parameters
+            _has_var_kw = any(p.kind == _inspect.Parameter.VAR_KEYWORD for p in _params.values())
+            # ST 3.4+ exposes encode(..., **kwargs) and routes them to module forward()
+            # filtered by each module's declared kwargs list (custom_st.Transformer for
+            # v3 / code-embeddings declares ["task"], so passing task= is required for
+            # LoRA adapter routing). ST 2.7 has no **kwargs and rejects unknown kwargs.
+            MODEL_ACCEPTS_TASK_KWARG = "task" in _params or _has_var_kw
+        except (ValueError, TypeError):
+            MODEL_ACCEPTS_TASK_KWARG = False
+        logger.info(f"MODEL.encode() accepts task= kwarg: {MODEL_ACCEPTS_TASK_KWARG}")
+
     try:
         from transformers import AutoTokenizer
         TOKENIZER = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
@@ -615,8 +922,10 @@ def load_model():
     except Exception as e:
         logger.warning(f"Could not load tokenizer ({e}), will use word-split approximation")
 
-    # --- Apply dtype optimization (GPU only) ---
-    if DEVICE == "cuda" and not _is_reranker_model():
+    # --- Apply dtype optimization (GPU only, embedding/reranker models) ---
+    # VLM / text-chat dtype is set at load_pretrained time; skip the ST-style
+    # .half() / torch.compile path for those.
+    if DEVICE == "cuda" and not _is_reranker_model() and not _is_chat_model():
         dtype_env = os.environ.get("JINA_DTYPE", "float16").lower()
         if dtype_env in ("float16", "fp16", "half"):
             MODEL.half()
@@ -627,16 +936,29 @@ def load_model():
         else:
             logger.info(f"Running in FP32 (JINA_DTYPE={dtype_env})")
 
-        # torch.compile: fuses ops, ~10-30% additional speedup
+        # torch.compile: fuses ops, ~10-30% additional speedup. xlm-roberta-flash
+        # models (jina-embeddings-v3 family, jina-clip-* text tower) mutate an
+        # internal rotary _cos_cached tensor inside the forward pass; CUDA
+        # Graphs (reduce-overhead) sees it as constant and raises "accessing
+        # tensor output of CUDAGraphs that has been overwritten by a subsequent
+        # run" the first time the captured-shape changes (e.g. different task
+        # prompt length). Detect xlm-roberta-flash and skip compile for those.
         try:
             first_module = MODEL._first_module()
             if hasattr(first_module, "auto_model"):
-                first_module.auto_model = torch.compile(
-                    first_module.auto_model,
-                    mode="reduce-overhead",
-                    fullgraph=False,
+                _auto = first_module.auto_model
+                _is_flash_rotary = "xlm-roberta-flash-implementation" in (
+                    getattr(type(_auto), "__module__", "") or ""
                 )
-                logger.info("torch.compile(reduce-overhead) applied to encoder")
+                if _is_flash_rotary:
+                    logger.info("torch.compile skipped: xlm-roberta-flash rotary cache is incompatible with CUDA Graphs")
+                else:
+                    first_module.auto_model = torch.compile(
+                        _auto,
+                        mode="reduce-overhead",
+                        fullgraph=False,
+                    )
+                    logger.info("torch.compile(reduce-overhead) applied to encoder")
         except Exception as e:
             logger.warning(f"torch.compile skipped: {e}")
 
@@ -702,7 +1024,9 @@ class OpenAIEmbeddingRequest(BaseModel):
     model: Optional[str] = None
     encoding_format: Optional[str] = "float"
     dimensions: Optional[int] = None
-    task: Optional[str] = "retrieval"
+    # Default to None (not "retrieval") so _resolve_task can apply a
+    # per-family default that matches prod (omni/v4 -> text-matching).
+    task: Optional[str] = None
 
     # Voyage AI extensions
     input_type: Optional[str] = None
@@ -731,7 +1055,7 @@ async def create_embeddings_openai(request: OpenAIEmbeddingRequest):
     raw_inputs = request.input if isinstance(request.input, list) else [request.input]
 
     dims = request.dimensions or request.output_dimension
-    task = request.task or "retrieval"
+    task = request.task
     if request.input_type:
         voyage_task_map = {
             "query": "retrieval.query",
@@ -1093,12 +1417,74 @@ async def rerank(request: RerankRequest):
 
     t0 = time.perf_counter()
     with torch.inference_mode():
-        pairs = [[request.query, doc] for doc in docs]
-        try:
-            scores = MODEL.predict(pairs)
-        except AttributeError:
-            raise HTTPException(status_code=400, detail="Loaded model does not support reranking")
+        if _is_colbert_model():
+            # ColBERT late-interaction: encode query and docs as token-level
+            # multi-vectors and score via MaxSim. pylate.rank.rerank takes a
+            # nested-by-query layout (one inner list per query); since we have
+            # one query we pass a 1-element outer list and pop result[0] back
+            # out. NOTE: encode() with a nested-list documents arg internally
+            # torch.stack()s per-doc embeddings without padding and crashes on
+            # variable-length docs (jina-colbert returns (n_tokens, 128) per
+            # doc, n_tokens varies). So encode docs as a flat list and wrap the
+            # returned list-of-tensors for rerank.
+            from pylate import rank as pylate_rank
+            queries_emb = MODEL.encode([request.query], is_query=True, convert_to_tensor=True)
+            docs_emb_flat = MODEL.encode(docs, is_query=False, convert_to_tensor=True)
+            reranked = pylate_rank.rerank(
+                documents_ids=[list(range(len(docs)))],
+                queries_embeddings=queries_emb,
+                documents_embeddings=[docs_emb_flat],
+            )
+            colbert_results = reranked[0]
+        elif _is_reranker_v3():
+            # jina-reranker-v3 ships its own block-wise listwise .rerank() that
+            # already returns docs sorted by relevance_score descending, with
+            # top_n applied. No need for a manual sort pass.
+            v3_results = MODEL.rerank(request.query, docs, top_n=request.top_n)
+        else:
+            pairs = [[request.query, doc] for doc in docs]
+            try:
+                # convert_to_tensor=True keeps the model's native dtype (e.g. bf16 for
+                # jina-reranker-v2-base-multilingual); cast to fp32 before numpy because
+                # numpy has no bf16 dtype.
+                scores = MODEL.predict(pairs, convert_to_numpy=False, convert_to_tensor=True)
+            except AttributeError:
+                raise HTTPException(status_code=400, detail="Loaded model does not support reranking")
+            if hasattr(scores, "float"):
+                scores = scores.float().detach().cpu().numpy()
     elapsed = time.perf_counter() - t0
+
+    if _is_colbert_model():
+        results = [
+            {
+                "index": int(item["id"]),
+                "relevance_score": float(item["score"]),
+                "document": {"text": docs[int(item["id"])]} if request.return_documents else None,
+            }
+            for item in colbert_results
+        ]
+        if request.top_n:
+            results = results[: request.top_n]
+        return {
+            "model": MODEL_ID,
+            "results": results,
+            "meta": {"elapsed_ms": round(elapsed * 1000, 1)},
+        }
+
+    if _is_reranker_v3():
+        results = [
+            {
+                "index": int(item["index"]),
+                "relevance_score": float(item["relevance_score"]),
+                "document": {"text": docs[int(item["index"])]} if request.return_documents else None,
+            }
+            for item in v3_results
+        ]
+        return {
+            "model": MODEL_ID,
+            "results": results,
+            "meta": {"elapsed_ms": round(elapsed * 1000, 1)},
+        }
 
     results = [
         {"index": i, "relevance_score": float(s), "document": {"text": docs[i]} if request.return_documents else None}
@@ -1113,6 +1499,221 @@ async def rerank(request: RerankRequest):
         "model": MODEL_ID,
         "results": results,
         "meta": {"elapsed_ms": round(elapsed * 1000, 1)},
+    }
+
+
+# =============================================================================
+# Schema 6: OpenAI Chat Completions (POST /v1/chat/completions)
+#
+# For VLM / reader models. Supports OpenAI message format with optional images:
+#   messages = [{"role": "user", "content": "hello"}]                          (text-only)
+#   messages = [{"role": "user", "content": [                                  (vision)
+#       {"type": "text", "text": "What is in this image?"},
+#       {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}},
+#   ]}]
+# =============================================================================
+
+class ChatCompletionRequest(BaseModel):
+    model: Optional[str] = None
+    messages: list
+    max_tokens: Optional[int] = 256
+    temperature: Optional[float] = 0.0
+    top_p: Optional[float] = 1.0
+    stream: Optional[bool] = False
+
+
+def _openai_msg_to_vlm_content(msg: dict) -> tuple:
+    """Convert one OpenAI-style message to (role, content_parts, images).
+
+    content_parts: list of {"type": "text"|"image", ...} for processor.apply_chat_template
+    images: list of PIL.Image for processor(images=...)
+    """
+    role = msg.get("role", "user")
+    content = msg.get("content", "")
+    parts = []
+    images = []
+    if isinstance(content, str):
+        parts.append({"type": "text", "text": content})
+    elif isinstance(content, list):
+        for p in content:
+            if not isinstance(p, dict):
+                continue
+            t = p.get("type", "")
+            if t == "text":
+                parts.append({"type": "text", "text": p.get("text", "")})
+            elif t == "image_url":
+                url = p.get("image_url", {})
+                if isinstance(url, dict):
+                    url = url.get("url", "")
+                if not isinstance(url, str):
+                    raise HTTPException(status_code=400, detail="image_url.url must be a string")
+                if url.startswith("data:"):
+                    raw, mime = _decode_b64(url)
+                    img = _bytes_to_st_input(raw, mime)
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="image_url.url must be a base64 data URL (offline server cannot fetch http(s) URLs)",
+                    )
+                parts.append({"type": "image", "image": img})
+                images.append(img)
+            elif t == "image":
+                # Elastic-style {"type":"image","format":"base64","value":"..."}
+                if p.get("format") == "base64":
+                    raw, mime = _decode_b64(p.get("value", ""))
+                    img = _bytes_to_st_input(raw, mime)
+                    parts.append({"type": "image", "image": img})
+                    images.append(img)
+                else:
+                    raise HTTPException(status_code=400, detail="image part requires format=base64")
+            else:
+                raise HTTPException(status_code=400, detail=f"Unsupported content part type: {t!r}")
+    else:
+        raise HTTPException(status_code=400, detail="message.content must be a string or list of parts")
+    return role, parts, images
+
+
+@app.post("/v1/chat/completions", tags=["OpenAI Chat"])
+async def chat_completions(request: ChatCompletionRequest):
+    """OpenAI-compatible chat completions endpoint (VLM / text-chat / reader models)."""
+    if MODEL is None or (PROCESSOR is None and not _is_text_chat_model()):
+        raise HTTPException(
+            status_code=503,
+            detail="Chat completions endpoint requires a chat/VLM model. Loaded model: "
+                   f"{MODEL_ID}",
+        )
+    if request.stream:
+        raise HTTPException(status_code=400, detail="stream=true is not supported in this build")
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="messages must be a non-empty list")
+
+    conversation = []
+    all_images = []
+    for msg in request.messages:
+        if not isinstance(msg, dict):
+            raise HTTPException(status_code=400, detail="each message must be a dict")
+        role, parts, imgs = _openai_msg_to_vlm_content(msg)
+        if imgs and _is_text_chat_model():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Model '{MODEL_ID}' is text-only and does not accept image inputs.",
+            )
+        conversation.append({"role": role, "content": parts})
+        all_images.extend(imgs)
+
+    max_sequence_length = (
+        getattr(MODEL.config, "max_sequence_length", None)
+        or getattr(MODEL.config, "max_position_embeddings", None)
+        or 32768
+    )
+
+    t0 = time.perf_counter()
+    if _is_text_chat_model():
+        # Text-only path: AutoTokenizer's apply_chat_template only needs role+text.
+        text_messages = [
+            {
+                "role": m["role"],
+                "content": "".join(
+                    p.get("text", "") for p in m["content"] if p.get("type") == "text"
+                ),
+            }
+            for m in conversation
+        ]
+        templated = TOKENIZER.apply_chat_template(
+            text_messages,
+            add_generation_prompt=True,
+            tokenize=False,
+        )
+        proc_inputs = TOKENIZER(
+            templated,
+            return_tensors="pt",
+            truncation=True,
+            max_length=max_sequence_length,
+        )
+        decoder_tokenizer = TOKENIZER
+    else:
+        # apply_chat_template returns the templated string for ONE conversation when given a single list
+        texts = PROCESSOR.apply_chat_template([conversation], add_generation_prompt=True)
+        proc_inputs = PROCESSOR(
+            text=texts,
+            images=[all_images] if all_images else None,
+            padding="longest",
+            max_length=max_sequence_length,
+            return_tensors="pt",
+        )
+        decoder_tokenizer = PROCESSOR.tokenizer
+
+    device_inputs = {}
+    dtype = next(MODEL.parameters()).dtype
+    for k, v in proc_inputs.items():
+        if k == "labels":
+            continue
+        if isinstance(v, torch.Tensor):
+            if v.is_floating_point():
+                device_inputs[k] = v.to(DEVICE, dtype=dtype, non_blocking=True)
+            else:
+                device_inputs[k] = v.to(DEVICE, non_blocking=True)
+        else:
+            device_inputs[k] = v
+
+    from transformers import GenerationConfig
+    gen_config = GenerationConfig(
+        max_new_tokens=request.max_tokens or 256,
+        do_sample=(request.temperature is not None and request.temperature > 0.0),
+        temperature=request.temperature if (request.temperature and request.temperature > 0.0) else None,
+        top_p=request.top_p,
+    )
+
+    autocast_ctx = (
+        torch.autocast(DEVICE, dtype=dtype)
+        if DEVICE in ("cuda",) and dtype != torch.float32
+        else nullcontext()
+    )
+    generate_kwargs = {
+        "generation_config": gen_config,
+        "return_dict_in_generate": True,
+    }
+    # use_model_defaults was added in transformers >=4.51; reader-lm pins 4.48.3.
+    if not _is_text_chat_model():
+        generate_kwargs["use_model_defaults"] = True
+
+    with torch.inference_mode(), autocast_ctx:
+        output = MODEL.generate(
+            **device_inputs,
+            **generate_kwargs,
+        )
+
+    input_ids = device_inputs["input_ids"]
+    input_len = input_ids.shape[1]
+    out_tokens = output.sequences[0][input_len:]
+    n_completion_tokens = int(out_tokens.shape[0])
+    response_text = decoder_tokenizer.decode(out_tokens, skip_special_tokens=True)
+    elapsed = time.perf_counter() - t0
+
+    prompt_tokens = int(input_len)
+    _update_stats(n_completion_tokens, elapsed)
+    logger.info(
+        f"Chat: prompt={prompt_tokens} tok | gen={n_completion_tokens} tok | "
+        f"{elapsed*1000:.0f}ms | images={len(all_images)}"
+    )
+
+    return {
+        "id": f"chatcmpl-{int(time.time()*1000)}",
+        "object": "chat.completion",
+        "created": int(time.time()),
+        "model": MODEL_ID,
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": response_text},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": n_completion_tokens,
+            "total_tokens": prompt_tokens + n_completion_tokens,
+        },
     }
 
 

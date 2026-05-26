@@ -41,15 +41,41 @@ for _repo in (r.strip() for r in _extra_repos_raw.split(",") if r.strip()):
     )
     print(f"  cached {_repo}")
 
-# Pre-load with SentenceTransformer to cache dynamic modules
-# This ensures trust_remote_code modules are in the HF cache for offline use
+# Pre-load to cache dynamic modules (trust_remote_code .py files into
+# /model_cache/modules/transformers_modules/...). At runtime HF_HUB_OFFLINE=1
+# blocks downloads, so this MUST succeed for one of the paths.
+_preloaded = False
 try:
     from sentence_transformers import SentenceTransformer
-    print(f"Pre-loading {model_id} to cache dynamic modules...")
+    print(f"Pre-loading {model_id} via SentenceTransformer...")
     SentenceTransformer(model_id, trust_remote_code=True, device="cpu")
-    print("Dynamic modules cached successfully")
+    _preloaded = True
+    print("Dynamic modules cached via SentenceTransformer")
 except Exception as e:
-    print(f"Warning: pre-load failed, model may still work at runtime: {e}")
+    print(f"SentenceTransformer pre-load failed ({type(e).__name__}: {e})")
+
+if not _preloaded:
+    # VLM / chat models (jina-vlm, ReaderLM, etc.) are not SentenceTransformer-compatible.
+    # Load via AutoProcessor + AutoModelForCausalLM to materialize modeling_*.py /
+    # processing_*.py / image_processing_*.py into the dynamic module cache.
+    try:
+        from transformers import AutoProcessor, AutoModelForCausalLM
+        print(f"Pre-loading {model_id} via AutoModelForCausalLM...")
+        try:
+            AutoProcessor.from_pretrained(model_id, trust_remote_code=True, use_fast=False)
+            print("Processor cached")
+        except Exception as ep:
+            print(f"AutoProcessor cache skipped ({type(ep).__name__}: {ep})")
+        AutoModelForCausalLM.from_pretrained(
+            model_id, trust_remote_code=True, low_cpu_mem_usage=True
+        )
+        _preloaded = True
+        print("Dynamic modules cached via AutoModelForCausalLM")
+    except Exception as e:
+        print(f"AutoModelForCausalLM pre-load failed ({type(e).__name__}: {e})")
+
+if not _preloaded:
+    print("Warning: all pre-load paths failed; model may need network at runtime")
 
 # Patch model code in all cached locations for air-gap compatibility.
 # These patches fix bugs in the HF model code that break offline loading.
