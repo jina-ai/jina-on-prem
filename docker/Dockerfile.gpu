@@ -18,6 +18,7 @@ FROM python:3.11-slim AS downloader
 
 ARG MODEL_ID
 ARG HF_TOKEN
+ARG EXTRA_REPOS=""
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -25,7 +26,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     HF_HOME=/model_cache \
     HF_TOKEN=${HF_TOKEN} \
-    MODEL_ID=${MODEL_ID}
+    MODEL_ID=${MODEL_ID} \
+    EXTRA_REPOS=${EXTRA_REPOS}
 
 # torch and torchvision from CPU index for download stage
 COPY docker/model-requirements.txt /tmp/model-requirements.txt
