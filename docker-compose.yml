@@ -1,0 +1,33 @@
+# jina-airgap deployment via docker compose.
+#
+# Single-container deploy (default). For multi-model with embed + rerank, see
+# docker-compose.multi.yml. Models must be loaded into the local Docker daemon
+# first (docker load < MODEL.tar.gz, or docker pull from your registry).
+#
+# Usage:
+#   MODEL=jina-embeddings-v5-text-nano RUNTIME=cpu docker compose up -d
+#   MODEL=jina-embeddings-v5-text-small RUNTIME=gpu docker compose up -d
+#   docker compose logs -f
+#   docker compose down
+
+services:
+  jina:
+    image: jina/${MODEL:-jina-embeddings-v5-text-nano}:${RUNTIME:-cpu}
+    container_name: jina-${MODEL:-embeddings}
+    ports:
+      - "${PORT:-8080}:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    # Uncomment for GPU runtime:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]

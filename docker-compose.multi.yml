@@ -1,0 +1,39 @@
+# Two-container deploy: embedding + reranker.
+#
+# Use the same MODEL variants for either CPU or GPU. To run all on GPU, add the
+# `deploy` block from docker-compose.yml under each service.
+#
+# Usage:
+#   docker compose -f docker-compose.multi.yml up -d
+#   curl http://localhost:8080/health     # embed
+#   curl http://localhost:8081/health     # rerank
+#
+# Both expose the same multi-schema API. Point your retrieval app at 8080 and
+# your reranking step at 8081.
+
+services:
+  embed:
+    image: jina/jina-embeddings-v5-text-small:cpu
+    container_name: jina-embed
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+
+  rerank:
+    image: jina/jina-reranker-v3:cpu
+    container_name: jina-rerank
+    ports:
+      - "8081:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
