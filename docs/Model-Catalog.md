@@ -6,15 +6,15 @@ All 28 models supported by jina-airgap. Auto-generated from [`models/catalog.jso
 
 | Model | Prebuilt | Params | VRAM | Context | Output | Modality | License |
 |---|---|---|---|---|---|---|---|
-| `jina-embeddings-v5-omni-small` | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-small) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-small) | 1.74B | ~8GB | 32K | 1024 (matryoshka: 32-1024) | multimodal | CC-BY-NC-4.0 |
-| `jina-embeddings-v5-omni-nano` | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-nano) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-nano) | 1.04B | ~5GB | 8K | 768 (matryoshka: 32-768) | multimodal | CC-BY-NC-4.0 |
-| `jina-embeddings-v5-text-small` | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-small) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-small) | 677M | ~3GB | 32K | 1024 (matryoshka: 32-1024) | text | CC-BY-NC-4.0 |
-| `jina-embeddings-v5-text-nano` | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-nano) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-nano) | 239M | ~2GB | 8K | 768 (matryoshka: 32-768) | text | CC-BY-NC-4.0 |
+| `jina-embeddings-v5-omni-small` | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-small/894209247) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-small/894209342) | 1.74B | ~8GB | 32K | 1024 (matryoshka: 32-1024) | multimodal | CC-BY-NC-4.0 |
+| `jina-embeddings-v5-omni-nano` | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-nano/894208735) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-omni-nano/894209314) | 1.04B | ~5GB | 8K | 768 (matryoshka: 32-768) | multimodal | CC-BY-NC-4.0 |
+| `jina-embeddings-v5-text-small` | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-small/886085110) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-small/886086903) | 677M | ~3GB | 32K | 1024 (matryoshka: 32-1024) | text | CC-BY-NC-4.0 |
+| `jina-embeddings-v5-text-nano` | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-nano/886084948) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v5-text-nano/886086707) | 239M | ~2GB | 8K | 768 (matryoshka: 32-768) | text | CC-BY-NC-4.0 |
 | `jina-code-embeddings-1.5b` | - | 1.5B | ~4GB | 32K | 1536 (matryoshka: 128-1536) | code | CC-BY-NC-4.0 |
 | `jina-code-embeddings-0.5b` | - | 494M | ~2GB | 32K | 896 (matryoshka: 64-896) | code | CC-BY-NC-4.0 |
 | `jina-embeddings-v4` | - | 3.8B | ~10GB | 32K | 2048 (matryoshka: 128-2048) | multimodal | Qwen Research License |
-| `jina-clip-v2` | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-clip-v2) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-clip-v2) | 865M | ~4GB | 8K | 1024 (matryoshka: 64-1024) | multimodal | CC-BY-NC-4.0 |
-| `jina-embeddings-v3` | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v3) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v3) | 570M | ~3GB | 8K | 1024 (matryoshka: 32-1024) | text | CC-BY-NC-4.0 |
+| `jina-clip-v2` | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-clip-v2/886502690) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-clip-v2/886416640) | 865M | ~4GB | 8K | 1024 (matryoshka: 64-1024) | multimodal | CC-BY-NC-4.0 |
+| `jina-embeddings-v3` | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v3/893876768) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-embeddings-v3/893876917) | 570M | ~3GB | 8K | 1024 (matryoshka: 32-1024) | text | CC-BY-NC-4.0 |
 | `jina-clip-v1` | - | 223M | ~1GB | 8K | 768 | multimodal | Apache-2.0 |
 | `jina-embeddings-v2-base-es` | - | 161M | ~1GB | 8K | 768 | text | Apache-2.0 |
 | `jina-embeddings-v2-base-code` | - | 137M | ~1GB | 8K | 768 | code | Apache-2.0 |
@@ -27,7 +27,7 @@ All 28 models supported by jina-airgap. Auto-generated from [`models/catalog.jso
 
 | Model | Prebuilt | Params | VRAM | Context | Output | Modality | License |
 |---|---|---|---|---|---|---|---|
-| `jina-reranker-v3` | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-reranker-v3) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-reranker-v3) | 597M | ~3GB | 131K | - | text | CC-BY-NC-4.0 |
+| `jina-reranker-v3` | [cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-reranker-v3/893272991) / [gpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2Fjina-reranker-v3/893273806) | 597M | ~3GB | 131K | - | text | CC-BY-NC-4.0 |
 | `jina-reranker-m0` | - | 2.4B | ~6GB | 10K | - | multimodal | CC-BY-NC-4.0 |
 | `jina-reranker-v2-base-multilingual` | - | 278M | ~1GB | 1K | - | text | CC-BY-NC-4.0 |
 | `jina-reranker-v1-turbo-en` | - | 37.8M | ~1GB | 8K | - | text | Apache-2.0 |
