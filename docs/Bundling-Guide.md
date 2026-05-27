@@ -1,5 +1,3 @@
-# Bundling Guide
-
 How to build your own bundle from scratch. Use this when:
 
 - The model you want isn't in the [prebuilt list](Model-Catalog)

@@ -1,5 +1,3 @@
-# API Reference
-
 A deployed jina-airgap server exposes four embedding API schemas (and a reranker endpoint) on the same port. Pick whichever your client already speaks - they all hit the same model.
 
 ```mermaid

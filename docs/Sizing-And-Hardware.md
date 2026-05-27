@@ -1,5 +1,3 @@
-# Sizing & Hardware
-
 Capacity planning for jina-airgap deployments. Covers GPU vs CPU choice, VRAM by model, expected throughput, disk, and redundancy.
 
 ## The three knobs

@@ -1,5 +1,3 @@
-# jina-airgap
-
 **Deploy Jina AI's embedding, reranker, and reader models inside customer environments that cannot reach the internet.**
 
 ![hero](images/hero-bundle-flow.png)

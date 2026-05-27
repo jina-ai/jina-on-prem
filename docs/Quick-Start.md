@@ -1,5 +1,3 @@
-# Quick Start
-
 ![hero](images/hero-quick-start.png)
 
 Get your first `/v1/embeddings` response in five minutes.

@@ -1,5 +1,3 @@
-# Versioning & Updates
-
 How to handle model upgrades, dependency bumps, and customer-side rollouts without downtime. Common SA question once the first deployment is live.
 
 ```mermaid

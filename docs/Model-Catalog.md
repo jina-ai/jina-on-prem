@@ -1,5 +1,3 @@
-# Model Catalog
-
 All 28 models supported by jina-airgap. Auto-generated from [`models/catalog.json`](https://github.com/jina-ai/jina-airgap/blob/main/models/catalog.json) - re-run `python3 scripts/gen_catalog_md.py` to refresh.
 
 **License note**: Models tagged `CC-BY-NC-4.0` need a commercial license for production use. Contact [Elastic sales](https://www.elastic.co/contact).

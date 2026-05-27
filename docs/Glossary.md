@@ -1,5 +1,3 @@
-# Glossary
-
 Short definitions for terms used across the wiki. For non-engineers in sales/SA roles.
 
 ## A
