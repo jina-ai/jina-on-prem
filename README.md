@@ -77,7 +77,7 @@ Drops in via OpenAI SDK with `base_url="http://your-host:8080/v1"`.
 
 ## Models
 
-28 models supported: embeddings (v5, v4, v3, v2), rerankers, readers, ColBERT, CLIP, VLM. All 7 prebuilt images:
+28 models supported: embeddings (v5, v4, v3, v2), rerankers, readers, ColBERT, CLIP, VLM. All 28 models have prebuilt images. Headline picks:
 
 | Model | Type | Modality | Params | VRAM | Prebuilt |
 |---|---|---|---|---|---|
