@@ -30,8 +30,11 @@ PREBUILT = {
 }
 
 
-def prebuilt_link(model_id: str, runtime: str) -> str:
-    return f"[{runtime}]({GHCR}{model_id})"
+def prebuilt_link(model_id: str, runtime: str, version_id: str | None = None) -> str:
+    url = f"{GHCR}{model_id}"
+    if version_id:
+        url = f"{url}/{version_id}"
+    return f"[{runtime}]({url})"
 
 
 def fmt_ctx(n: int | None) -> str:
@@ -96,9 +99,10 @@ def render() -> str:
         out.append("| Model | Prebuilt | Params | VRAM | Context | Output | Modality | License |")
         out.append("|---|---|---|---|---|---|---|---|")
         for m in by_type[t]:
+            versions = m.get("prebuilt_versions", {})
             prebuilt = (
-                f"{prebuilt_link(m['id'], 'cpu')} / {prebuilt_link(m['id'], 'gpu')}"
-                if m["id"] in PREBUILT
+                f"{prebuilt_link(m['id'], 'cpu', versions.get('cpu'))} / {prebuilt_link(m['id'], 'gpu', versions.get('gpu'))}"
+                if m.get("prebuilt") or m["id"] in PREBUILT
                 else "-"
             )
             row = [

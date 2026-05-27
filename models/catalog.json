@@ -52,7 +52,11 @@
         "flash-attn": "==2.7.3",
         "torchvision": "==0.20.1"
       },
-      "prebuilt": true
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "894209247",
+        "gpu": "894209342"
+      }
     },
     {
       "id": "jina-embeddings-v5-omni-nano",
@@ -106,7 +110,11 @@
         "flash-attn": "==2.7.3",
         "torchvision": "==0.20.1"
       },
-      "prebuilt": true
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "894208735",
+        "gpu": "894209314"
+      }
     },
     {
       "id": "jina-embeddings-v5-text-small",
@@ -157,7 +165,11 @@
         "flash-attn": null,
         "torchvision": "==0.20.1"
       },
-      "prebuilt": true
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "886085110",
+        "gpu": "886086903"
+      }
     },
     {
       "id": "jina-embeddings-v5-text-nano",
@@ -208,7 +220,11 @@
         "flash-attn": null,
         "torchvision": "==0.20.1"
       },
-      "prebuilt": true
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "886084948",
+        "gpu": "886086707"
+      }
     },
     {
       "id": "jina-vlm",
@@ -279,7 +295,11 @@
         "flash-attn": "==2.7.3",
         "torchvision": "==0.20.1"
       },
-      "prebuilt": true
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "893272991",
+        "gpu": "893273806"
+      }
     },
     {
       "id": "jina-code-embeddings-1.5b",
@@ -546,7 +566,11 @@
         "flash-attn": null,
         "torchvision": "==0.20.1"
       },
-      "prebuilt": true
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "886502690",
+        "gpu": "886416640"
+      }
     },
     {
       "id": "jina-embeddings-v3",
@@ -601,7 +625,11 @@
       "extra_repos": [
         "jinaai/xlm-roberta-flash-implementation"
       ],
-      "prebuilt": true
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "893876768",
+        "gpu": "893876917"
+      }
     },
     {
       "id": "jina-colbert-v2",
