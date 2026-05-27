@@ -1,33 +1,21 @@
 A deployed jina-airgap server exposes four embedding API schemas (and a reranker endpoint) on the same port. Pick whichever your client already speaks - they all hit the same model.
 
-```mermaid
-flowchart TB
-    classDef sch fill:#e8f0ff,stroke:#3b6ad6
-
-    OAI[POST /v1/embeddings]:::sch
-    VOY[POST /v1/embeddings
-input_type / output_dimension]:::sch
-    COH[POST /v1/embed]:::sch
-    GEM["POST /v1/models/{model}:embedContent
-and :batchEmbedContents"]:::sch
-    RER[POST /v1/rerank]:::sch
-    HLT[GET /health]:::sch
-
-    OAI --> SRV[FastAPI server
-server/app.py]
-    VOY --> SRV
-    COH --> SRV
-    GEM --> SRV
-    RER --> SRV
-    HLT --> SRV
-
-    SRV --> MOD[Model encode
-once per request]
-    MOD --> SHAPE[Schema-specific
-response shaper]
-    SHAPE -.- OAI
-    SHAPE -.- COH
-    SHAPE -.- GEM
+```
+   client                        endpoint
+   ────────────────────────────────────────────────────────────────
+   OpenAI SDK             ──►  POST /v1/embeddings           ┐
+   Voyage SDK             ──►  POST /v1/embeddings (...)     │
+   Cohere SDK             ──►  POST /v1/embed                ├──►  FastAPI server
+   Google AI SDK          ──►  POST /v1/models/X:embedContent│         │
+   reranker client        ──►  POST /v1/rerank               │         ▼
+   ES inference           ──►  service: openai | cohere      ┘   model.encode()
+                                                                       │
+   GET /health  (status, schemas, multimodal flag)                     ▼
+                                                              schema-specific
+                                                              response shaper
+                                                                       │
+                                                                       ▼
+                                                                   reply
 ```
 
 | Schema | Endpoint | Drop-in for |

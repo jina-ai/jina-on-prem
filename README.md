@@ -4,7 +4,7 @@ Air-gapped deployment toolkit for Jina AI models. Bundle embedding, reranker, an
 
 > **New here?** The [Quick Start wiki page](https://github.com/jina-ai/jina-airgap/wiki/Quick-Start) gets you to your first `/v1/embeddings` response in 5 minutes using a prebuilt image. Full tutorials, troubleshooting, and the model catalog live in the [wiki](https://github.com/jina-ai/jina-airgap/wiki).
 
-![hero](docs/images/hero-bundle-flow.png)
+![bundle flow](docs/images/pixel-bundle-flow.png)
 
 ![demo](docs/images/03-deploy.gif)
 

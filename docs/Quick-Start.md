@@ -1,4 +1,4 @@
-![hero](images/hero-quick-start.png)
+![rocket](images/pixel-rocket.png)
 
 Get your first `/v1/embeddings` response in five minutes.
 

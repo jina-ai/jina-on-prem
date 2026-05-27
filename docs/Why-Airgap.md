@@ -1,4 +1,4 @@
-![hero](images/hero-why-airgap.png)
+![perimeter](images/pixel-airgap-perimeter.png)
 
 Some customers cannot - or will not - send data to a third-party API. They want the latest AI capabilities on their own infrastructure, with zero outbound network calls. That is the audience jina-airgap is built for.
 
@@ -22,23 +22,18 @@ If your customer says any of these, jina-airgap is in scope:
 
 ## How it compares
 
-```mermaid
-flowchart TB
-    classDef saas fill:#ffe0e0,stroke:#c44
-    classDef airgap fill:#d9f5e0,stroke:#1f8f3a
+```
+  HOSTED API  (api.openai.com / api.cohere.com / api.jina.ai)
+  ─────────────────────────────────────────────────────────────
+    customer app  ──►  vendor API   every request crosses the
+                  ◄──                customer perimeter
+                                     vendor handles logs/retention
 
-    subgraph SaaS["Hosted API - api.openai.com, api.cohere.com, api.jina.ai"]
-        S1[Customer app] -->|every request leaves the network| S2[Vendor API]
-        S2 -->|logs / retention / vendor-side compliance| S1
-    end
-
-    subgraph Airgap["jina-airgap - inside customer environment"]
-        A1[Customer app] -->|HTTP localhost or internal DNS| A2[jina-airgap container]
-        A2 -.->|no outbound calls| A3[X - blocked by design]
-    end
-
-    class S1,S2 saas
-    class A1,A2 airgap
+  jina-airgap  (inside customer environment)
+  ─────────────────────────────────────────────────────────────
+    customer app  ──►  jina-airgap   localhost / internal DNS
+                                     ╳ no outbound calls
+                                     ╳ no vendor visibility
 ```
 
 | | Hosted API (SaaS) | Customer-managed VPC endpoint | jina-airgap |

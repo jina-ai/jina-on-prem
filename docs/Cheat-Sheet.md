@@ -6,13 +6,13 @@ One-page reference. Screenshot this for customer calls.
 
 ## The two phases
 
-```mermaid
-flowchart LR
-    A[Phase 1: BUNDLE
-on connected machine] -->|.tar.gz via USB / SCP| B[Phase 2: DEPLOY
-on offline machine]
-    B --> C[HTTP API on port 8080
-4 schemas active]
+```
+   PHASE 1                       PHASE 2
+   bundle on connected           deploy on offline
+   ───────────────────           ─────────────────
+
+   bundle  ─►  .tar.gz  ─►  docker load  ─►  docker run  ─►  port 8080
+   (network)   (USB / SCP)                  (offline)        4 schemas
 ```
 
 ## Commands the customer runs

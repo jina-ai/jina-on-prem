@@ -6,30 +6,21 @@ How to build your own bundle from scratch. Use this when:
 
 Output: a single self-contained `.tar.gz`. Bundle once, transfer, run forever offline.
 
-```mermaid
-flowchart TB
-    classDef bundle fill:#fff3d6,stroke:#c08800
-    classDef hop fill:#e8f0ff,stroke:#3b6ad6
-    classDef deploy fill:#d9f5e0,stroke:#1f8f3a
-
-    A[Connected builder machine
-needs internet + Docker]:::bundle --> B[python jina-airgap.py bundle
---model X]
-    B --> C[Stage 1 of Docker build
-download weights from HF Hub
-patch model code]
-    C --> D[Stage 2 of Docker build
-install pinned deps
-add server/app.py
-set HF_HUB_OFFLINE=1]
-    D --> E[docker save MODEL | gzip
-> jina-MODEL-cpu.tar.gz]
-    E --> F[Transfer via SCP, USB,
-or approved channel]:::hop
-    F --> G[Air-gapped host
-needs Docker only]:::deploy
-    G --> H[docker load < tar.gz
-docker run -p 8080:8080]
+```
+  connected builder   ──►  python jina-airgap.py bundle  ──►  docker build
+  (network + Docker)         (reads catalog.json)            stage 1: HF download + patch
+                                                              stage 2: pinned deps + server + OFFLINE=1
+                                                                    │
+                                                                    ▼
+                                                    docker save | gzip ──► MODEL-cpu.tar.gz
+                                                                    │
+                                                                    │  SCP / USB / approved channel
+                                                                    ▼
+                                                          air-gapped host (Docker only)
+                                                                    │
+                                                                    ▼
+                                                    docker load < tar.gz
+                                                    docker run -p 8080:8080
 ```
 
 ## Prerequisites (connected machine)

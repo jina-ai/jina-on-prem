@@ -80,27 +80,16 @@ For higher throughput:
 
 Where the jina-airgap container sits in a typical customer architecture:
 
-```mermaid
-flowchart LR
-    classDef cust fill:#e8f0ff,stroke:#3b6ad6
-    classDef air fill:#d9f5e0,stroke:#1f8f3a
-    classDef ext fill:#ffe0e0,stroke:#c44
-
-    subgraph Outside["Outside customer network"]
-      U[End user / client app]:::ext
-    end
-
-    subgraph Perimeter["Customer perimeter (firewall, VPN, ZTNA)"]
-      U -->|TLS| ING[Ingress / API gateway]:::cust
-      ING --> APP[Customer app / RAG service]:::cust
-      APP -->|HTTP localhost or internal DNS| JINA[jina-airgap container
-port 8080]:::air
-      APP --> ES[(Elasticsearch
-on-prem)]:::cust
-      ES -.->|optional inference call| JINA
-    end
-
-    JINA -.x INET[No outbound to internet]:::ext
+```
+  outside  │   customer perimeter (firewall / VPN / ZTNA)
+  ─────────┼────────────────────────────────────────────────────
+           │
+   user  ──┼──► ingress ──► app ──► jina-airgap   ─►  ╳ internet
+           │                   │     :8080              (blocked)
+           │                   │
+           │                   └──► Elasticsearch
+           │                          └ (optional inference call)
+           │                            back into jina-airgap
 ```
 
 Three common placements:
@@ -113,20 +102,14 @@ Three common placements:
 
 Three patterns:
 
-```mermaid
-flowchart TB
-    subgraph Single["Single host - dev / low SLA"]
-        LB1[Client] --> APP1[jina-airgap]
-    end
-    subgraph Active["Active-active - HA"]
-        LB2[Load balancer] --> APP2[jina-airgap A]
-        LB2 --> APP3[jina-airgap B]
-    end
-    subgraph K8s["K8s - elastic"]
-        LB3[Service] --> APP4[Pod A]
-        LB3 --> APP5[Pod B]
-        LB3 --> APP6[Pod N]
-    end
+```
+  single host           active-active             k8s
+  ──────────            ─────────────             ───
+                                                  ┌──► pod A
+  client ─► jina       client ─► LB ─► host A     │
+                                  │     host B    LB ──► pod B
+                                  └──► host B     │
+                                                  └──► pod N
 ```
 
 - **Single host** is fine for POC, dev, internal tools. No redundancy.
