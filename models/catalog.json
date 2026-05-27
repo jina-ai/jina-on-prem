@@ -258,7 +258,11 @@
         "numpy": ">=2.0.0,<2.3.0",
         "torchvision": "==0.20.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "886722811",
+        "gpu": "886722952"
+      }
     },
     {
       "id": "jina-reranker-v3",
@@ -347,7 +351,11 @@
         "numpy": "==1.26.4",
         "torchvision": "==0.20.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "887526855",
+        "gpu": "887526880"
+      }
     },
     {
       "id": "jina-code-embeddings-0.5b",
@@ -395,7 +403,11 @@
         "numpy": "==1.26.4",
         "torchvision": "==0.20.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "887504159",
+        "gpu": "887504265"
+      }
     },
     {
       "id": "jina-embeddings-v4",
@@ -444,7 +456,11 @@
         "Pillow": "==10.4.0",
         "torchvision": "==0.20.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "887579512",
+        "gpu": "887591515"
+      }
     },
     {
       "id": "jina-reranker-m0",
@@ -481,7 +497,11 @@
         "timm": "==1.0.12",
         "torchvision": "==0.20.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "887687921",
+        "gpu": "887688419"
+      }
     },
     {
       "id": "ReaderLM-v2",
@@ -514,7 +534,11 @@
         "accelerate": ">=1.0.0",
         "torchvision": "==0.19.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "889912322",
+        "gpu": "889913328"
+      }
     },
     {
       "id": "jina-clip-v2",
@@ -677,7 +701,11 @@
       "extra_repos": [
         "jinaai/xlm-roberta-flash-implementation"
       ],
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "887811941",
+        "gpu": "887811981"
+      }
     },
     {
       "id": "reader-lm-1.5b",
@@ -711,7 +739,11 @@
         "flash-attn": "==2.7.3",
         "torchvision": "==0.20.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "889536644",
+        "gpu": "889538436"
+      }
     },
     {
       "id": "reader-lm-0.5b",
@@ -745,7 +777,11 @@
         "flash-attn": "==2.7.3",
         "torchvision": "==0.20.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "889498632",
+        "gpu": "889499035"
+      }
     },
     {
       "id": "jina-reranker-v2-base-multilingual",
@@ -777,7 +813,11 @@
         "flash-attn": null,
         "torchvision": "==0.19.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "887650292",
+        "gpu": "887650459"
+      }
     },
     {
       "id": "jina-clip-v1",
@@ -820,7 +860,11 @@
         "Pillow": ">=9.0.0",
         "torchvision": "==0.19.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "886557142",
+        "gpu": "886557272"
+      }
     },
     {
       "id": "jina-reranker-v1-turbo-en",
@@ -851,7 +895,11 @@
         "flash-attn": null,
         "torchvision": "==0.19.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "893039415",
+        "gpu": "893160841"
+      }
     },
     {
       "id": "jina-reranker-v1-tiny-en",
@@ -882,7 +930,11 @@
         "flash-attn": null,
         "torchvision": "==0.19.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "893020925",
+        "gpu": "893105290"
+      }
     },
     {
       "id": "jina-reranker-v1-base-en",
@@ -913,7 +965,11 @@
         "flash-attn": null,
         "torchvision": "==0.19.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "893052182",
+        "gpu": "893209013"
+      }
     },
     {
       "id": "jina-colbert-v1-en",
@@ -955,7 +1011,11 @@
       "extra_repos": [
         "jinaai/jina-bert-implementation"
       ],
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "887789554",
+        "gpu": "887790076"
+      }
     },
     {
       "id": "jina-embeddings-v2-base-es",
@@ -991,7 +1051,11 @@
         "flash-attn": null,
         "torchvision": "==0.19.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "886918894",
+        "gpu": "886937006"
+      }
     },
     {
       "id": "jina-embeddings-v2-base-code",
@@ -1026,7 +1090,11 @@
         "flash-attn": null,
         "torchvision": "==0.19.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "886944161",
+        "gpu": "886961431"
+      }
     },
     {
       "id": "jina-embeddings-v2-base-de",
@@ -1062,7 +1130,11 @@
         "flash-attn": null,
         "torchvision": "==0.19.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "886902047",
+        "gpu": "886912798"
+      }
     },
     {
       "id": "jina-embeddings-v2-base-zh",
@@ -1098,7 +1170,11 @@
         "flash-attn": null,
         "torchvision": "==0.19.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "886883815",
+        "gpu": "886895428"
+      }
     },
     {
       "id": "jina-embeddings-v2-base-en",
@@ -1133,7 +1209,11 @@
         "flash-attn": null,
         "torchvision": "==0.19.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "886838080",
+        "gpu": "886838386"
+      }
     },
     {
       "id": "jina-embedding-b-en-v1",
@@ -1167,7 +1247,11 @@
         "flash-attn": null,
         "torchvision": "==0.19.1"
       },
-      "prebuilt": false
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "cpu": "886967319",
+        "gpu": "886983429"
+      }
     }
   ]
 }
