@@ -1,28 +1,26 @@
 **Deploy Jina AI's embedding, reranker, and reader models inside customer environments that cannot reach the internet.**
 
-![hero](images/hero-bundle-flow.png)
+![bundle flow](images/pixel-bundle-flow.png)
 
 For sales/SA/field engineers walking a customer through their first deployment, start with **[Why Air-Gap](Why-Airgap)**, then **[Quick Start](Quick-Start)**. For developers integrating the API into an application, start with **[API Reference](API-Reference)**.
 
 ## At a glance
 
-```mermaid
-flowchart LR
-    classDef phase fill:#e8f0ff,stroke:#3b6ad6,color:#1a2a4a
-    classDef hop fill:#fff3d6,stroke:#c08800,color:#3a2c00
-    classDef out fill:#d9f5e0,stroke:#1f8f3a,color:#0d3315
+```
+    PHASE 1 (network)                              PHASE 2 (offline)
+    ─────────────────                              ─────────────────
 
-    A["1 - BUNDLE
-on a connected machine
-python jina-airgap.py bundle"]:::phase --> B["2 - TRANSFER
-USB / SCP / approved channel
-single .tar.gz file"]:::hop
-    B --> C["3 - DEPLOY
-on the offline machine
-docker load and docker run"]:::phase
-    C --> D["Multi-schema API
-OpenAI / Cohere / Gemini / Voyage
-on port 8080"]:::out
+  ┌────────────────┐    USB / SCP / disk    ┌────────────────┐    port 8080
+  │ connected host │   ──────────────────►  │ air-gapped host│   ──────►  app
+  │                │       .tar.gz          │                │
+  │ jina-airgap.py │                        │  docker load   │  OpenAI / Cohere
+  │   bundle       │                        │  docker run    │  Gemini / Voyage
+  └────────────────┘                        └────────────────┘
+        │                                          │
+        ▼                                          ▼
+  download weights                          serve embeddings,
+  + deps from HF Hub                        reranking, readers
+  docker build                              zero outbound calls
 ```
 
 That's the whole product. The connected machine has internet to fetch model weights and dependencies. Everything is baked into a single Docker image and exported as a `.tar.gz`. The offline machine only needs Docker.
