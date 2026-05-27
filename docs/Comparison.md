@@ -1,5 +1,3 @@
-# Comparison: jina-airgap vs alternatives
-
 ![hero](images/hero-comparison.png)
 
 Customers and SAs frequently ask "why not just use X?". Short answer for each.

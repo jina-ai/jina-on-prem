@@ -1,5 +1,3 @@
-# FAQ
-
 Common questions from SAs and customers, with short, link-back answers.
 
 ## Business / licensing

@@ -1,5 +1,3 @@
-# Troubleshooting
-
 If you hit something not listed here, please [open an issue](https://github.com/jina-ai/jina-airgap/issues/new) with the full error and `docker logs <container>` output.
 
 ```mermaid

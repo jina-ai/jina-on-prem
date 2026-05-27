@@ -1,5 +1,3 @@
-# Picking a Model
-
 There are 28 models. Most customers need one of six. Use this decision tree.
 
 ```mermaid

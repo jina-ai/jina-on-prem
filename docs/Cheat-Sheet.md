@@ -1,5 +1,3 @@
-# Cheat Sheet
-
 One-page reference. Screenshot this for customer calls.
 
 ## Pitch in one sentence

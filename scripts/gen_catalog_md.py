@@ -62,8 +62,7 @@ def render() -> str:
     models = data["models"]
 
     out: list[str] = []
-    out.append("# Model Catalog")
-    out.append("")
+    # Page title comes from wiki UI, not H1 in body
     out.append(
         "All 28 models supported by jina-airgap. Auto-generated from "
         "[`models/catalog.json`](https://github.com/jina-ai/jina-airgap/blob/main/models/catalog.json) - "

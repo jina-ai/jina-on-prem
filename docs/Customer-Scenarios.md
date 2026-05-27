@@ -1,5 +1,3 @@
-# Customer Scenarios
-
 Concrete playbooks for the most common customer situations. Each scenario walks through: what the customer asked for, which model to recommend, what hardware to size, and how to deploy.
 
 ```mermaid
