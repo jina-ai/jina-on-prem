@@ -51,7 +51,8 @@
         "av": "==12.3.0",
         "flash-attn": "==2.7.3",
         "torchvision": "==0.20.1"
-      }
+      },
+      "prebuilt": true
     },
     {
       "id": "jina-embeddings-v5-omni-nano",
@@ -104,7 +105,8 @@
         "av": "==12.3.0",
         "flash-attn": "==2.7.3",
         "torchvision": "==0.20.1"
-      }
+      },
+      "prebuilt": true
     },
     {
       "id": "jina-embeddings-v5-text-small",
@@ -154,7 +156,8 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.20.1"
-      }
+      },
+      "prebuilt": true
     },
     {
       "id": "jina-embeddings-v5-text-nano",
@@ -204,7 +207,8 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.20.1"
-      }
+      },
+      "prebuilt": true
     },
     {
       "id": "jina-vlm",
@@ -237,7 +241,8 @@
         "huggingface_hub": ">=0.34.0",
         "numpy": ">=2.0.0,<2.3.0",
         "torchvision": "==0.20.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "jina-reranker-v3",
@@ -273,7 +278,8 @@
         "numpy": "==1.26.4",
         "flash-attn": "==2.7.3",
         "torchvision": "==0.20.1"
-      }
+      },
+      "prebuilt": true
     },
     {
       "id": "jina-code-embeddings-1.5b",
@@ -320,7 +326,8 @@
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "torchvision": "==0.20.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "jina-code-embeddings-0.5b",
@@ -367,7 +374,8 @@
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "torchvision": "==0.20.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "jina-embeddings-v4",
@@ -415,7 +423,8 @@
         "timm": ">=1.0.0",
         "Pillow": "==10.4.0",
         "torchvision": "==0.20.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "jina-reranker-m0",
@@ -451,7 +460,8 @@
         "Pillow": "==10.4.0",
         "timm": "==1.0.12",
         "torchvision": "==0.20.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "ReaderLM-v2",
@@ -483,7 +493,8 @@
         "flash-attn": "==2.7.3",
         "accelerate": ">=1.0.0",
         "torchvision": "==0.19.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "jina-clip-v2",
@@ -534,7 +545,8 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.20.1"
-      }
+      },
+      "prebuilt": true
     },
     {
       "id": "jina-embeddings-v3",
@@ -588,7 +600,8 @@
       },
       "extra_repos": [
         "jinaai/xlm-roberta-flash-implementation"
-      ]
+      ],
+      "prebuilt": true
     },
     {
       "id": "jina-colbert-v2",
@@ -635,7 +648,8 @@
       },
       "extra_repos": [
         "jinaai/xlm-roberta-flash-implementation"
-      ]
+      ],
+      "prebuilt": false
     },
     {
       "id": "reader-lm-1.5b",
@@ -668,7 +682,8 @@
         "numpy": "==1.26.4",
         "flash-attn": "==2.7.3",
         "torchvision": "==0.20.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "reader-lm-0.5b",
@@ -701,7 +716,8 @@
         "numpy": "==1.26.4",
         "flash-attn": "==2.7.3",
         "torchvision": "==0.20.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "jina-reranker-v2-base-multilingual",
@@ -732,7 +748,8 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.19.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "jina-clip-v1",
@@ -774,7 +791,8 @@
         "flash-attn": null,
         "Pillow": ">=9.0.0",
         "torchvision": "==0.19.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "jina-reranker-v1-turbo-en",
@@ -804,7 +822,8 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.19.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "jina-reranker-v1-tiny-en",
@@ -834,7 +853,8 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.19.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "jina-reranker-v1-base-en",
@@ -864,7 +884,8 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.19.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "jina-colbert-v1-en",
@@ -905,7 +926,8 @@
       },
       "extra_repos": [
         "jinaai/jina-bert-implementation"
-      ]
+      ],
+      "prebuilt": false
     },
     {
       "id": "jina-embeddings-v2-base-es",
@@ -940,7 +962,8 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.19.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "jina-embeddings-v2-base-code",
@@ -974,7 +997,8 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.19.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "jina-embeddings-v2-base-de",
@@ -1009,7 +1033,8 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.19.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "jina-embeddings-v2-base-zh",
@@ -1044,7 +1069,8 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.19.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "jina-embeddings-v2-base-en",
@@ -1078,7 +1104,8 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.19.1"
-      }
+      },
+      "prebuilt": false
     },
     {
       "id": "jina-embedding-b-en-v1",
@@ -1111,7 +1138,8 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.19.1"
-      }
+      },
+      "prebuilt": false
     }
   ]
 }
