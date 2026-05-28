@@ -90,6 +90,11 @@ ENV HF_HUB_OFFLINE=1 \
 
 # CPU threading: let runtime auto-detect core count
 # Override at runtime: docker run -e OMP_NUM_THREADS=8 ...
+#
+# CPU bf16 autocast: auto-enabled on CPUs with native bf16 matmul (Intel AMX on
+# Sapphire Rapids+, or AVX512_BF16 on Cooper Lake / AMD Zen4). Measured 1.8-2.5x
+# encode throughput at batch with cos-sim ~0.9999 vs fp32. Auto-detected from
+# /proc/cpuinfo; force with -e JINA_CPU_AUTOCAST=bf16 or disable with =off.
 
 LABEL org.opencontainers.image.source=https://github.com/jina-ai/jina-airgap
 LABEL org.opencontainers.image.description="Jina AI air-gapped embedding/reranker model - CPU variant"
