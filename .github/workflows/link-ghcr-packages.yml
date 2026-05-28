@@ -1,0 +1,91 @@
+name: Link GHCR packages to this repo
+
+# Why this exists:
+# GHCR only auto-links a container package to its repo when the image is pushed
+# from GitHub Actions using GITHUB_TOKEN. Images pushed from the CLI (docker
+# push from a laptop/VM) are NOT linked, even with the
+# org.opencontainers.image.source label set - so they never appear under the
+# repo's Packages tab. There is no REST/GraphQL API to link them.
+#
+# This workflow re-pushes each existing prebuilt image (same content, no
+# rebuild) from the Actions context, which establishes the repo link. Run it
+# once via the Actions tab ("Run workflow").
+#
+# PREREQUISITE (one-time, org admin): the GITHUB_TOKEN of this repo must have
+# write access to each existing package. For org-scoped packages not yet linked
+# to any repo, grant it under either:
+#   - Org -> Settings -> Packages -> "inherit access from source repository", or
+#   - each package -> Package settings -> "Manage Actions access" -> add
+#     jina-ai/jina-airgap with Write.
+# Newly created packages (and packages this workflow links) inherit repo access
+# automatically thereafter.
+
+on:
+  workflow_dispatch:
+    inputs:
+      variants:
+        description: "Comma-separated variants to link (cpu,gpu)"
+        default: "cpu,gpu"
+        required: false
+      models:
+        description: "Comma-separated model ids to limit to (empty = all prebuilt). Use one model first to validate."
+        default: ""
+        required: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  generate-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.gen.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: gen
+        env:
+          VARIANTS: ${{ inputs.variants }}
+          ONLY_MODELS: ${{ inputs.models }}
+        run: |
+          # Build {image (lowercased), variant} rows from catalog.json prebuilt_versions,
+          # filtered to the requested variants (and optional model allowlist).
+          matrix=$(python3 - <<'PY'
+          import json, os
+          want = {v.strip() for v in os.environ["VARIANTS"].split(",") if v.strip()}
+          only = {m.strip() for m in os.environ.get("ONLY_MODELS", "").split(",") if m.strip()}
+          cat = json.load(open("models/catalog.json"))
+          models = cat.get("models", cat)
+          rows = []
+          for m in models:
+              if only and m["id"] not in only:
+                  continue
+              for variant in (m.get("prebuilt_versions") or {}):
+                  if variant in want:
+                      rows.append({"image": m["id"].lower(), "variant": variant})
+          print(json.dumps({"include": rows}))
+          PY
+          )
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "$matrix" | python3 -m json.tool
+
+  link:
+    needs: generate-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix: ${{ fromJSON(needs.generate-matrix.outputs.matrix) }}
+    steps:
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Re-push to establish repo link (no rebuild)
+        run: |
+          REF="ghcr.io/${{ github.repository_owner }}/jina-airgap/${{ matrix.image }}:${{ matrix.variant }}"
+          echo "Linking $REF"
+          if ! docker pull "$REF"; then
+            echo "::warning::$REF not found in registry, skipping"
+            exit 0
+          fi
+          docker push "$REF"
+          echo "Re-pushed $REF from Actions context (links package to repo)"
