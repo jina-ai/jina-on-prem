@@ -102,6 +102,105 @@ _n_cpu_threads = int(_omp_env) if _omp_env and _omp_env != "0" else (os.cpu_coun
 torch.set_num_threads(_n_cpu_threads)
 torch.set_num_interop_threads(max(1, _n_cpu_threads // 2))
 
+
+def _cpu_supports_bf16() -> bool:
+    """True if the CPU has native bf16 matmul (AMX on Sapphire Rapids+, or
+    AVX512_BF16 on Cooper Lake / Zen4). On these, bf16 autocast is a 1.8-2.5x
+    throughput win on encoders at batch with cos-sim ~0.9999 vs fp32 (measured
+    on jina-embeddings-v5-text-nano). Without the flag, bf16 matmul is emulated
+    and can be slower, so we keep fp32 there."""
+    try:
+        with open("/proc/cpuinfo") as f:
+            flags = f.read()
+        return ("amx_bf16" in flags) or ("avx512_bf16" in flags)
+    except Exception:
+        return False
+
+
+def _finalize_cpu_bf16(model):
+    """Decide whether to use CPU bf16 autocast, called once after the model
+    loads. Sets the module-level _CPU_BF16. In "auto" mode (default), enables
+    bf16 only when the CPU has native bf16 support AND a probe encode succeeds
+    with cos-sim >= 0.99 vs fp32 on this specific model -- so models that error
+    or degrade under bf16 (e.g. xlm-roberta-flash rotary) transparently keep
+    fp32. JINA_CPU_AUTOCAST=bf16/off bypasses the probe."""
+    global _CPU_BF16
+    if DEVICE != "cpu":
+        return
+    if _cpu_autocast_env in ("off", "0", "fp32", "float32"):
+        _CPU_BF16 = False
+        logger.info("CPU bf16 autocast: disabled (JINA_CPU_AUTOCAST=off)")
+        return
+    forced = _cpu_autocast_env in ("bf16", "bfloat16", "on", "1")
+    if not forced and not _cpu_supports_bf16():
+        _CPU_BF16 = False
+        logger.info("CPU bf16 autocast: disabled (no native bf16: needs AMX or AVX512_BF16)")
+        return
+    if forced:
+        _CPU_BF16 = True
+        logger.info("CPU bf16 autocast: ENABLED (JINA_CPU_AUTOCAST=bf16, probe skipped)")
+        return
+    # auto + capable hardware: probe this model for correctness + accuracy.
+    if model is None or not hasattr(model, "encode"):
+        _CPU_BF16 = False
+        logger.info("CPU bf16 autocast: disabled (model not probe-compatible; force with JINA_CPU_AUTOCAST=bf16)")
+        return
+    probe = ["The quick brown fox jumps over the lazy dog.",
+             "Semantic search finds relevant content by meaning."]
+    base_kw = dict(convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False)
+    # Find an encode signature that works in fp32. Task names differ across the
+    # fleet (v5: "retrieval", v3: "retrieval.passage", omni: default_task set at
+    # load so no kwarg). Only "task must be specified"-type errors advance the
+    # fallback; a RuntimeError here is a real failure and aborts the probe.
+    a, chosen_kw = None, None
+    for _task in ("retrieval", "retrieval.passage", None):
+        kw = dict(base_kw)
+        if _task is not None and MODEL_ACCEPTS_TASK_KWARG:
+            kw["task"] = _task
+        try:
+            with torch.inference_mode():
+                a = model.encode(probe, **kw)
+            chosen_kw = kw
+            break
+        except (ValueError, TypeError):
+            continue
+        except Exception as e:
+            logger.info(f"CPU bf16 autocast: disabled (fp32 probe encode failed: {type(e).__name__})")
+            _CPU_BF16 = False
+            return
+    if chosen_kw is None:
+        _CPU_BF16 = False
+        logger.info("CPU bf16 autocast: disabled (could not find a working probe encode signature)")
+        return
+    # Same signature under bf16 autocast: must not error and must stay accurate.
+    try:
+        import numpy as _np
+        with torch.inference_mode(), torch.autocast("cpu", dtype=torch.bfloat16):
+            b = model.encode(probe, **chosen_kw)
+        cos = float(_np.mean(_np.sum(a * b, axis=1) /
+                             (_np.linalg.norm(a, axis=1) * _np.linalg.norm(b, axis=1) + 1e-9)))
+        if cos >= 0.99:
+            _CPU_BF16 = True
+            logger.info(f"CPU bf16 autocast: ENABLED (probe cos-sim={cos:.5f})")
+        else:
+            _CPU_BF16 = False
+            logger.info(f"CPU bf16 autocast: disabled (probe cos-sim={cos:.5f} < 0.99, keeping fp32)")
+    except Exception as e:
+        _CPU_BF16 = False
+        logger.info(f"CPU bf16 autocast: disabled (model errors under bf16: {type(e).__name__})")
+
+
+# CPU bf16 autocast. Default "auto": a load-time probe (see _finalize_cpu_bf16)
+# enables it only when the CPU has native bf16 AND the loaded model is both
+# error-free and accuracy-preserving under bf16. This is necessary because the
+# trick is not universal: EuroBERT (v5) gets ~2-2.5x lossless, but the
+# xlm-roberta-flash family (v3, clip text tower) raises an index_put dtype
+# mismatch in its rotary path under autocast. JINA_CPU_AUTOCAST=bf16 forces it
+# on (skip probe), =off forces it off. No effect on GPU/MPS.
+_cpu_autocast_env = os.environ.get("JINA_CPU_AUTOCAST", "auto").lower()
+# Final value is decided in _finalize_cpu_bf16() once the model is loaded.
+_CPU_BF16 = False
+
 # GPU: enable cuDNN auto-tuner and TF32 matmul (no effect on CPU/MPS)
 if DEVICE == "cuda":
     torch.backends.cudnn.benchmark = True
@@ -113,6 +212,9 @@ def _encode_autocast_ctx():
     Honours JINA_DTYPE: float32 → no autocast (some models — notably jinaai/jina-bert
     variants with ALiBi — produce NaN under fp16 due to attention-score overflow).
     """
+    if DEVICE == "cpu":
+        # bf16 has fp32's exponent range, so no ALiBi/fp16-style overflow NaN risk.
+        return torch.autocast("cpu", dtype=torch.bfloat16) if _CPU_BF16 else nullcontext()
     if DEVICE != "cuda":
         return nullcontext()
     _dtype = os.environ.get("JINA_DTYPE", "float16").lower()
@@ -1015,6 +1117,9 @@ def load_model():
                     logger.info("torch.compile(reduce-overhead) applied to encoder")
         except Exception as e:
             logger.warning(f"torch.compile skipped: {e}")
+
+    # Decide CPU bf16 autocast now that the model is loaded (probe-gated in auto mode).
+    _finalize_cpu_bf16(MODEL)
 
     multimodal = _is_omni_model()
     logger.info(f"Model loaded: {model_id} on {DEVICE} | multimodal={multimodal} | threads={_n_cpu_threads}")
