@@ -102,13 +102,14 @@ docker run --gpus all -p 8080:8080 \
   ghcr.io/jina-ai/jina-airgap/jina-embeddings-v5-text-nano:gpu-opt   # or -small
 ```
 
-Same weights and API as `:gpu`; **bf16** by default (same L4 speed as fp16, overflow-safe; per-vector cos-sim ≥ 0.9999 vs the stock `:gpu` output). Measured end-to-end over HTTP on a single L4:
+Same weights and API as `:gpu`; **fp16** by default (matches the stock `:gpu` dtype — zero dtype-induced drift; per-vector cos-sim 0.9999981 vs fp32, batch-invariant). For best throughput clients should request `encoding_format: "base64"` — byte-identical output, far cheaper to serialize (the OpenAI SDK does this by default). Measured end-to-end over HTTP on a single L4 (base64):
 
 | traffic | `:gpu` | `:gpu-opt` |
 |---|---|---|
-| nano, 32 concurrent × 1 text | 1,267 tok/s | **10,501** (8.3×) |
-| nano, 64 concurrent (mixed) | 3,000 tok/s | **16,958** (5.7×) |
-| small, 64 concurrent (mixed) | 1,231 tok/s | **6,803** (5.5×) |
+| nano, 32 concurrent × 1 text | 1,267 tok/s | **14,550** (~11×) |
+| nano, 64 concurrent (mixed) | 3,000 tok/s | **27,341** (~9×) |
+| nano, bulk (4×128) | 16,134 tok/s | **36,415** (2.3×) |
+| small, 64 concurrent (mixed) | 1,231 tok/s | **8,738** (~7×) |
 
 Tunable via env (`JINA_BATCH_TOKENS`, `JINA_DTYPE`, `JINA_BATCH_WAIT_MS`, …) with optimal defaults baked in. Full benchmark, tuning, and replica guidance: [Sizing & Hardware → GPU dynamic batching](https://github.com/jina-ai/jina-airgap/wiki/Sizing-And-Hardware#gpu-dynamic-batching--the-gpu-opt-images).
 
