@@ -93,6 +93,25 @@ Full catalog with all 28 models, VRAM, context windows, and licenses: [Model Cat
 
 > CC-BY-NC-4.0 models require a commercial license for production use. Contact [Elastic sales](https://www.elastic.co/contact).
 
+## Maximum GPU throughput (`:gpu-opt`)
+
+The default `:gpu` server processes one request at a time on the event loop, so concurrent clients serialize (32 clients ≈ the throughput of 1). For high-QPS serving, the **`:gpu-opt`** tags (text embedding models) add a server-side **dynamic batcher** — a single GPU worker coalesces concurrent requests into length-sorted, token-budgeted batches, so clients can send one input at a time and still saturate the GPU:
+
+```bash
+docker run --gpus all -p 8080:8080 \
+  ghcr.io/jina-ai/jina-airgap/jina-embeddings-v5-text-nano:gpu-opt   # or -small
+```
+
+Same weights and API as `:gpu`; **bf16** by default (same L4 speed as fp16, overflow-safe; per-vector cos-sim ≥ 0.9999 vs the stock `:gpu` output). Measured end-to-end over HTTP on a single L4:
+
+| traffic | `:gpu` | `:gpu-opt` |
+|---|---|---|
+| nano, 32 concurrent × 1 text | 1,267 tok/s | **10,501** (8.3×) |
+| nano, 64 concurrent (mixed) | 3,000 tok/s | **16,958** (5.7×) |
+| small, 64 concurrent (mixed) | 1,231 tok/s | **6,803** (5.5×) |
+
+Tunable via env (`JINA_BATCH_TOKENS`, `JINA_DTYPE`, `JINA_BATCH_WAIT_MS`, …) with optimal defaults baked in. Full benchmark, tuning, and replica guidance: [Sizing & Hardware → GPU dynamic batching](https://github.com/jina-ai/jina-airgap/wiki/Sizing-And-Hardware#gpu-dynamic-batching--the-gpu-opt-images).
+
 ## API at a glance
 
 The server speaks four schemas on the same port simultaneously:
