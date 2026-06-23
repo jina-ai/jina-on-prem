@@ -95,20 +95,30 @@ Full catalog with all 28 models, VRAM, context windows, and licenses: [Model Cat
 
 ## Maximum GPU throughput (`:gpu-opt`)
 
-The default `:gpu` server processes one request at a time on the event loop, so concurrent clients serialize (32 clients ≈ the throughput of 1). For high-QPS serving, the **`:gpu-opt`** tags (text embedding models) add a server-side **dynamic batcher** — a single GPU worker coalesces concurrent requests into length-sorted, token-budgeted batches, so clients can send one input at a time and still saturate the GPU:
+The default `:gpu` server processes one request at a time on the event loop, so concurrent clients serialize (32 clients ≈ the throughput of 1). The **`:gpu-opt`** tags (text embedding models) add a server-side **dynamic batcher** — a single GPU worker coalesces concurrent requests into length-sorted, token-budgeted batches, so clients can send one input at a time and still saturate the GPU:
 
 ```bash
 docker run --gpus all -p 8080:8080 \
   ghcr.io/jina-ai/jina-airgap/jina-embeddings-v5-text-nano:gpu-opt   # or -small
 ```
 
-Same weights and API as `:gpu`; **bf16** by default (same L4 speed as fp16, overflow-safe; per-vector cos-sim ≥ 0.9999 vs the stock `:gpu` output). Measured end-to-end over HTTP on a single L4:
+This default is a **drop-in for `:gpu`** — same API, every task correct (retrieval/text-matching/clustering/classification), **bf16** (same L4 speed as fp16, overflow-safe; per-vector cos-sim ≥ 0.9999 vs the stock `:gpu` output). End-to-end over HTTP on one L4, vs the serializing `:gpu` baseline:
 
-| traffic | `:gpu` | `:gpu-opt` |
+| traffic | `:gpu` | `:gpu-opt` (default) |
 |---|---|---|
 | nano, 32 concurrent × 1 text | 1,267 tok/s | **10,501** (8.3×) |
 | nano, 64 concurrent (mixed) | 3,000 tok/s | **16,958** (5.7×) |
 | small, 64 concurrent (mixed) | 1,231 tok/s | **6,803** (5.5×) |
+
+**Max throughput (retrieval-only).** The same image carries a full lossless stack — LoRA `merge_and_unload`, `torch.compile` (`emulate_precision_casts`), and a lean tokenize-once pipeline — on top of the batcher. It fixes the model to one task, so it's opt-in via env, not the default:
+
+```bash
+docker run --gpus all -p 8080:8080 \
+  -e JINA_MERGE_TASK=retrieval -e JINA_LEAN=1 -e JINA_COMPILE=default \
+  ghcr.io/jina-ai/jina-airgap/jina-embeddings-v5-text-nano:gpu-opt
+```
+
+nano then does **95,428 tok/s on the lowest L4** (`g2-standard-4`, 4 vCPU — 6.0× the stock server) and **102,195 on `g2-standard-8`** (34× stock), err=0, cos-sim 0.9999988 vs fp32. Set `JINA_MERGE_TASK` to `text-matching`/`clustering`/`classification` for those tasks. (200K tok/s on a single L4 is past the chip's lossless ceiling — see REPORT.)
 
 Tunable via env (`JINA_BATCH_TOKENS`, `JINA_DTYPE`, `JINA_BATCH_WAIT_MS`, …) with optimal defaults baked in. Full benchmark, tuning, and replica guidance: [Sizing & Hardware → GPU dynamic batching](https://github.com/jina-ai/jina-airgap/wiki/Sizing-And-Hardware#gpu-dynamic-batching--the-gpu-opt-images).
 
