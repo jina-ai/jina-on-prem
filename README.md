@@ -111,6 +111,18 @@ Same weights and API as `:gpu`; **fp16** by default (matches the stock `:gpu` dt
 | nano, bulk (4×128) | 16,134 tok/s | **36,415** (2.3×) |
 | small, 64 concurrent (mixed) | 1,231 tok/s | **8,738** (~7×) |
 
+This default is **multi-task** — every task (`retrieval`/`text-matching`/`clustering`/`classification`) returns correct embeddings, same as `:gpu`.
+
+**Maximum throughput (single task).** The same image also carries a full single-task stack on top of the batcher — LoRA `merge_and_unload`, `torch.compile` (`emulate_precision_casts`), and a lean tokenize-once pipeline. Merging fixes the model to one task, so it's opt-in via env rather than the default:
+
+```bash
+docker run --gpus all -p 8080:8080 \
+  -e JINA_MERGE_TASK=retrieval -e JINA_LEAN=1 -e JINA_COMPILE=default \
+  ghcr.io/jina-ai/jina-airgap/jina-embeddings-v5-text-nano:gpu-opt
+```
+
+nano then reaches **95,428 tok/s on the lowest single L4** (`g2-standard-4`, 4 vCPU — 6.0× the stock `:gpu` server) and **102,195 on `g2-standard-8`**, err=0, per-vector cos-sim 0.9999988 vs fp32. Set `JINA_MERGE_TASK` to `text-matching`/`clustering`/`classification` for those tasks; 200K tok/s on a single L4 is past the chip's lossless ceiling, so use replicas for higher aggregate (see [Sizing & Hardware](https://github.com/jina-ai/jina-airgap/wiki/Sizing-And-Hardware#gpu-dynamic-batching--the-gpu-opt-images)).
+
 Tunable via env (`JINA_BATCH_TOKENS`, `JINA_DTYPE`, `JINA_BATCH_WAIT_MS`, …) with optimal defaults baked in. Full benchmark, tuning, and replica guidance: [Sizing & Hardware → GPU dynamic batching](https://github.com/jina-ai/jina-airgap/wiki/Sizing-And-Hardware#gpu-dynamic-batching--the-gpu-opt-images).
 
 ## API at a glance
