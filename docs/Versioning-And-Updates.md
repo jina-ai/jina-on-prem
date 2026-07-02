@@ -159,6 +159,7 @@ Have these ready before submitting a change-management ticket. Customer security
 
 ## Next
 
+- [Product & Model Lifecycle (EOL)](Product-And-Model-Lifecycle) - how long a generation is maintained, and why a model is not patched like software
 - [Sizing & Hardware](Sizing-And-Hardware) - capacity planning for the new version
 - [Architecture](Architecture) - what's in the image
 - [Troubleshooting](Troubleshooting) - regressions to watch for
