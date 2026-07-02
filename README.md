@@ -203,4 +203,5 @@ jina-airgap/
 - [Model Catalog](https://github.com/jina-ai/jina-airgap/wiki/Model-Catalog) - all 28 models with full metadata
 - [API Reference](https://github.com/jina-ai/jina-airgap/wiki/API-Reference) - four schemas, multimodal inputs, tasks, ES integration
 - [Troubleshooting](https://github.com/jina-ai/jina-airgap/wiki/Troubleshooting) - common errors and the fixes that work
+- [Product & Model Lifecycle (EOL)](https://github.com/jina-ai/jina-airgap/wiki/Product-And-Model-Lifecycle) - how long a deployed model is supported, and why models are maintained differently from software
 - [CONTRIBUTING.md](CONTRIBUTING.md) - build/test/push workflow for new bundles

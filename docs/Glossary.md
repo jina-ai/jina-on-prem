@@ -30,6 +30,10 @@ Short definitions for terms used across the wiki. For non-engineers in sales/SA 
 
 **Elasticsearch inference service** — Elastic's plugin system for calling external models. jina-airgap registers as `service: openai` (embeddings) or `service: cohere` (rerank).
 
+**EOL (End of Life)** — for Jina SM, the point at which Jina/Elastic stops shipping fixes and standard support for a model generation. Unlike a hosted API, it does **not** stop your deployed model from running - the bundle keeps working indefinitely because you hold the weights. See [Product & Model Lifecycle](Product-And-Model-Lifecycle).
+
+**Maintenance Term** — the window during which a model generation receives runtime security patches, dependency updates, bug fixes, and quantized builds. At least the longer of 36 months from GA or 24 months from its replacement's GA. Covers the runtime and packaging, never the model's trained quality. See [Product & Model Lifecycle](Product-And-Model-Lifecycle).
+
 ## F
 
 **FastAPI** — the Python web framework powering the jina-airgap server. Gives you `/docs` Swagger UI for free.
