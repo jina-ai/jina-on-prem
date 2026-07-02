@@ -18,6 +18,7 @@
 - [API Reference](API-Reference)
 - [Architecture](Architecture)
 - [Versioning & Updates](Versioning-And-Updates)
+- [Product & Model Lifecycle (EOL)](Product-And-Model-Lifecycle)
 
 ### Reference
 
