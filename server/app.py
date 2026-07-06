@@ -232,39 +232,59 @@ app = FastAPI(
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # --- License gate (time-sensitive, offline, runtime-injected) ---
-# Symbolic entitlement check for process compliance, not DRM. The signing
-# secret ships in the image (see server/license.py docstring): honest users
-# get a visible expiry knob, determined users can trivially bypass. Enforced
-# on inference (POST) endpoints only; /health and docs stay open so Docker's
-# healthcheck and a quick "is my key ok?" probe always work.
+# Symbolic entitlement signal for sales/audit, NOT DRM. The signing secret
+# ships in the image (see server/license.py): honest users get a visible
+# expiry knob, determined users can trivially bypass. 防君子不防小人.
+#
+# THE OVERRIDING RULE: a paying, already-deployed customer must never be
+# blocked by this. The DEFAULT mode is fail-open ("warn") - the server always
+# answers; a missing/expired/bad key only logs and shows up in /health. Hard
+# 403 blocking happens ONLY in opt-in "enforce" mode (for trials/POCs), and
+# even then an expired key keeps working through a grace window. /health and
+# docs are always open so Docker healthchecks and "is my key ok?" probes work.
 import license as _license
 
 LICENSE_KEY = os.environ.get("JINA_LICENSE_KEY", "")
-LICENSE_ENFORCE = os.environ.get("JINA_LICENSE_ENFORCE", "1") == "1"
 _LICENSE_OPEN_PATHS = {"/health", "/", "/docs", "/redoc", "/openapi.json", "/favicon.ico"}
+_license_warned = False  # log the warn-mode notice once, not per request
 
 
 @app.middleware("http")
 async def _license_gate(request, call_next):
-    if not LICENSE_ENFORCE:
+    # Only inference-type POSTs are ever gated; reads/probes always pass.
+    if request.method in ("GET", "OPTIONS", "HEAD") or request.url.path in _LICENSE_OPEN_PATHS:
         return await call_next(request)
-    if request.method in ("GET", "OPTIONS") or request.url.path in _LICENSE_OPEN_PATHS:
+
+    d = _license.decide(LICENSE_KEY, MODEL_ID)
+
+    # Fail-open path (warn/off, or enforce-within-grace): serve, but surface a
+    # single warning line so operators notice a lapsed/absent key.
+    if d["allow"]:
+        if d["mode"] == "warn" and d["reason"] not in ("ok",):
+            global _license_warned
+            if not _license_warned:
+                logger.warning(
+                    "License check (warn mode, fail-open): reason=%s - serving anyway. "
+                    "Set JINA_LICENSE_MODE=enforce only for trials/POCs.", d["reason"]
+                )
+                _license_warned = True
+        elif d["reason"] == "expired_in_grace":
+            logger.warning("License expired but within grace window - still serving. Renew soon.")
         return await call_next(request)
-    ok, reason, _payload = _license.validate(LICENSE_KEY, MODEL_ID)
-    if not ok:
-        from fastapi.responses import JSONResponse
-        hint = {
-            "no_license": "Set a license key: docker run -e JINA_LICENSE_KEY=<key> ...",
-            "license_expired": "License expired. Request a renewed key (no rebuild needed).",
-            "model_not_licensed": f"Key not valid for model '{SHORT_MODEL_ID}'.",
-            "bad_signature": "License key signature invalid.",
-            "malformed_license": "License key is malformed.",
-        }.get(reason, "License validation failed.")
-        return JSONResponse(
-            status_code=403,
-            content={"error": {"code": reason, "message": hint, "type": "license_error"}},
-        )
-    return await call_next(request)
+
+    # Blocking path: enforce mode only.
+    from fastapi.responses import JSONResponse
+    hint = {
+        "no_license": "Set a license key: docker run -e JINA_LICENSE_KEY=<key> ... (or switch to warn mode).",
+        "license_expired": "License expired past its grace window. Request a renewed key (no rebuild needed).",
+        "model_not_licensed": f"Key not valid for model '{SHORT_MODEL_ID}'.",
+        "bad_signature": "License key signature invalid.",
+        "malformed_license": "License key is malformed.",
+    }.get(d["reason"], "License validation failed.")
+    return JSONResponse(
+        status_code=403,
+        content={"error": {"code": d["reason"], "message": hint, "type": "license_error"}},
+    )
 
 # --- Global model holder ---
 MODEL = None
@@ -1164,17 +1184,24 @@ def load_model():
 async def startup():
     load_model()
     _lic = _license.status(LICENSE_KEY, MODEL_ID)
-    if not LICENSE_ENFORCE:
-        logger.warning("License enforcement DISABLED (JINA_LICENSE_ENFORCE=0)")
+    _m = _lic.get("mode")
+    if _m == "off":
+        logger.info("License checking OFF (JINA_LICENSE_MODE=off) - fully transparent.")
     elif _lic.get("valid"):
         logger.info(
-            f"License OK: sub={_lic.get('licensed_to')} expires={_lic.get('expires')} "
-            f"days_left={_lic.get('days_left')}"
+            f"License OK (mode={_m}): sub={_lic.get('licensed_to')} "
+            f"expires={_lic.get('expires')} days_left={_lic.get('days_left')}"
+        )
+    elif _m == "enforce":
+        logger.warning(
+            f"License not valid ({_lic.get('reason')}) and mode=enforce: inference endpoints "
+            f"will 403 after the {_lic.get('grace_days')}-day grace window. This mode is for "
+            f"trials/POCs only - do NOT use it for sold, deployed customers."
         )
     else:
         logger.warning(
-            f"License NOT valid ({_lic.get('reason')}): inference endpoints will return 403. "
-            f"Set JINA_LICENSE_KEY (or JINA_LICENSE_ENFORCE=0 to disable)."
+            f"License not valid ({_lic.get('reason')}) - mode=warn (fail-open), serving normally. "
+            f"This never blocks a deployed customer; the key is only a visible expiry signal."
         )
 
 

@@ -153,15 +153,15 @@ Elasticsearch inference service drop-in: [Elasticsearch integration](https://git
 
 ## Licensing (time-sensitive keys)
 
-Optional offline entitlement gate: a signed, expiring key that operators set before the inference endpoints answer. Fully air-gapped (local HMAC check, no phone-home), and issuing/renewing a key needs **no image rebuild** - the key is injected at run time.
+Optional offline entitlement signal: a signed, expiring key that gives sales/audit a visible "expires on X" control. Fully air-gapped (local HMAC check, no phone-home); issuing/renewing needs **no image rebuild** (key injected at run time).
 
 ```bash
-python jina-airgap.py keygen --sub acme-corp --days 30        # mint a 30-day key
+python jina-airgap.py keygen --sub acme-corp --days 90        # mint a 90-day key
 docker run -e JINA_LICENSE_KEY=JINA-xxx.yyy -p 8080:8080 jina/MODEL:cpu
-curl -s http://localhost:8080/health   # shows license status; /health stays open
+curl -s http://localhost:8080/health   # shows license status; /health always open
 ```
 
-Gated `POST` requests without a valid key return HTTP 403. Set `JINA_LICENSE_ENFORCE=0` to disable. This is a compliance speed-bump, not DRM - the signing secret ships in the image. Details: [Licensing wiki](https://github.com/jina-ai/jina-airgap/wiki/Licensing).
+**Fail-open by default: a deployed customer is never blocked.** The default `warn` mode always serves - a missing/expired/invalid key only logs and shows in `/health`. Hard 403 blocking is opt-in via `JINA_LICENSE_MODE=enforce` (trials/POCs only), and even then an expired key survives a grace window. Compliance speed-bump, not DRM - the signing secret ships in the image (防君子不防小人). Details: [Licensing wiki](https://github.com/jina-ai/jina-airgap/wiki/Licensing).
 
 ## Architecture
 
