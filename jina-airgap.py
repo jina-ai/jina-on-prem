@@ -688,7 +688,9 @@ def cmd_keygen(args):
     out(key)
     err(f"\n{BOLD}Use it:{RESET}")
     err(f"  docker run -e JINA_LICENSE_KEY={key} -p 8080:8080 <image>")
-    err(f"\n{DIM}Renewing = mint a new key and restart the container. No rebuild.{RESET}")
+    err(f"\n{DIM}Default server mode is 'warn' (fail-open): the key is a visible expiry")
+    err(f"signal and NEVER blocks a running deployment. Use JINA_LICENSE_MODE=enforce")
+    err(f"only for time-boxed trials/POCs. Renew = mint a new key + restart. No rebuild.{RESET}")
     sys.exit(EXIT_OK)
 
 
