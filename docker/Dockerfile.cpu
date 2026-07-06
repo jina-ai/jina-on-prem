@@ -88,6 +88,12 @@ ENV HF_HUB_OFFLINE=1 \
     TRUST_REMOTE_CODE=1 \
     HF_HUB_TRUST_REMOTE_CODE=1
 
+# License gate signing secret. Optional; defaults to the public constant in
+# server/license.py. Rotate at bundle time with --build-arg LICENSE_SECRET=...
+# (must match `keygen --secret`). Symbolic compliance gate, not DRM.
+ARG LICENSE_SECRET=""
+ENV JINA_LICENSE_SECRET=${LICENSE_SECRET}
+
 # CPU threading: let runtime auto-detect core count
 # Override at runtime: docker run -e OMP_NUM_THREADS=8 ...
 #

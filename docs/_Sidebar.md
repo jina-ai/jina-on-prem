@@ -16,6 +16,7 @@
 
 - [Bundling Guide](Bundling-Guide)
 - [API Reference](API-Reference)
+- [Licensing](Licensing)
 - [Architecture](Architecture)
 - [Versioning & Updates](Versioning-And-Updates)
 - [Product & Model Lifecycle (EOL)](Product-And-Model-Lifecycle)

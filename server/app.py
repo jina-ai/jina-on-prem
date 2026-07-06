@@ -231,6 +231,41 @@ app = FastAPI(
 )
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+# --- License gate (time-sensitive, offline, runtime-injected) ---
+# Symbolic entitlement check for process compliance, not DRM. The signing
+# secret ships in the image (see server/license.py docstring): honest users
+# get a visible expiry knob, determined users can trivially bypass. Enforced
+# on inference (POST) endpoints only; /health and docs stay open so Docker's
+# healthcheck and a quick "is my key ok?" probe always work.
+import license as _license
+
+LICENSE_KEY = os.environ.get("JINA_LICENSE_KEY", "")
+LICENSE_ENFORCE = os.environ.get("JINA_LICENSE_ENFORCE", "1") == "1"
+_LICENSE_OPEN_PATHS = {"/health", "/", "/docs", "/redoc", "/openapi.json", "/favicon.ico"}
+
+
+@app.middleware("http")
+async def _license_gate(request, call_next):
+    if not LICENSE_ENFORCE:
+        return await call_next(request)
+    if request.method in ("GET", "OPTIONS") or request.url.path in _LICENSE_OPEN_PATHS:
+        return await call_next(request)
+    ok, reason, _payload = _license.validate(LICENSE_KEY, MODEL_ID)
+    if not ok:
+        from fastapi.responses import JSONResponse
+        hint = {
+            "no_license": "Set a license key: docker run -e JINA_LICENSE_KEY=<key> ...",
+            "license_expired": "License expired. Request a renewed key (no rebuild needed).",
+            "model_not_licensed": f"Key not valid for model '{SHORT_MODEL_ID}'.",
+            "bad_signature": "License key signature invalid.",
+            "malformed_license": "License key is malformed.",
+        }.get(reason, "License validation failed.")
+        return JSONResponse(
+            status_code=403,
+            content={"error": {"code": reason, "message": hint, "type": "license_error"}},
+        )
+    return await call_next(request)
+
 # --- Global model holder ---
 MODEL = None
 TOKENIZER = None
@@ -1128,6 +1163,19 @@ def load_model():
 @app.on_event("startup")
 async def startup():
     load_model()
+    _lic = _license.status(LICENSE_KEY, MODEL_ID)
+    if not LICENSE_ENFORCE:
+        logger.warning("License enforcement DISABLED (JINA_LICENSE_ENFORCE=0)")
+    elif _lic.get("valid"):
+        logger.info(
+            f"License OK: sub={_lic.get('licensed_to')} expires={_lic.get('expires')} "
+            f"days_left={_lic.get('days_left')}"
+        )
+    else:
+        logger.warning(
+            f"License NOT valid ({_lic.get('reason')}): inference endpoints will return 403. "
+            f"Set JINA_LICENSE_KEY (or JINA_LICENSE_ENFORCE=0 to disable)."
+        )
 
 
 # =============================================================================
@@ -1152,6 +1200,7 @@ async def health():
         "ready": MODEL is not None,
         "multimodal": _is_omni_model(),
         "schemas": ["openai", "voyage", "gemini", "cohere"],
+        "license": _license.status(LICENSE_KEY, MODEL_ID),
     }
 
     if snap["total_requests"] > 0:
