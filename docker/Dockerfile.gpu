@@ -125,6 +125,12 @@ ENV HF_HUB_OFFLINE=1 \
     HF_HUB_TRUST_REMOTE_CODE=1 \
     JINA_DTYPE=${DTYPE}
 
+# License gate signing secret. Optional; defaults to the public constant in
+# server/license.py. Rotate at bundle time with --build-arg LICENSE_SECRET=...
+# (must match `keygen --secret`). Symbolic compliance gate, not DRM.
+ARG LICENSE_SECRET=""
+ENV JINA_LICENSE_SECRET=${LICENSE_SECRET}
+
 LABEL org.opencontainers.image.source=https://github.com/jina-ai/jina-airgap
 LABEL org.opencontainers.image.description="Jina AI air-gapped embedding/reranker model - GPU variant"
 LABEL org.opencontainers.image.licenses=Apache-2.0

@@ -151,6 +151,18 @@ Tasks (`retrieval`, `text-matching`, `classification`, ...), matryoshka truncati
 
 Elasticsearch inference service drop-in: [Elasticsearch integration](https://github.com/jina-ai/jina-airgap/wiki/API-Reference#elasticsearch-integration).
 
+## Licensing (time-sensitive keys)
+
+Optional offline entitlement gate: a signed, expiring key that operators set before the inference endpoints answer. Fully air-gapped (local HMAC check, no phone-home), and issuing/renewing a key needs **no image rebuild** - the key is injected at run time.
+
+```bash
+python jina-airgap.py keygen --sub acme-corp --days 30        # mint a 30-day key
+docker run -e JINA_LICENSE_KEY=JINA-xxx.yyy -p 8080:8080 jina/MODEL:cpu
+curl -s http://localhost:8080/health   # shows license status; /health stays open
+```
+
+Gated `POST` requests without a valid key return HTTP 403. Set `JINA_LICENSE_ENFORCE=0` to disable. This is a compliance speed-bump, not DRM - the signing secret ships in the image. Details: [Licensing wiki](https://github.com/jina-ai/jina-airgap/wiki/Licensing).
+
 ## Architecture
 
 **Two-phase model**: bundle (Phase 1, connected) and deploy (Phase 2, offline). Same terminology as zarf, NVIDIA NIM, and Red Hat disconnected install.

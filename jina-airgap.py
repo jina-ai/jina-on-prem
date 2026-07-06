@@ -643,6 +643,55 @@ def cmd_serve(args):
     sys.exit(EXIT_OK)
 
 
+# ---------------------------------------------------------------------------
+# keygen subcommand
+# ---------------------------------------------------------------------------
+
+def cmd_keygen(args):
+    """Mint a time-sensitive license key. Offline, no rebuild, no Docker.
+
+    The key is validated by the running server's license gate. Secret defaults
+    to the public constant baked into the image; pass --secret to match a
+    custom LICENSE_SECRET build/run override.
+    """
+    # Import the same signer the server uses so format never drifts.
+    sys.path.insert(0, str(SCRIPT_DIR / "server"))
+    try:
+        import license as _license
+    except Exception as e:
+        err(f"Error: cannot import server/license.py: {e}", RED)
+        sys.exit(EXIT_RUNTIME_ERROR)
+
+    key = _license.issue(
+        sub=args.sub,
+        days=args.days,
+        model=args.model or "*",
+        secret=args.secret,
+    )
+    claims = _license.inspect(key)
+    import time as _t
+    exp_h = _t.strftime("%Y-%m-%d %H:%M:%SZ", _t.gmtime(claims["exp"]))
+
+    if args.json:
+        out(json.dumps({"key": key, "claims": claims, "expires": exp_h}, indent=2))
+        sys.exit(EXIT_OK)
+
+    print_banner()
+    err(f"{BOLD}License key minted{RESET}\n")
+    err(f"  Licensed to: {claims['sub']}")
+    err(f"  Model scope: {claims['model']}")
+    err(f"  Valid days:  {args.days}")
+    err(f"  Expires:     {exp_h}")
+    if args.secret:
+        err(f"  {YELLOW}Custom secret used — server must run with matching JINA_LICENSE_SECRET.{RESET}")
+    err(f"\n{BOLD}Key (stdout):{RESET}")
+    out(key)
+    err(f"\n{BOLD}Use it:{RESET}")
+    err(f"  docker run -e JINA_LICENSE_KEY={key} -p 8080:8080 <image>")
+    err(f"\n{DIM}Renewing = mint a new key and restart the container. No rebuild.{RESET}")
+    sys.exit(EXIT_OK)
+
+
 def _has_cuda() -> bool:
     try:
         result = subprocess.run(
@@ -815,6 +864,37 @@ def make_parser():
     serve_p.add_argument("--device", choices=["cpu", "cuda", "auto"], default="auto",
                          help="Compute device: cpu, cuda, or auto-detect (default: auto)")
 
+    # --- keygen ---
+    keygen_p = subparsers.add_parser(
+        "keygen",
+        help="Mint a time-sensitive license key (offline, no rebuild)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=textwrap.dedent("""\
+            Mint a time-sensitive license key.
+
+            The key is a signed, self-contained token carrying an expiry. It is
+            injected at run time (docker run -e JINA_LICENSE_KEY=...), so issuing
+            or renewing never requires rebuilding the image. This is a symbolic
+            compliance gate, not DRM (see server/license.py).
+        """),
+        epilog=textwrap.dedent("""\
+            Examples:
+              python jina-airgap.py keygen --sub acme-corp --days 30
+              python jina-airgap.py keygen --sub acme --days 90 --model jina-embeddings-v5-text-nano
+              python jina-airgap.py keygen --sub trial --days 7 --json
+        """),
+    )
+    keygen_p.add_argument("--sub", required=True, metavar="NAME",
+                          help="Who the license is issued to (customer/PM name)")
+    keygen_p.add_argument("--days", type=int, default=30,
+                          help="Validity window in days (default: 30)")
+    keygen_p.add_argument("--model", metavar="MODEL_ID",
+                          help="Restrict key to one model id (default: * = any)")
+    keygen_p.add_argument("--secret", metavar="SECRET",
+                          help="Signing secret override (must match server JINA_LICENSE_SECRET)")
+    keygen_p.add_argument("--json", action="store_true",
+                          help="Output key + claims as JSON to stdout")
+
     # Backward-compat hidden aliases
     for alias, real in [("pack", "bundle"), ("load", "deploy")]:
         alias_p = subparsers.add_parser(alias, help=argparse.SUPPRESS)
@@ -862,6 +942,7 @@ def main():
         err(f"  {BOLD}bundle{RESET}  [Phase 1 - network]  Build + save Docker image bundle")
         err(f"  {BOLD}deploy{RESET}  [Phase 2 - offline]  Load bundle and start container")
         err(f"  {BOLD}serve{RESET}   Serve model directly (no Docker, deps required)")
+        err(f"  {BOLD}keygen{RESET}  Mint a time-sensitive license key (offline, no rebuild)")
         err("")
         err(f"{BOLD}Quick start:{RESET}")
         err("  python jina-airgap.py list")
@@ -875,6 +956,8 @@ def main():
 
     if args.command in ("bundle", "pack"):
         cmd_bundle(args)
+    elif args.command == "keygen":
+        cmd_keygen(args)
     elif args.command in ("deploy", "load"):
         cmd_deploy(args)
     elif args.command == "serve":
