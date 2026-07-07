@@ -1,6 +1,8 @@
 The support, maintenance, and end-of-life (EOL) policy for self-managed (SM) / air-gapped Jina AI models. This page explains, in plain terms, how long a model you deploy will keep working, how long Jina/Elastic maintains it, what "end of life" actually means when the weights live inside your own network, and - importantly - what "maintenance" can and cannot mean for a machine-learning model as opposed to ordinary software. It is the reference for field, support, procurement, security, and audit questions about the lifetime of a Jina SM deployment.
 
-> **Read this first.** Hosted-API providers (OpenAI, Cohere, Azure Foundry, Amazon Bedrock) tie "end of life" to a *shutdown date*: after that date the endpoint is switched off and your requests fail. Air-gapped Jina SM is the opposite by design. You hold the weights inside your own perimeter, so a model you have deployed **keeps working for as long as you choose to run it** - there is no switch we can flip, no phone-home, no expiry. EOL here is about how long *we* keep maintaining and supporting a model, not about whether *you* can keep using it. If you take one thing from this page: **deploying a Jina SM model is buying a permanent, self-contained artifact, not renting access to a service.**
+> **Read this first.** Hosted-API providers (OpenAI, Cohere, Azure Foundry, Amazon Bedrock) tie "end of life" to a *shutdown date*: after that date the endpoint is switched off and your requests fail. Air-gapped Jina SM is different by design. You hold the weights inside your own perimeter, so there is **no technical kill switch, no phone-home, and no date on which the software forces itself to stop** - a deployed model does not go dark because a clock ran out on our side. EOL here is about how long *we* keep maintaining and supporting a model, not about a remote switch that disables it.
+>
+> **Two distinct things - do not conflate them:** (1) *Technical continuity* - the bundle keeps running as long as you run it; nothing we operate can remotely disable it. (2) *Commercial right to use* - Jina SM is sold as a **term-based subscription**, not a perpetual license. Production use requires a **current, in-term commercial entitlement**, and continued use past the term requires **renewal**, exactly like other Elastic SM subscriptions. So the mental model is: **you are not renting *access* from our servers (there is nothing to shut off), but you are subscribing to the *right to use* on a term that must be renewed.** The absence of a technical kill switch is an availability/reliability guarantee, not a grant of perpetual license rights. See [Licensing and the subscription term](#licensing-and-the-subscription-term).
 
 ## Contents
 
@@ -11,7 +13,7 @@ The support, maintenance, and end-of-life (EOL) policy for self-managed (SM) / a
 - [Support term](#support-term)
 - [Notice and communication](#notice-and-communication)
 - [Determinism and migration guarantees](#determinism-and-migration-guarantees)
-- [Licensing at EOL](#licensing-at-eol)
+- [Licensing and the subscription term](#licensing-and-the-subscription-term)
 - [Current lifecycle status](#current-lifecycle-status)
 - [FAQ](#faq)
 
@@ -128,9 +130,22 @@ Because nothing is ever force-retired, our notices are there to help you *plan*,
 - **Reindex planning**: moving to a newer generation changes the embeddings (that is the point of a better model), so plan a reindex window - see [Versioning & Updates -> Reindex strategy](Versioning-And-Updates).
 - **Long-term continuity**: the Apache-2.0 toolkit, Dockerfiles, and CLI are public. Even after a generation reaches EOL, you can re-bundle any model you are licensed for directly from its weights, subject to the model license. See [FAQ -> What's the long-term commitment?](FAQ).
 
-## Licensing at EOL
+## Licensing and the subscription term
 
-Lifecycle stage and license are independent. Model weights stay under their original license (most current generations are CC-BY-NC-4.0; v1/v2 are Apache-2.0 - see [Model Catalog](Model-Catalog)). A CC-BY-NC-4.0 model in production still requires a valid Elastic commercial license at every lifecycle stage. Reaching EOL neither grants new license rights nor revokes your existing entitlement to keep running a licensed bundle.
+**Jina SM is a term-based subscription, not a perpetual license.** The customer buys the right to use the software for a defined term and must **renew to retain that right**, the same way other Elastic self-managed subscriptions work. Nothing on this page changes that.
+
+What the air-gap architecture changes is only the *enforcement mechanism*, not the *commercial obligation*:
+
+| Axis | What it means | Jina SM |
+|---|---|---|
+| **Commercial right to use** | The contractual license to run the software in production | **Term subscription** - time-bound, must be renewed |
+| **Technical continuity** | Whether the software keeps functioning at runtime | No kill switch, no phone-home, no forced-stop date |
+
+These are independent. The absence of a technical kill switch is an availability and reliability guarantee (a deployed bundle will not go dark mid-term because of something on our side); it is **not** a grant of perpetual rights. A customer whose term has lapsed is **out of subscription and must renew to remain licensed**, even though the software would still technically run. Continuing to run a bundle after the term has ended, without renewal, is a license compliance matter, not a technical state we enforce remotely.
+
+For revenue recognition: treat this as a term subscription. The optional built-in [time-bound license key](Licensing) mirrors this - it carries an expiry and can flag an out-of-term deployment - but by default it is fail-open and never blocks a running customer, precisely because entitlement is governed by the contract, not by the software. See [Licensing](Licensing) for how the key works and its capability boundaries.
+
+**Lifecycle stage vs. license are also independent.** Model weights stay under their original license (most current generations are CC-BY-NC-4.0; v1/v2 are Apache-2.0 - see [Model Catalog](Model-Catalog)). A CC-BY-NC-4.0 model in production requires a valid, in-term Elastic commercial subscription at every lifecycle stage. Reaching EOL neither grants new license rights nor extends your subscription term.
 
 ## Current lifecycle status
 
@@ -150,7 +165,7 @@ Generation-level status. Individual model IDs and per-model licenses are in the 
 ## FAQ
 
 **If a model is at End of Life, do I have to stop using it?**
-No. EOL only means we stop shipping fixes and standard support for it. Your deployed bundle keeps running exactly as before, indefinitely. Many air-gapped customers deliberately freeze a validated model for years.
+EOL only means we stop shipping fixes and standard support for that generation - there is no technical switch that stops it, so a deployed bundle keeps running exactly as before. Note this is separate from your subscription: you still need a current, in-term commercial subscription to be licensed to run it (Jina SM is a term subscription, not a perpetual license - see [Licensing and the subscription term](#licensing-and-the-subscription-term)). Many air-gapped customers deliberately freeze a validated model for years, under an active subscription.
 
 **Can you fix the model's accuracy on our specific documents/language without us migrating?**
 No - and this is fundamental, not a policy choice. A model's quality is determined by its trained weights, which are frozen. There is no patch that changes what a model has learned. Better quality on a task comes only from a newer generation (new weights), which you adopt as a migration. What we *can* do within a generation is fix the runtime, patch dependencies, and provide quantized builds of the same weights.
