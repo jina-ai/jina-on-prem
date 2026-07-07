@@ -89,6 +89,6 @@ The request never crosses the customer perimeter. The container has no code path
 
 ## Next
 
-- [Quick Start](Quick-Start) - get the first response back in 5 minutes
-- [Customer Scenarios](Customer-Scenarios) - concrete playbooks per industry
-- [Sizing & Hardware](Sizing-And-Hardware) - GPU/CPU sizing for your customer's volume
+- [Quick Start](Quick-Start.md) - get the first response back in 5 minutes
+- [Customer Scenarios](Customer-Scenarios.md) - concrete playbooks per industry
+- [Sizing & Hardware](Sizing-And-Hardware.md) - GPU/CPU sizing for your customer's volume
