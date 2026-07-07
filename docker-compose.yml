@@ -1,4 +1,4 @@
-# jina-airgap deployment via docker compose.
+# jina-on-prem deployment via docker compose.
 #
 # Single-container deploy (default). For multi-model with embed + rerank, see
 # docker-compose.multi.yml. Models must be loaded into the local Docker daemon

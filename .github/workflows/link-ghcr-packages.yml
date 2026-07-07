@@ -16,7 +16,7 @@ name: Link GHCR packages to this repo
 # to any repo, grant it under either:
 #   - Org -> Settings -> Packages -> "inherit access from source repository", or
 #   - each package -> Package settings -> "Manage Actions access" -> add
-#     jina-ai/jina-airgap with Write.
+#     jina-ai/jina-on-prem with Write.
 # Newly created packages (and packages this workflow links) inherit repo access
 # automatically thereafter.
 
@@ -81,7 +81,7 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
       - name: Re-push to establish repo link (no rebuild)
         run: |
-          REF="ghcr.io/${{ github.repository_owner }}/jina-airgap/${{ matrix.image }}:${{ matrix.variant }}"
+          REF="ghcr.io/${{ github.repository_owner }}/jina-on-prem/${{ matrix.image }}:${{ matrix.variant }}"
           echo "Linking $REF"
           if ! docker pull "$REF"; then
             echo "::warning::$REF not found in registry, skipping"

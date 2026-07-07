@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pull a prebuilt jina-airgap image from GHCR and save as .tar.gz for offline transport.
+# Pull a prebuilt jina-on-prem image from GHCR and save as .tar.gz for offline transport.
 # Skip the bundle phase entirely when a prebuilt exists.
 #
 # Usage:
@@ -28,7 +28,7 @@ if [[ "$RUNTIME" != "cpu" && "$RUNTIME" != "gpu" ]]; then
   exit 1
 fi
 
-REGISTRY="ghcr.io/jina-ai/jina-airgap"
+REGISTRY="ghcr.io/jina-ai/jina-on-prem"
 SRC="${REGISTRY}/${MODEL}:${RUNTIME}"
 LOCAL_TAG="jina/${MODEL}:${RUNTIME}"
 OUTPUT="${MODEL}-${RUNTIME}.tar.gz"

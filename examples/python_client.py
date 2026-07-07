@@ -1,4 +1,4 @@
-"""Minimal Python client for a jina-airgap deployment.
+"""Minimal Python client for a jina-on-prem deployment.
 
 Demonstrates the four common patterns:
   1. OpenAI SDK against /v1/embeddings (drop-in for OpenAI text-embedding-3-*)

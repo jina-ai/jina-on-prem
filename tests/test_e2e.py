@@ -1,5 +1,5 @@
 """
-End-to-end tests for jina-airgap inference server.
+End-to-end tests for jina-on-prem inference server.
 Run against a live server: TEST_URL=http://localhost:8080 python tests/test_e2e.py
 
 For multimodal tests (omni models), set: JINA_MODEL_ID=jinaai/jina-embeddings-v5-omni-nano
@@ -419,7 +419,7 @@ def wait_for_ready(timeout=300):
 
 
 def main():
-    print(f"\n=== Jina AI v5 Air-Gapped E2E Tests ===")
+    print(f"\n=== Jina AI v5 On-Prem E2E Tests ===")
     print(f"URL: {BASE_URL}\n")
 
     if not wait_for_ready():

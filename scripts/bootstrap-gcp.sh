@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Provision a GCP instance ready to run `python jina-airgap.py bundle`.
+# Provision a GCP instance ready to run `python jina-on-prem.py bundle`.
 #
 # Usage:
 #   ./scripts/bootstrap-gcp.sh [INSTANCE_NAME] [ZONE]
 #
-# Defaults: jina-airgap-builder, us-central1-a.
+# Defaults: jina-on-prem-builder, us-central1-a.
 # Override with env vars: PROJECT, MACHINE_TYPE, GPU_TYPE, GPU_COUNT, DISK_GB.
 # Set GPU_COUNT=0 to provision a CPU-only builder.
 
 set -euo pipefail
 
-NAME="${1:-jina-airgap-builder}"
+NAME="${1:-jina-on-prem-builder}"
 ZONE="${2:-us-central1-a}"
 PROJECT="${PROJECT:-$(gcloud config get-value project 2>/dev/null)}"
 MACHINE_TYPE="${MACHINE_TYPE:-g2-standard-4}"
@@ -46,7 +46,7 @@ gcloud compute instances create "$NAME" \
   --boot-disk-type=pd-balanced \
   --scopes=cloud-platform \
   --metadata="install-nvidia-driver=True" \
-  --labels="purpose=jina-airgap-builder" \
+  --labels="purpose=jina-on-prem-builder" \
   "${gpu_args[@]}"
 
 echo
@@ -73,8 +73,8 @@ if command -v nvidia-smi >/dev/null 2>&1 && ! dpkg -l | grep -q nvidia-container
   sudo systemctl restart docker
 fi
 
-if [ ! -d ~/jina-airgap ]; then
-  git clone https://github.com/jina-ai/jina-airgap.git
+if [ ! -d ~/jina-on-prem ]; then
+  git clone https://github.com/jina-ai/jina-on-prem.git
 fi
 '
 
@@ -84,8 +84,8 @@ Done. SSH in with:
   gcloud compute ssh $NAME --zone=$ZONE --project=$PROJECT
 
 Then build a bundle:
-  cd ~/jina-airgap
-  sg docker -c 'python3 jina-airgap.py bundle --model jina-embeddings-v5-text-nano --cpu-only --yes'
+  cd ~/jina-on-prem
+  sg docker -c 'python3 jina-on-prem.py bundle --model jina-embeddings-v5-text-nano --cpu-only --yes'
 
 When finished, delete the instance:
   gcloud compute instances delete $NAME --zone=$ZONE --project=$PROJECT --quiet

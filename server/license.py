@@ -78,7 +78,7 @@ logger = logging.getLogger(__name__)
 # Public default secret. Overridable at build time (--build-arg
 # LICENSE_SECRET=...) or run time (-e JINA_LICENSE_SECRET=...). Being public is
 # a feature here, not a leak - see module docstring.
-DEFAULT_SECRET = "jina-airgap-symbolic-license-v1"
+DEFAULT_SECRET = "jina-on-prem-symbolic-license-v1"
 
 PREFIX = "JINA-"
 
@@ -128,7 +128,7 @@ def _sign_with(secret: bytes, payload_bytes: bytes) -> str:
 def issue(sub: str, days: int, model: str = "*", secret: Optional[str] = None) -> str:
     """Mint a license key valid for ``days`` from now.
 
-    Dependency-free and importable so ``jina-airgap.py keygen`` can call it
+    Dependency-free and importable so ``jina-on-prem.py keygen`` can call it
     directly without importing the server stack.
     """
     now = int(time.time())

@@ -7,7 +7,7 @@ How to build your own bundle from scratch. Use this when:
 Output: a single self-contained `.tar.gz`. Bundle once, transfer, run forever offline.
 
 ```
-  connected builder   ──►  python jina-airgap.py bundle  ──►  docker build
+  connected builder   ──►  python jina-on-prem.py bundle  ──►  docker build
   (network + Docker)         (reads catalog.json)            stage 1: HF download + patch
                                                               stage 2: pinned deps + server + OFFLINE=1
                                                                     │
@@ -38,11 +38,11 @@ Output: a single self-contained `.tar.gz`. Bundle once, transfer, run forever of
 
 ## Path A: bundle on GCP L4 (recommended)
 
-The repo ships [`scripts/bootstrap-gcp.sh`](https://github.com/jina-ai/jina-airgap/blob/main/scripts/bootstrap-gcp.sh), a one-shot provisioner. It creates a `g2-standard-4` + L4 instance with Docker + NVIDIA Container Toolkit + the repo pre-cloned:
+The repo ships [`scripts/bootstrap-gcp.sh`](https://github.com/jina-ai/jina-on-prem/blob/main/scripts/bootstrap-gcp.sh), a one-shot provisioner. It creates a `g2-standard-4` + L4 instance with Docker + NVIDIA Container Toolkit + the repo pre-cloned:
 
 ```bash
-git clone https://github.com/jina-ai/jina-airgap.git
-cd jina-airgap
+git clone https://github.com/jina-ai/jina-on-prem.git
+cd jina-on-prem
 ./scripts/bootstrap-gcp.sh                                   # defaults
 GPU_COUNT=0 MACHINE_TYPE=e2-standard-4 ./scripts/bootstrap-gcp.sh   # CPU-only builder
 PROJECT=other-proj ZONE=us-east4-a ./scripts/bootstrap-gcp.sh        # different project/zone
@@ -53,8 +53,8 @@ PROJECT=other-proj ZONE=us-east4-a ./scripts/bootstrap-gcp.sh        # different
 After provisioning, the script prints the SSH command. From inside:
 
 ```bash
-cd ~/jina-airgap
-sg docker -c 'python3 jina-airgap.py bundle --model jina-embeddings-v5-text-nano --cpu-only --yes'
+cd ~/jina-on-prem
+sg docker -c 'python3 jina-on-prem.py bundle --model jina-embeddings-v5-text-nano --cpu-only --yes'
 ```
 
 `sg docker -c '...'` is only needed in the same session that installed Docker. After SSH reconnect, plain `docker` works.
@@ -64,9 +64,9 @@ sg docker -c 'python3 jina-airgap.py bundle --model jina-embeddings-v5-text-nano
 Any Linux box with Docker. Skip the GCP step:
 
 ```bash
-git clone https://github.com/jina-ai/jina-airgap.git
-cd jina-airgap
-python3 jina-airgap.py bundle --model jina-embeddings-v5-text-nano --cpu-only --yes
+git clone https://github.com/jina-ai/jina-on-prem.git
+cd jina-on-prem
+python3 jina-on-prem.py bundle --model jina-embeddings-v5-text-nano --cpu-only --yes
 ```
 
 ## CLI commands
@@ -74,17 +74,17 @@ python3 jina-airgap.py bundle --model jina-embeddings-v5-text-nano --cpu-only --
 ![list](images/01-list.gif)
 
 ```bash
-python3 jina-airgap.py list                              # all models
-python3 jina-airgap.py list --type embedding --verbose   # filter + extras
-python3 jina-airgap.py list --json                       # machine-readable
+python3 jina-on-prem.py list                              # all models
+python3 jina-on-prem.py list --type embedding --verbose   # filter + extras
+python3 jina-on-prem.py list --json                       # machine-readable
 
-python3 jina-airgap.py bundle                            # interactive picker
-python3 jina-airgap.py bundle --model MODEL              # GPU runtime
-python3 jina-airgap.py bundle --model MODEL --cpu-only   # CPU image
-python3 jina-airgap.py bundle --model MODEL --yes        # non-interactive (CI)
+python3 jina-on-prem.py bundle                            # interactive picker
+python3 jina-on-prem.py bundle --model MODEL              # GPU runtime
+python3 jina-on-prem.py bundle --model MODEL --cpu-only   # CPU image
+python3 jina-on-prem.py bundle --model MODEL --yes        # non-interactive (CI)
 
-python3 jina-airgap.py deploy --image PATH.tar.gz        # load + run (testing)
-python3 jina-airgap.py serve --model MODEL               # no Docker, requires deps installed
+python3 jina-on-prem.py deploy --image PATH.tar.gz        # load + run (testing)
+python3 jina-on-prem.py serve --model MODEL               # no Docker, requires deps installed
 ```
 
 Backward-compatible aliases: `pack` -> `bundle`, `load` -> `deploy`.
@@ -135,7 +135,7 @@ rm jina-OLDMODEL-*.tar.gz     # remove tars you've already transferred
 df -h /                       # confirm
 ```
 
-The [`CONTRIBUTING.md` batch-build pattern](https://github.com/jina-ai/jina-airgap/blob/main/CONTRIBUTING.md#batch-build-all-6-priority-models) iterates this for all 6 priority models on a single host.
+The [`CONTRIBUTING.md` batch-build pattern](https://github.com/jina-ai/jina-on-prem/blob/main/CONTRIBUTING.md#batch-build-all-6-priority-models) iterates this for all 6 priority models on a single host.
 
 ## Transfer to the air-gapped machine
 
@@ -167,7 +167,7 @@ That's the entire air-gapped deploy. The image has `HF_HUB_OFFLINE=1` and `TRANS
 - v5-omni models need ~30 GB free disk during build (large base + flash-attn compile).
 - The bundle deletes each model repo's `requirements.txt` to prevent runtime auto-upgrade. This is intentional.
 
-Full debug history: [CONTRIBUTING.md "Known Caveats"](https://github.com/jina-ai/jina-airgap/blob/main/CONTRIBUTING.md#known-caveats-from-hard-won-debugging).
+Full debug history: [CONTRIBUTING.md "Known Caveats"](https://github.com/jina-ai/jina-on-prem/blob/main/CONTRIBUTING.md#known-caveats-from-hard-won-debugging).
 
 ## Next
 

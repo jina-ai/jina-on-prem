@@ -29,7 +29,7 @@ Yes - each is a separate container on a separate port. With 1xL4 (24GB VRAM) you
 Yes, no special integration - it's just a stateless container with one HTTP port. Sample manifest in [Sizing & Hardware -> Redundancy](Sizing-And-Hardware#redundancy).
 
 **Can I run it on Apple Silicon?**
-The CPU image is `linux/amd64`. On Apple Silicon it works under Rosetta emulation but is slow. For Mac dev, run `python jina-airgap.py serve --model X` directly via Python (the `serve` command bypasses Docker).
+The CPU image is `linux/amd64`. On Apple Silicon it works under Rosetta emulation but is slow. For Mac dev, run `python jina-on-prem.py serve --model X` directly via Python (the `serve` command bypasses Docker).
 
 **Will it work with our load balancer / WAF?**
 Yes - it's plain HTTP/JSON. Add TLS, auth headers, IP allow-lists at the LB layer.
@@ -74,10 +74,10 @@ FastAPI access logs + model load info + warnings. `docker logs <container>` to s
 ## Sales objections
 
 **"Why not Ollama / vLLM / LocalAI?"**
-Those are great projects for hosted-yourself LLMs. jina-airgap is specifically for *embeddings* and *rerankers* (the search workload), wraps Jina-specific models with their custom tokenizers and adapters, and standardizes on a multi-schema API. For LLM chat, point the customer at Ollama or vLLM separately.
+Those are great projects for hosted-yourself LLMs. jina-on-prem is specifically for *embeddings* and *rerankers* (the search workload), wraps Jina-specific models with their custom tokenizers and adapters, and standardizes on a multi-schema API. For LLM chat, point the customer at Ollama or vLLM separately.
 
 **"Why not export the model to ONNX and run with onnxruntime?"**
-You can, and for some models that's a fine path. jina-airgap's value-add is: pinning the exact transformers/torch versions per model (custom code requires specific versions), wrapping the multi-schema API, and the bundle-and-transfer workflow with documented walkthroughs. ONNX export drops some model-specific code paths (LoRA adapters, custom rerankers) that the maintained Python implementation supports.
+You can, and for some models that's a fine path. jina-on-prem's value-add is: pinning the exact transformers/torch versions per model (custom code requires specific versions), wrapping the multi-schema API, and the bundle-and-transfer workflow with documented walkthroughs. ONNX export drops some model-specific code paths (LoRA adapters, custom rerankers) that the maintained Python implementation supports.
 
 **"Can you guarantee it never sends data out?"**
 Yes by design - HF_HUB_OFFLINE=1 + TRANSFORMERS_OFFLINE=1 + no other outbound code. The customer's security team can audit the image and the source code on GitHub. Stronger guarantee: run it on a host with no egress route at all (most air-gapped customers already do this).

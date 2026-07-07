@@ -13,7 +13,7 @@ For sales/SA/field engineers walking a customer through their first deployment, 
   ┌────────────────┐    USB / SCP / disk    ┌────────────────┐    port 8080
   │ connected host │   ──────────────────►  │ air-gapped host│   ──────►  app
   │                │       .tar.gz          │                │
-  │ jina-airgap.py │                        │  docker load   │  OpenAI / Cohere
+  │ jina-on-prem.py │                        │  docker load   │  OpenAI / Cohere
   │   bundle       │                        │  docker run    │  Gemini / Voyage
   └────────────────┘                        └────────────────┘
         │                                          │
@@ -39,7 +39,7 @@ That's the whole product. The connected machine has internet to fetch model weig
 
 | You are... | Start here |
 |---|---|
-| An SA/sales engineer evaluating jina-airgap for a customer | [Why Air-Gap](Why-Airgap), then [Customer Scenarios](Customer-Scenarios) |
+| An SA/sales engineer evaluating jina-on-prem for a customer | [Why Air-Gap](Why-Airgap), then [Customer Scenarios](Customer-Scenarios) |
 | Comparing this against Ollama / vLLM / ONNX / hosted API | [Comparison vs alternatives](Comparison) |
 | A field engineer deploying at a customer site | [Quick Start](Quick-Start), then [Sizing & Hardware](Sizing-And-Hardware) |
 | A developer integrating the API | [API Reference](API-Reference) |

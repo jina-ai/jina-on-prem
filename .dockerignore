@@ -1,4 +1,4 @@
-# Jina Airgap .dockerignore
+# Jina On-Prem .dockerignore
 # Keeps the build context lean - only send what Docker needs
 
 # Version control

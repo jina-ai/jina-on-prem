@@ -1,4 +1,4 @@
-If you hit something not listed here, please [open an issue](https://github.com/jina-ai/jina-airgap/issues/new) with the full error and `docker logs <container>` output.
+If you hit something not listed here, please [open an issue](https://github.com/jina-ai/jina-on-prem/issues/new) with the full error and `docker logs <container>` output.
 
 ```mermaid
 flowchart TD
@@ -66,7 +66,7 @@ The zone 'projects/PROJECT/zones/ZONE' does not have enough resources to fulfill
 3. `asia-southeast1-a` (Singapore - usually available)
 4. As a last resort, switch to A100 or T4 in a US zone with quota.
 
-A retry loop is at the bottom of [`scripts/bootstrap-gcp.sh`](https://github.com/jina-ai/jina-airgap/blob/main/scripts/bootstrap-gcp.sh).
+A retry loop is at the bottom of [`scripts/bootstrap-gcp.sh`](https://github.com/jina-ai/jina-on-prem/blob/main/scripts/bootstrap-gcp.sh).
 
 ## Prebuilt pull unauthorized
 
@@ -76,7 +76,7 @@ A retry loop is at the bottom of [`scripts/bootstrap-gcp.sh`](https://github.com
 Error response from daemon: error from registry: unauthorized
 ```
 
-**Cause**: GHCR images live under `ghcr.io/jina-ai/jina-airgap/*` and require a logged-in user.
+**Cause**: GHCR images live under `ghcr.io/jina-ai/jina-on-prem/*` and require a logged-in user.
 
 **Fix**: docker login with a GitHub PAT that has `read:packages` scope:
 
@@ -169,7 +169,7 @@ To prove it's offline: run on a host with no egress route, watch `docker logs <c
 **Fix**: start bundles with `nohup` so disconnection doesn't kill the build:
 
 ```bash
-nohup bash -c 'cd ~/jina-airgap && python3 jina-airgap.py bundle --model X --yes' > ~/bundle.log 2>&1 &
+nohup bash -c 'cd ~/jina-on-prem && python3 jina-on-prem.py bundle --model X --yes' > ~/bundle.log 2>&1 &
 disown
 ```
 
@@ -194,17 +194,17 @@ docker system df               # see what's left
 
 **Symptom**: image pushed to GHCR but doesn't appear in the repo's package list.
 
-**Cause**: the `LABEL org.opencontainers.image.source=https://github.com/jina-ai/jina-airgap` is missing from the Dockerfile.
+**Cause**: the `LABEL org.opencontainers.image.source=https://github.com/jina-ai/jina-on-prem` is missing from the Dockerfile.
 
 **Fix**: both `docker/Dockerfile.cpu` and `docker/Dockerfile.gpu` include this label. If you've forked, keep it. After fixing, retag and push - GitHub picks up the link on next push.
 
 ## Got something else?
 
-Please [file an issue](https://github.com/jina-ai/jina-airgap/issues/new) with:
+Please [file an issue](https://github.com/jina-ai/jina-on-prem/issues/new) with:
 
 - `docker --version` and `nvidia-smi` if GPU
 - The full command you ran
 - `docker logs <container>` if a container started but failed
 - Last 50 lines of bundle log if a build failed
 
-The [CONTRIBUTING.md](https://github.com/jina-ai/jina-airgap/blob/main/CONTRIBUTING.md) has more debug history from the maintainers' perspective.
+The [CONTRIBUTING.md](https://github.com/jina-ai/jina-on-prem/blob/main/CONTRIBUTING.md) has more debug history from the maintainers' perspective.
