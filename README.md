@@ -93,6 +93,30 @@ Full catalog with all 28 models, VRAM, context windows, and licenses: [Model Cat
 
 > CC-BY-NC-4.0 models require a commercial license for production use. Contact [Elastic sales](https://www.elastic.co/contact).
 
+## NVIDIA NIM deployment (alternative)
+
+If you're running on NVIDIA GPU infrastructure and want OpenAI-compatible serving with vLLM optimizations, you can deploy Jina models via [NVIDIA NIM](https://developer.nvidia.com/nim) instead of the standard bundle workflow. This requires an NGC API key and a connected machine on first launch (to pull model weights), but provides CUDA graph optimization and easy model switching:
+
+```bash
+export NGC_API_KEY=nvapi-...
+
+# Embeddings on port 8000
+docker run -d --name jina-embed --gpus all --shm-size=16GB \
+  -p 8000:8000 -v $HOME/nim_cache:/opt/nim/.cache \
+  -e NGC_API_KEY=$NGC_API_KEY \
+  nvcr.io/nim/nvidia/model-free-nim:2.0.6 \
+  hf://jinaai/jina-embeddings-v3 --trust-remote-code
+
+# Reranker on port 8001 (use /rerank endpoint, not /v1/rerank)
+docker run -d --name jina-reranker --gpus all --shm-size=16GB \
+  -p 8001:8000 -v $HOME/nim_cache:/opt/nim/.cache \
+  -e NGC_API_KEY=$NGC_API_KEY \
+  nvcr.io/nim/nvidia/model-free-nim:2.0.6 \
+  hf://jinaai/jina-reranker-v3 --trust-remote-code
+```
+
+See [`scripts/nim-run.sh`](scripts/nim-run.sh) for a helper script and [`docs/NVIDIA-NIM-Deployment.md`](docs/NVIDIA-NIM-Deployment.md) for the full guide including model compatibility, air-gapped NIM deploy, and key flag reference.
+
 ## Maximum GPU throughput (`:gpu-opt`)
 
 The default `:gpu` server processes one request at a time on the event loop, so concurrent clients serialize (32 clients ≈ the throughput of 1). For high-QPS serving, the **`:gpu-opt`** tags (text embedding models) add a server-side **dynamic batcher** — a single GPU worker coalesces concurrent requests into length-sorted, token-budgeted batches, so clients can send one input at a time and still saturate the GPU:
