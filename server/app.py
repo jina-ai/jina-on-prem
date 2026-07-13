@@ -1,5 +1,5 @@
 """
-Jina AI Air-Gapped Inference Server
+Jina AI On-Prem Inference Server
 Multi-schema embedding API: OpenAI, Voyage AI, Google Gemini, Cohere.
 Real tok/s throughput measurement.
 
@@ -225,7 +225,7 @@ def _encode_autocast_ctx():
     return nullcontext()
 
 app = FastAPI(
-    title="Jina AI Air-Gapped Server",
+    title="Jina AI On-Prem Server",
     version="4.0.0",
     description="Multi-schema embedding server: OpenAI, Voyage AI, Gemini, Cohere (text + multimodal)",
 )

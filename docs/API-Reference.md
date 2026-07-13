@@ -1,4 +1,4 @@
-A deployed jina-airgap server exposes four embedding API schemas (and a reranker endpoint) on the same port. Pick whichever your client already speaks - they all hit the same model.
+A deployed jina-on-prem server exposes four embedding API schemas (and a reranker endpoint) on the same port. Pick whichever your client already speaks - they all hit the same model.
 
 ```
    client                        endpoint
@@ -219,4 +219,4 @@ Run the server and hit `GET /docs` for the FastAPI-generated Swagger UI - it's a
 
 ## Source of truth
 
-Full request/response shapes: [`server/app.py`](https://github.com/jina-ai/jina-airgap/blob/main/server/app.py).
+Full request/response shapes: [`server/app.py`](https://github.com/jina-ai/jina-on-prem/blob/main/server/app.py).

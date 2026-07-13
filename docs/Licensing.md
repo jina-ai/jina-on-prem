@@ -20,7 +20,7 @@ How licensing works for self-managed (SM) / air-gapped Jina AI deployments, and 
 | | Commercial license (the contract) | License key (this page) |
 |---|---|---|
 | What it is | The legal right to run the model in production | An optional offline token with an expiry date |
-| Who issues it | Elastic sales | You, with one CLI command (`jina-airgap.py keygen`) |
+| Who issues it | Elastic sales | You, with one CLI command (`jina-on-prem.py keygen`) |
 | Where it lives | The customer's contract / order form | An env var passed at `docker run` time |
 | What it governs | Actual usage rights | A visible, checkable "expires on X" signal |
 | Enforced by software? | No | Optionally, and never against a sold customer |
@@ -89,7 +89,7 @@ Even in `enforce` mode there is a **grace window** (default 14 days, `JINA_LICEN
 **1. Mint a key** (on any machine with the repo; no Docker, no network needed):
 
 ```bash
-python jina-airgap.py keygen --sub "acme-corp" --days 90
+python jina-on-prem.py keygen --sub "acme-corp" --days 90
 ```
 
 Output (the key prints to stdout):
@@ -158,7 +158,7 @@ Renewal is deliberately trivial - it never touches the image:
 ```mermaid
 sequenceDiagram
     participant Ops as Ops / SA
-    participant CLI as jina-airgap keygen
+    participant CLI as jina-on-prem keygen
     participant C as Running container
 
     Ops->>CLI: keygen --sub acme-corp --days 90
@@ -167,7 +167,7 @@ sequenceDiagram
     Note over C: same image, new key, ~2s restart
 ```
 
-1. `python jina-airgap.py keygen --sub "acme-corp" --days 90`
+1. `python jina-on-prem.py keygen --sub "acme-corp" --days 90`
 2. Restart the container with the new `JINA_LICENSE_KEY`.
 
 No `docker build`, no re-transfer of the multi-GB bundle, no downtime beyond a container restart (and with the blue/green pattern in [Versioning & Updates](Versioning-And-Updates), zero downtime).
@@ -229,7 +229,7 @@ Yes, trivially (that is what 防君子不防小人 means). The secret is in the 
 No. Usage rights come from the commercial license (the contract) via Elastic sales. The key is an operational signal that a deployment carries a time-bound entitlement; it does not grant or revoke the underlying right.
 
 **How do we restrict a key to one model?**
-`python jina-airgap.py keygen --sub acme --days 90 --model jina-embeddings-v5-text-nano`. A request to a different model in `enforce` mode returns `model_not_licensed`; in `warn` mode it is logged only.
+`python jina-on-prem.py keygen --sub acme --days 90 --model jina-embeddings-v5-text-nano`. A request to a different model in `enforce` mode returns `model_not_licensed`; in `warn` mode it is logged only.
 
 ## Next
 

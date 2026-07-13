@@ -1,4 +1,4 @@
-# Jina AI Model: Air-Gapped Docker Image, GPU variant
+# Jina AI Model: On-Prem Docker Image, GPU variant
 # Phase 1, bundle: bakes model weights and model-specific deps into image.
 # Phase 2, deploy: runs fully offline, zero external network calls.
 #
@@ -131,7 +131,7 @@ ENV HF_HUB_OFFLINE=1 \
 ARG LICENSE_SECRET=""
 ENV JINA_LICENSE_SECRET=${LICENSE_SECRET}
 
-LABEL org.opencontainers.image.source=https://github.com/jina-ai/jina-airgap
+LABEL org.opencontainers.image.source=https://github.com/jina-ai/jina-on-prem
 LABEL org.opencontainers.image.description="Jina AI air-gapped embedding/reranker model - GPU variant"
 LABEL org.opencontainers.image.licenses=Apache-2.0
 

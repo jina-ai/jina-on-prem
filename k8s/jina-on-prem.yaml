@@ -1,4 +1,4 @@
-# Kubernetes manifest for a jina-airgap deployment.
+# Kubernetes manifest for a jina-on-prem deployment.
 #
 # Single-model deploy with HPA, Service, optional Ingress. Adjust `image`
 # to your local registry path or load the image onto each node manually.
@@ -9,7 +9,7 @@
 #          docker save jina/jina-embeddings-v5-text-small:gpu \
 #            | ssh $n "docker load"
 #        done
-#   2) kubectl apply -f k8s/jina-airgap.yaml
+#   2) kubectl apply -f k8s/jina-on-prem.yaml
 #   3) kubectl port-forward svc/jina-embed 8080:8080
 #   4) curl http://localhost:8080/health
 #
@@ -19,13 +19,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: jina-airgap
+  name: jina-on-prem
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: jina-embed
-  namespace: jina-airgap
+  namespace: jina-on-prem
   labels:
     app: jina-embed
 spec:
@@ -87,7 +87,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: jina-embed
-  namespace: jina-airgap
+  namespace: jina-on-prem
 spec:
   type: ClusterIP
   selector:
@@ -103,7 +103,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: jina-embed
-  namespace: jina-airgap
+  namespace: jina-on-prem
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -125,7 +125,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: jina-embed
-  namespace: jina-airgap
+  namespace: jina-on-prem
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "32m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"

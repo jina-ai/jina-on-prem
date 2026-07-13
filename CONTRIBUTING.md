@@ -1,4 +1,4 @@
-# Contributing to jina-airgap
+# Contributing to jina-on-prem
 
 ## Build + Test Workflow
 
@@ -11,15 +11,15 @@
 ### Build a CPU image
 
 ```bash
-cd ~/jina-airgap
+cd ~/jina-on-prem
 git pull
-python3 jina-airgap.py bundle --model jina-embeddings-v5-text-nano --cpu-only --yes
+python3 jina-on-prem.py bundle --model jina-embeddings-v5-text-nano --cpu-only --yes
 ```
 
 ### Build a GPU image
 
 ```bash
-python3 jina-airgap.py bundle --model jina-embeddings-v5-text-nano --yes
+python3 jina-on-prem.py bundle --model jina-embeddings-v5-text-nano --yes
 # Dockerfile.gpu uses pytorch/pytorch base with CUDA - no GPU needed at build time
 ```
 
@@ -40,8 +40,8 @@ The test script:
 
 ```bash
 echo $GH_TOKEN | docker login ghcr.io -u jina-ai --password-stdin
-docker tag jina/MODEL:cpu ghcr.io/jina-ai/jina-airgap/MODEL:cpu
-docker push ghcr.io/jina-ai/jina-airgap/MODEL:cpu
+docker tag jina/MODEL:cpu ghcr.io/jina-ai/jina-on-prem/MODEL:cpu
+docker push ghcr.io/jina-ai/jina-on-prem/MODEL:cpu
 ```
 
 ### Making the pushed package PUBLIC
@@ -50,7 +50,7 @@ docker push ghcr.io/jina-ai/jina-airgap/MODEL:cpu
 
 After pushing a new model to GHCR:
 
-1. Open `https://github.com/orgs/jina-ai/packages/container/jina-airgap%2FMODEL/settings`
+1. Open `https://github.com/orgs/jina-ai/packages/container/jina-on-prem%2FMODEL/settings`
 2. Scroll to **Danger Zone** → **Change package visibility** → **Public**
 3. Type the package name to confirm
 
@@ -68,7 +68,7 @@ To avoid repeating this for every new model, set the org-level default to public
 for m in jina-embeddings-v5-text-nano jina-embeddings-v5-text-small \
          jina-embeddings-v5-omni-nano jina-embeddings-v5-omni-small \
          jina-embeddings-v3 jina-reranker-v3; do
-    python3 jina-airgap.py bundle --model $m --cpu-only --yes
+    python3 jina-on-prem.py bundle --model $m --cpu-only --yes
     docker builder prune -af  # reclaim build cache between models
 done
 # Then same loop without --cpu-only for GPU variants
@@ -122,7 +122,7 @@ The server's `_resolve_task()` function handles mapping between API-level names 
 
 ### OCI labels for GHCR
 
-Dockerfiles include `LABEL org.opencontainers.image.source=https://github.com/jina-ai/jina-airgap` so pushed images auto-link to this repo. Without this label, packages appear orphaned in GHCR and won't show in the repo sidebar.
+Dockerfiles include `LABEL org.opencontainers.image.source=https://github.com/jina-ai/jina-on-prem` so pushed images auto-link to this repo. Without this label, packages appear orphaned in GHCR and won't show in the repo sidebar.
 
 ### `trust_remote_code` monkey-patch
 
@@ -138,7 +138,7 @@ GCP spot instances get preempted. Use `nohup` for long builds. Docker images per
 
 When adding a new prebuilt image:
 1. Add `cpu` / `gpu` links in the Prebuilt column (second column, after Model)
-2. Link format: `[cpu](https://github.com/orgs/jina-ai/packages/container/jina-airgap%2FMODEL_NAME) / [gpu](...)`
+2. Link format: `[cpu](https://github.com/orgs/jina-ai/packages/container/jina-on-prem%2FMODEL_NAME) / [gpu](...)`
 3. Models without prebuilt images show `-`
 
 ### Sections (in order)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Report visibility of every jina-airgap/* package on GHCR.
+# Report visibility of every jina-on-prem/* package on GHCR.
 #
 # GHCR packages default to private even when the source repo is public, and
 # GitHub has no API for changing visibility - it's a per-package UI step
@@ -36,7 +36,7 @@ printf "%-40s %-10s\n" "PACKAGE" "VISIBILITY"
 printf "%-40s %-10s\n" "----------------------------------------" "----------"
 
 for m in "${MODELS[@]}"; do
-  enc="jina-airgap%2F$m"
+  enc="jina-on-prem%2F$m"
   vis=$(gh api "/orgs/$ORG/packages/container/$enc" --jq '.visibility' 2>/dev/null || echo "missing")
   printf "%-40s %-10s\n" "$m" "$vis"
   case "$vis" in
