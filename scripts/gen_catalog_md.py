@@ -15,10 +15,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CATALOG = ROOT / "models" / "catalog.json"
-GHCR = "https://github.com/orgs/jina-ai/packages/container/jina-airgap%2F"
+GHCR = "https://github.com/orgs/jina-ai/packages/container/jina-on-prem%2F"
 
 # Known prebuilt images on GHCR. Update when new ones are pushed.
-# To verify: `gh api /orgs/jina-ai/packages?package_type=container --jq '.[].name' | grep jina-airgap`
+# To verify: `gh api /orgs/jina-ai/packages?package_type=container --jq '.[].name' | grep jina-on-prem`
 PREBUILT = {
     "jina-embeddings-v5-omni-small",
     "jina-embeddings-v5-omni-nano",
@@ -67,8 +67,8 @@ def render() -> str:
     out: list[str] = []
     # Page title comes from wiki UI, not H1 in body
     out.append(
-        "All 28 models supported by jina-airgap. Auto-generated from "
-        "[`models/catalog.json`](https://github.com/jina-ai/jina-airgap/blob/main/models/catalog.json) - "
+        "All 28 models supported by jina-on-prem. Auto-generated from "
+        "[`models/catalog.json`](https://github.com/jina-ai/jina-on-prem/blob/main/models/catalog.json) - "
         "re-run `python3 scripts/gen_catalog_md.py` to refresh."
     )
     out.append("")

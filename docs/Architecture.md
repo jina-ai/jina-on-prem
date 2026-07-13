@@ -8,7 +8,7 @@ How the pieces fit together. Useful for SAs answering "what is this thing made o
   ┌─────────────────────────────────────────────────────────────────┐
   │ PHASE 1: BUNDLE (connected machine)                             │
   │                                                                 │
-  │  python jina-airgap.py bundle                                   │
+  │  python jina-on-prem.py bundle                                   │
   │         │                                                       │
   │         ▼                                                       │
   │  read models/catalog.json  ─►  pinned deps + hf_repo            │
@@ -122,7 +122,7 @@ At runtime, any code path that would try to download a missing file fails immedi
 ## CLI structure
 
 ```
-jina-airgap.py (single file, stdlib only)
+jina-on-prem.py (single file, stdlib only)
 - cmd_list      - browse models/catalog.json
 - cmd_bundle    - read catalog, write deps file, run docker build, save tar.gz
 - cmd_deploy    - docker load + docker run + health check
@@ -134,8 +134,8 @@ No third-party imports in the CLI. The model deps install inside the Docker imag
 ## File layout
 
 ```
-jina-airgap/
-- jina-airgap.py             CLI (stdlib only)
+jina-on-prem/
+- jina-on-prem.py             CLI (stdlib only)
 - models/
   - catalog.json             28 models with pinned deps, vram, modality
 - docker/

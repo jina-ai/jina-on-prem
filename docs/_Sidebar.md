@@ -30,5 +30,5 @@
 
 ### Contribute
 
-- [CONTRIBUTING](https://github.com/jina-ai/jina-airgap/blob/main/CONTRIBUTING.md)
-- [Open issue](https://github.com/jina-ai/jina-airgap/issues/new)
+- [CONTRIBUTING](https://github.com/jina-ai/jina-on-prem/blob/main/CONTRIBUTING.md)
+- [Open issue](https://github.com/jina-ai/jina-on-prem/issues/new)

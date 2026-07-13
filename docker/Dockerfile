@@ -1,4 +1,4 @@
-# Jina AI Model - Air-Gapped Docker Image
+# Jina AI Model - On-Prem Docker Image
 # Phase 1 (bundle): bakes model weights + model-specific deps into image.
 # Phase 2 (deploy): runs fully offline, zero external network calls.
 #

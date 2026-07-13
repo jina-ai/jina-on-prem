@@ -1,4 +1,4 @@
-Capacity planning for jina-airgap deployments. Covers GPU vs CPU choice, VRAM by model, expected throughput, disk, and redundancy.
+Capacity planning for jina-on-prem deployments. Covers GPU vs CPU choice, VRAM by model, expected throughput, disk, and redundancy.
 
 ## The three knobs
 
@@ -78,25 +78,25 @@ For higher throughput:
 
 ## Deployment topologies in the customer environment
 
-Where the jina-airgap container sits in a typical customer architecture:
+Where the jina-on-prem container sits in a typical customer architecture:
 
 ```
   outside  │   customer perimeter (firewall / VPN / ZTNA)
   ─────────┼────────────────────────────────────────────────────
            │
-   user  ──┼──► ingress ──► app ──► jina-airgap   ─►  ╳ internet
+   user  ──┼──► ingress ──► app ──► jina-on-prem   ─►  ╳ internet
            │                   │     :8080              (blocked)
            │                   │
            │                   └──► Elasticsearch
            │                          └ (optional inference call)
-           │                            back into jina-airgap
+           │                            back into jina-on-prem
 ```
 
 Three common placements:
 
-- **Sidecar to the app**: jina-airgap and the calling app on the same VM/pod. Lowest latency (localhost). Best when the app needs many embedding calls per request.
-- **Shared service**: one jina-airgap host serving multiple apps via internal DNS. Easier to right-size; one place to patch.
-- **Behind Elasticsearch**: ES inference service calls jina-airgap at indexing and query time. Apps talk only to ES. Cleanest for search-only stacks.
+- **Sidecar to the app**: jina-on-prem and the calling app on the same VM/pod. Lowest latency (localhost). Best when the app needs many embedding calls per request.
+- **Shared service**: one jina-on-prem host serving multiple apps via internal DNS. Easier to right-size; one place to patch.
+- **Behind Elasticsearch**: ES inference service calls jina-on-prem at indexing and query time. Apps talk only to ES. Cleanest for search-only stacks.
 
 ## Redundancy
 
@@ -116,7 +116,7 @@ Three patterns:
 - **Active-active** with two hosts behind any L4 load balancer. Models are stateless so any request can go to any replica. Use this for production. Maintain spare image tarballs on disk so you can rebuild a host without rebundling.
 - **Kubernetes** if the customer is already running it. Each pod is `docker run` with a `Service` and `Deployment`. Persistent volume not needed (model is in the image). NodeSelector for GPU nodes if you mix GPU and CPU.
 
-A ready-to-apply manifest with Namespace + Deployment + Service + HPA + Ingress lives at [`k8s/jina-airgap.yaml`](https://github.com/jina-ai/jina-airgap/blob/main/k8s/jina-airgap.yaml):
+A ready-to-apply manifest with Namespace + Deployment + Service + HPA + Ingress lives at [`k8s/jina-on-prem.yaml`](https://github.com/jina-ai/jina-on-prem/blob/main/k8s/jina-on-prem.yaml):
 
 ```bash
 # Load the image on every node (no internal registry needed):
@@ -124,9 +124,9 @@ for n in node-1 node-2 node-3; do
   docker save jina/jina-embeddings-v5-text-small:gpu | ssh $n "docker load"
 done
 
-kubectl apply -f k8s/jina-airgap.yaml
-kubectl -n jina-airgap rollout status deployment/jina-embed
-kubectl -n jina-airgap port-forward svc/jina-embed 8080:8080
+kubectl apply -f k8s/jina-on-prem.yaml
+kubectl -n jina-on-prem rollout status deployment/jina-embed
+kubectl -n jina-on-prem port-forward svc/jina-embed 8080:8080
 curl http://localhost:8080/health
 ```
 

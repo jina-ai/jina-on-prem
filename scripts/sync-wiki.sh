@@ -2,7 +2,7 @@
 # Sync docs/ to the GitHub wiki.
 #
 # Prerequisite: the wiki must be initialized first via the web UI - open
-# https://github.com/jina-ai/jina-airgap/wiki, click "Create the first page",
+# https://github.com/jina-ai/jina-on-prem/wiki, click "Create the first page",
 # save anything. This is a one-time manual step (no GitHub API exists).
 #
 # After that, this script clones the wiki repo, copies docs/* into it,
@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-REPO="${REPO:-jina-ai/jina-airgap}"
+REPO="${REPO:-jina-ai/jina-on-prem}"
 DOCS_DIR="$(cd "$(dirname "$0")/.." && pwd)/docs"
 WIKI_URL="git@github.com:${REPO}.wiki.git"
 TMP="$(mktemp -d)"
@@ -51,7 +51,7 @@ fi
 
 git add -A
 git -c user.email="${GIT_EMAIL:-noreply@github.com}" \
-    -c user.name="${GIT_NAME:-jina-airgap docs sync}" \
+    -c user.name="${GIT_NAME:-jina-on-prem docs sync}" \
     commit --quiet -m "Sync docs/ from main repo"
 git push origin HEAD
 

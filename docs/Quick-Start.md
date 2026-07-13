@@ -30,7 +30,7 @@ curl /v1/embeddings]
 
 ## 1. Authenticate to GHCR
 
-Prebuilt images live in `ghcr.io/jina-ai/jina-airgap/*`. They require auth (one-time):
+Prebuilt images live in `ghcr.io/jina-ai/jina-on-prem/*`. They require auth (one-time):
 
 ```bash
 echo "YOUR_GH_TOKEN" | docker login ghcr.io -u YOUR_GH_USERNAME --password-stdin
@@ -39,7 +39,7 @@ echo "YOUR_GH_TOKEN" | docker login ghcr.io -u YOUR_GH_USERNAME --password-stdin
 ## 2. Pull the image
 
 ```bash
-docker pull ghcr.io/jina-ai/jina-airgap/jina-embeddings-v5-text-nano:cpu
+docker pull ghcr.io/jina-ai/jina-on-prem/jina-embeddings-v5-text-nano:cpu
 ```
 
 ~800 MB compressed, 2.9 GB on disk. Takes 1-3 minutes on a typical link.
@@ -49,13 +49,13 @@ docker pull ghcr.io/jina-ai/jina-airgap/jina-embeddings-v5-text-nano:cpu
 If the target host has no network:
 
 ```bash
-docker save ghcr.io/jina-ai/jina-airgap/jina-embeddings-v5-text-nano:cpu \
+docker save ghcr.io/jina-ai/jina-on-prem/jina-embeddings-v5-text-nano:cpu \
   | gzip > jina-v5-nano.tar.gz
 # Transfer jina-v5-nano.tar.gz to the air-gapped host (SCP, USB, ...), then on the host:
 docker load < jina-v5-nano.tar.gz
 ```
 
-The repo ships [`scripts/pull-prebuilt.sh`](https://github.com/jina-ai/jina-airgap/blob/main/scripts/pull-prebuilt.sh) which does steps 1-3 in one command:
+The repo ships [`scripts/pull-prebuilt.sh`](https://github.com/jina-ai/jina-on-prem/blob/main/scripts/pull-prebuilt.sh) which does steps 1-3 in one command:
 
 ```bash
 ./scripts/pull-prebuilt.sh jina-embeddings-v5-text-nano cpu
@@ -65,7 +65,7 @@ The repo ships [`scripts/pull-prebuilt.sh`](https://github.com/jina-ai/jina-airg
 
 ```bash
 docker run -d --name jina-nano -p 8080:8080 \
-  ghcr.io/jina-ai/jina-airgap/jina-embeddings-v5-text-nano:cpu
+  ghcr.io/jina-ai/jina-on-prem/jina-embeddings-v5-text-nano:cpu
 docker logs -f jina-nano   # watch for "Uvicorn running on http://0.0.0.0:8080"
 ```
 

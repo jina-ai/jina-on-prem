@@ -1,4 +1,4 @@
-# Jina AI Model: Air-Gapped Docker Image, CPU variant
+# Jina AI Model: On-Prem Docker Image, CPU variant
 # Phase 1, bundle: bakes model weights and model-specific deps into image.
 # Phase 2, deploy: runs fully offline, zero external network calls.
 #
@@ -102,7 +102,7 @@ ENV JINA_LICENSE_SECRET=${LICENSE_SECRET}
 # encode throughput at batch with cos-sim ~0.9999 vs fp32. Auto-detected from
 # /proc/cpuinfo; force with -e JINA_CPU_AUTOCAST=bf16 or disable with =off.
 
-LABEL org.opencontainers.image.source=https://github.com/jina-ai/jina-airgap
+LABEL org.opencontainers.image.source=https://github.com/jina-ai/jina-on-prem
 LABEL org.opencontainers.image.description="Jina AI air-gapped embedding/reranker model - CPU variant"
 LABEL org.opencontainers.image.licenses=Apache-2.0
 

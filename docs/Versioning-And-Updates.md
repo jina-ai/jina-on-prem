@@ -18,7 +18,7 @@ old container]:::done
 
 ## What a bundle pins
 
-A jina-airgap bundle freezes everything that influences inference output:
+A jina-on-prem bundle freezes everything that influences inference output:
 
 - **Model weights** at the exact HF commit at bundle time
 - **Tokenizer + processor** files

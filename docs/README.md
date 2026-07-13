@@ -1,6 +1,6 @@
 # Documentation
 
-Mirror of the [GitHub Wiki](https://github.com/jina-ai/jina-airgap/wiki). Edit here via pull request, then run `./scripts/sync-wiki.sh` to push to the wiki.
+Mirror of the [GitHub Wiki](https://github.com/jina-ai/jina-on-prem/wiki). Edit here via pull request, then run `./scripts/sync-wiki.sh` to push to the wiki.
 
 ## Pages
 

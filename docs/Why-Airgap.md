@@ -1,6 +1,6 @@
 ![perimeter](images/pixel-airgap-perimeter.png)
 
-Some customers cannot - or will not - send data to a third-party API. They want the latest AI capabilities on their own infrastructure, with zero outbound network calls. That is the audience jina-airgap is built for.
+Some customers cannot - or will not - send data to a third-party API. They want the latest AI capabilities on their own infrastructure, with zero outbound network calls. That is the audience jina-on-prem is built for.
 
 ## Who needs this
 
@@ -12,7 +12,7 @@ Some customers cannot - or will not - send data to a third-party API. They want 
 | **Industrial / OT** | Plant networks isolated from corporate IT. Mission-critical with no tolerance for upstream outages. | Operational tech network, edge inference next to sensors |
 | **Sovereign / Localized AI** | Data residency law (EU AI Act, China CSL, India DPDPA). The model must run in-country, often in-customer-DC. | National cloud, customer DC, government-approved region |
 
-If your customer says any of these, jina-airgap is in scope:
+If your customer says any of these, jina-on-prem is in scope:
 
 - "Our procurement won't approve a SaaS endpoint."
 - "We can't send `<sensitive>` to a vendor API."
@@ -29,14 +29,14 @@ If your customer says any of these, jina-airgap is in scope:
                   ◄──                customer perimeter
                                      vendor handles logs/retention
 
-  jina-airgap  (inside customer environment)
+  jina-on-prem  (inside customer environment)
   ─────────────────────────────────────────────────────────────
-    customer app  ──►  jina-airgap   localhost / internal DNS
+    customer app  ──►  jina-on-prem   localhost / internal DNS
                                      ╳ no outbound calls
                                      ╳ no vendor visibility
 ```
 
-| | Hosted API (SaaS) | Customer-managed VPC endpoint | jina-airgap |
+| | Hosted API (SaaS) | Customer-managed VPC endpoint | jina-on-prem |
 |---|---|---|---|
 | Data leaves customer network | yes | no, but vendor still operates the endpoint | no |
 | Works without internet | no | partial (depends on auth/control plane) | yes |
@@ -50,7 +50,7 @@ The price for full air-gap is that the customer has to manage the host (a GPU bo
 
 ## What "air-gap" means in this project
 
-A jina-airgap container does **not** call out to:
+A jina-on-prem container does **not** call out to:
 
 - HuggingFace Hub (`HF_HUB_OFFLINE=1` baked in)
 - Any model registry (`TRANSFORMERS_OFFLINE=1` baked in)
@@ -66,7 +66,7 @@ sequenceDiagram
     autonumber
     participant App as Customer app
     participant LB as Optional LB
-    participant Cont as jina-airgap container
+    participant Cont as jina-on-prem container
     participant GPU as GPU/CPU
     participant Disk as Local disk
     participant Net as Internet

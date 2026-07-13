@@ -21,7 +21,7 @@ One-page reference. Screenshot this for customer calls.
 # Phase 1 (connected machine):
 ./scripts/pull-prebuilt.sh jina-embeddings-v5-text-nano cpu
 # or to build from source:
-python jina-airgap.py bundle --model MODEL --cpu-only --yes
+python jina-on-prem.py bundle --model MODEL --cpu-only --yes
 
 # Phase 2 (offline machine):
 docker load < MODEL.tar.gz
@@ -102,7 +102,7 @@ Full list: [Troubleshooting](Troubleshooting).
 
 ## Links to keep handy
 
-- Wiki home: https://github.com/jina-ai/jina-airgap/wiki
-- Repo: https://github.com/jina-ai/jina-airgap
-- Issues: https://github.com/jina-ai/jina-airgap/issues
+- Wiki home: https://github.com/jina-ai/jina-on-prem/wiki
+- Repo: https://github.com/jina-ai/jina-on-prem
+- Issues: https://github.com/jina-ai/jina-on-prem/issues
 - Commercial license: https://www.elastic.co/contact
