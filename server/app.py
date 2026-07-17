@@ -375,17 +375,21 @@ def _default_task() -> str:
 
     Matches prod ``/v1/embeddings`` behaviour (probed against api.jina.ai):
 
-      - omni-nano, omni-small, v4 -> ``text-matching`` (prod no-task ==
-        prod task=text-matching at cos 1.0000 / 0.9998 / 0.9998).
+      - v5-text-nano, v5-text-small, omni-nano, omni-small, v4 ->
+        ``text-matching`` (prod no-task == prod task=text-matching at cos
+        1.0000 for v5-text/omni-nano, 0.9998 for omni-small/v4).
       - code-embeddings (0.5b / 1.5b) -> ``nl2code.query`` (prod no-task
         == prod task=nl2code.query at cos 1.0000).
       - everything else -> ``retrieval`` (back-compat for v3 / v1 / v2 / b-en-v1).
 
     Without this alignment, no-task local vs prod cos for the affected
-    families sits at 0.70 – 0.90 instead of >0.99.
+    families sits at 0.70 – 0.90 instead of >0.99. (v5-text was previously
+    missing here and defaulted to ``retrieval``, giving cos ~0.69 vs prod.)
     """
     short_id = MODEL_ID.split("/")[-1] if MODEL_ID else ""
     if short_id in {
+        "jina-embeddings-v5-text-nano",
+        "jina-embeddings-v5-text-small",
         "jina-embeddings-v5-omni-nano",
         "jina-embeddings-v5-omni-small",
         "jina-embeddings-v4",
