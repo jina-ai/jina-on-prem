@@ -39,8 +39,8 @@ def prebuilt_link(model_id: str, runtime: str) -> str:
 def fmt_ctx(n: int | None) -> str:
     if not n:
         return "-"
-    if n >= 1000:
-        return f"{n // 1000}K"
+    if n >= 1024:
+        return f"{n // 1024}K"
     return str(n)
 
 
