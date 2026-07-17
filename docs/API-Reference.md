@@ -85,7 +85,7 @@ Response shape (matches Cohere's `/v1/embed`):
 {
   "id": "...",
   "texts": ["Hello world"],
-  "embeddings": {"float": [[ ... 1024 floats ... ]]},
+  "embeddings": {"float": [[ ... 768 floats ... ]]},
   "meta": {...},
   "response_type": "embedding"
 }

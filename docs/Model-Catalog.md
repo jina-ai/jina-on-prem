@@ -27,7 +27,7 @@ All 28 models supported by jina-on-prem. Auto-generated from [`models/catalog.js
 
 | Model | Prebuilt | Params | VRAM | Context | Output | Modality | License |
 |---|---|---|---|---|---|---|---|
-| `jina-reranker-v3` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3) | 597M | ~3GB | 131K | - | text | CC-BY-NC-4.0 |
+| `jina-reranker-v3` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3) | 597M | ~3GB | 128K | - | text | CC-BY-NC-4.0 |
 | `jina-reranker-m0` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-m0) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-m0) | 2.4B | ~6GB | 10K | - | multimodal | CC-BY-NC-4.0 |
 | `jina-reranker-v2-base-multilingual` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v2-base-multilingual) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v2-base-multilingual) | 278M | ~1GB | 1K | - | text | CC-BY-NC-4.0 |
 | `jina-reranker-v1-turbo-en` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v1-turbo-en) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v1-turbo-en) | 37.8M | ~1GB | 8K | - | text | Apache-2.0 |
@@ -45,9 +45,9 @@ All 28 models supported by jina-on-prem. Auto-generated from [`models/catalog.js
 
 | Model | Prebuilt | Params | VRAM | Context | Output | Modality | License |
 |---|---|---|---|---|---|---|---|
-| `ReaderLM-v2` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2FReaderLM-v2) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2FReaderLM-v2) | 1.54B | ~4GB | 524K | - | text | CC-BY-NC-4.0 |
-| `reader-lm-1.5b` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-1.5b) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-1.5b) | 1.54B | ~4GB | 262K | - | text | CC-BY-NC-4.0 |
-| `reader-lm-0.5b` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-0.5b) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-0.5b) | 494M | ~2GB | 262K | - | text | CC-BY-NC-4.0 |
+| `ReaderLM-v2` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2FReaderLM-v2) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2FReaderLM-v2) | 1.54B | ~4GB | 512K | - | text | CC-BY-NC-4.0 |
+| `reader-lm-1.5b` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-1.5b) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-1.5b) | 1.54B | ~4GB | 256K | - | text | CC-BY-NC-4.0 |
+| `reader-lm-0.5b` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-0.5b) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-0.5b) | 494M | ~2GB | 256K | - | text | CC-BY-NC-4.0 |
 
 ## Vision-Language
 
