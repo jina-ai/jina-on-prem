@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CATALOG = ROOT / "models" / "catalog.json"
-GHCR = "https://github.com/orgs/jina-ai/packages/container/jina-on-prem%2F"
+GHCR = "https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2F"
 
 # Known prebuilt images on GHCR. Update when new ones are pushed.
 # To verify: `gh api /orgs/jina-ai/packages?package_type=container --jq '.[].name' | grep jina-on-prem`
@@ -30,11 +30,10 @@ PREBUILT = {
 }
 
 
-def prebuilt_link(model_id: str, runtime: str, version_id: str | None = None) -> str:
-    url = f"{GHCR}{model_id}"
-    if version_id:
-        url = f"{url}/{version_id}"
-    return f"[{runtime}]({url})"
+def prebuilt_link(model_id: str, runtime: str) -> str:
+    # Link the package page, not a pinned version ID: version IDs churn on every
+    # re-push and their old URLs 404, whereas the package page is permanent.
+    return f"[{runtime}]({GHCR}{model_id})"
 
 
 def fmt_ctx(n: int | None) -> str:
@@ -99,9 +98,8 @@ def render() -> str:
         out.append("| Model | Prebuilt | Params | VRAM | Context | Output | Modality | License |")
         out.append("|---|---|---|---|---|---|---|---|")
         for m in by_type[t]:
-            versions = m.get("prebuilt_versions", {})
             prebuilt = (
-                f"{prebuilt_link(m['id'], 'cpu', versions.get('cpu'))} / {prebuilt_link(m['id'], 'gpu', versions.get('gpu'))}"
+                f"{prebuilt_link(m['id'], 'cpu')} / {prebuilt_link(m['id'], 'gpu')}"
                 if m.get("prebuilt") or m["id"] in PREBUILT
                 else "-"
             )
