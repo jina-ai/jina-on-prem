@@ -15,6 +15,7 @@
 ### Deploy
 
 - [Bundling Guide](Bundling-Guide)
+- [NVIDIA NIM Deployment](NVIDIA-NIM-Deployment)
 - [API Reference](API-Reference)
 - [Licensing](Licensing)
 - [Architecture](Architecture)
