@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CATALOG = ROOT / "models" / "catalog.json"
-GHCR = "https://github.com/orgs/jina-ai/packages/container/jina-on-prem%2F"
+GHCR = "https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2F"
 
 # Known prebuilt images on GHCR. Update when new ones are pushed.
 # To verify: `gh api /orgs/jina-ai/packages?package_type=container --jq '.[].name' | grep jina-on-prem`
