@@ -1,7 +1,7 @@
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
 transformers>=4.48.0,<5.0.0
-torch>=2.5.0
+torch>=2.6.0
 sentence-transformers>=3.3.0
 einops>=0.8.0
 pillow>=10.0.0

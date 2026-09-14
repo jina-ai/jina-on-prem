@@ -9,7 +9,7 @@
 ARG MODEL_ID=jinaai/jina-embeddings-v5-text-nano
 ARG MODEL_REVISION=""
 ARG HF_TOKEN=""
-ARG TORCH_BASE=pytorch/pytorch:2.5.1-cuda12.1-cudnn9-devel
+ARG TORCH_BASE=pytorch/pytorch:2.8.0-cuda12.6-cudnn9-devel
 # Default GPU dtype for the encode loop. Override per model via --build-arg
 # DTYPE=float32 for models that produce NaN/Inf under fp16 (e.g. jina-bert
 # ALiBi variants — v1/v2-base series).
@@ -89,34 +89,64 @@ WORKDIR /app
 # invalidates only the final layer. With it first, one line of Python forced a
 # full dependency reinstall and weight re-copy on every image built.
 COPY docker/model-requirements.txt /tmp/model-requirements.txt
-RUN grep -v '^\s*#' /tmp/model-requirements.txt | grep -v '^\s*$' | \
+RUN python -c 'import torch; print(torch.__version__.split("+")[0])' > /tmp/base-torch-version && \
+    grep -v '^\s*#' /tmp/model-requirements.txt | grep -v '^\s*$' | \
     grep -iv '^torch' | grep -iv '^flash-attn' | \
     xargs --no-run-if-empty pip install --no-cache-dir
 
-# Sync torchvision when a transitive dep bumps torch off the base image.
-# Base: torch 2.5.1 + torchvision 0.20.1 (cu121). When e.g. pylate 1.5 pulls
-# torch 2.9.x via fast-plaid, torchvision must be re-installed in lockstep
-# or torchvision::nms registration fails at import. Conservative: only act
-# when installed torch differs from the 2.5.x base AND the catalog pins a
-# torchvision version (existing models hit the skip branch — no regression).
-RUN INSTALLED_TORCH=$(python -c 'import torch; print(torch.__version__.split("+")[0])') && \
-    case "$INSTALLED_TORCH" in \
-        2.5.*) echo "torch matches base ($INSTALLED_TORCH); torchvision sync skipped" ;; \
-        *) \
-            TV_VER=$(grep -i '^torchvision==' /tmp/model-requirements.txt | head -1 | sed 's/torchvision//'); \
-            if [ -n "$TV_VER" ]; then \
-                echo "torch bumped from base 2.5.1 to $INSTALLED_TORCH; syncing torchvision${TV_VER}" && \
-                pip install --no-cache-dir "torchvision${TV_VER}"; \
-            else \
-                echo "WARN: torch bumped to $INSTALLED_TORCH but catalog has no torchvision pin"; \
-            fi ;; \
-    esac
+# Sync torchvision when a transitive dep moves torch off the base image. When
+# e.g. pylate 1.5 pulls a newer torch via fast-plaid, torchvision must be
+# re-installed in lockstep or torchvision::nms registration fails at import.
+# The base version is read back from the image rather than written here: a
+# literal would keep matching after TORCH_BASE moves, sending every model down
+# the sync branch and letting the catalog's torchvision pin drag torch back to
+# whatever that pin was built against.
+RUN BASE_TORCH=$(cat /tmp/base-torch-version) && \
+    INSTALLED_TORCH=$(python -c 'import torch; print(torch.__version__.split("+")[0])') && \
+    if [ "$INSTALLED_TORCH" = "$BASE_TORCH" ]; then \
+        echo "torch matches base ($INSTALLED_TORCH); torchvision sync skipped"; \
+    else \
+        TV_VER=$(grep -i '^torchvision==' /tmp/model-requirements.txt | head -1 | sed 's/torchvision//'); \
+        if [ -n "$TV_VER" ]; then \
+            echo "torch moved from base $BASE_TORCH to $INSTALLED_TORCH; syncing torchvision${TV_VER}" && \
+            pip install --no-cache-dir "torchvision${TV_VER}"; \
+        else \
+            echo "WARN: torch moved to $INSTALLED_TORCH but catalog has no torchvision pin"; \
+        fi; \
+    fi
 
-# Install flash-attn if listed in requirements. Prefer prebuilt wheel from
-# the upstream releases page when version matches our torch/python/cuda combo.
-RUN if grep -qi '^flash-attn==2.7.3' /tmp/model-requirements.txt; then \
-        pip install --no-cache-dir https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.3/flash_attn-2.7.3+cu12torch2.5cxx11abiFALSE-cp311-cp311-linux_x86_64.whl ; \
+# Install flash-attn if listed in requirements. The upstream release wheels are
+# named for the torch minor they were compiled against, so the URL is derived
+# from the catalog pin and the torch actually installed above rather than
+# written out: a literal URL silently outlives the torch it was built for, and
+# an ABI mismatch only surfaces as an undefined symbol at import time.
+# Source builds run 1-3h per image, so the fallback announces itself loudly
+# enough to find in a fleet build log. It also needs nvcc, which only a CUDA
+# `-devel` base carries, and is checked for first: without the check a
+# `-runtime` base fails deep inside a compiler invocation, where the reported
+# error names a missing header rather than the base image that cannot build
+# this at all.
+RUN FLASH_SPEC=$(grep -i '^flash-attn==' /tmp/model-requirements.txt | head -1) && \
+    if [ -n "$FLASH_SPEC" ]; then \
+        FLASH_VER=${FLASH_SPEC#*==} && \
+        TORCH_MM=$(python -c 'import torch; print(".".join(torch.__version__.split("+")[0].split(".")[:2]))') && \
+        WHEEL="https://github.com/Dao-AILab/flash-attention/releases/download/v${FLASH_VER}/flash_attn-${FLASH_VER}+cu12torch${TORCH_MM}cxx11abiFALSE-cp311-cp311-linux_x86_64.whl" && \
+        echo "flash-attn ${FLASH_VER}: trying prebuilt wheel for torch ${TORCH_MM}" && \
+        if ! pip install --no-cache-dir "$WHEEL"; then \
+            if ! command -v nvcc > /dev/null; then \
+                echo "### flash-attn ${FLASH_VER} publishes no cu12torch${TORCH_MM} wheel and this base image has no nvcc, so it cannot be compiled here. Pin a flash-attn release that publishes a wheel for torch ${TORCH_MM}, or build on a CUDA -devel base. ###" && \
+                exit 1; \
+            fi && \
+            echo "### NO PREBUILT flash-attn ${FLASH_VER} WHEEL FOR torch ${TORCH_MM} - BUILDING FROM SOURCE (1-3h) ###" && \
+            apt-get update && apt-get install -y --no-install-recommends git && \
+            pip install --no-cache-dir "flash-attn==${FLASH_VER}" --no-build-isolation; \
+        fi; \
     elif grep -qi '^flash-attn' /tmp/model-requirements.txt; then \
+        if ! command -v nvcc > /dev/null; then \
+            echo "### flash-attn is pinned without ==, which has no wheel to resolve, and this base image has no nvcc to compile it. Pin an exact version, or build on a CUDA -devel base. ###" && \
+            exit 1; \
+        fi && \
+        echo "### flash-attn pinned without == ; BUILDING FROM SOURCE (1-3h) ###" && \
         apt-get update && apt-get install -y --no-install-recommends git && \
         FLASH_VER=$(grep -i '^flash-attn' /tmp/model-requirements.txt | head -1 | sed 's/flash-attn//') && \
         pip install --no-cache-dir "flash-attn${FLASH_VER}" --no-build-isolation; \
