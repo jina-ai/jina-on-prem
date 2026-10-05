@@ -33,8 +33,23 @@ def _detect_device() -> str:
     return "cpu"
 
 
-def _init() -> Settings:
+MODEL_ID_FILE = "/model_cache/MODEL_ID"
+
+
+def _model_id_from_env_or_cache() -> str:
+    """JINA_MODEL_ID if set, else the id the bundle writes beside the weights."""
     model_id = os.environ.get("JINA_MODEL_ID", "")
+    if model_id:
+        return model_id
+    try:
+        with open(MODEL_ID_FILE) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def _init() -> Settings:
+    model_id = _model_id_from_env_or_cache()
     offline = os.environ.get("JINA_OFFLINE", "0") == "1"
     if offline:
         os.environ["HF_HUB_OFFLINE"] = "1"

@@ -3,6 +3,9 @@
 # Use the same MODEL variants for either CPU or GPU. To run all on GPU, add the
 # `deploy` block from docker-compose.yml under each service.
 #
+# Images are looked up by their local name, jina/<model>:<runtime>; see
+# docker-compose.yml for how to get that name after a manual pull from ghcr.io.
+#
 # Usage:
 #   docker compose -f docker-compose.multi.yml up -d
 #   curl http://localhost:8080/health     # embed
@@ -19,7 +22,7 @@ services:
       - "8080:8080"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=5)"]
       interval: 30s
       timeout: 5s
       start_period: 60s
@@ -32,7 +35,7 @@ services:
       - "8081:8080"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=5)"]
       interval: 30s
       timeout: 5s
       start_period: 60s

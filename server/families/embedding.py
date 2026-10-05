@@ -6,6 +6,8 @@ is applied) and nothing else.
 """
 
 import logging
+import os
+import shutil
 from typing import Optional
 
 import torch
@@ -145,6 +147,17 @@ class SentenceTransformerFamily(Family):
                     "torch.compile skipped: xlm-roberta-flash rotary cache is "
                     "incompatible with CUDA Graphs"
                 )
+                return
+            # Compile is lazy, so without this the wrap succeeds and the first
+            # request fails instead. Triton's own lookup: $CC as given once
+            # set, otherwise gcc, then clang.
+            cc = os.environ.get("CC")
+            if cc is not None:
+                compiler = shutil.which(cc)
+            else:
+                compiler = shutil.which("gcc") or shutil.which("clang")
+            if not compiler:
+                logger.info("torch.compile skipped: no C compiler for Triton to build with")
                 return
             module.auto_model = torch.compile(
                 module.auto_model, mode="reduce-overhead", fullgraph=False

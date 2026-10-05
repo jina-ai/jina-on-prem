@@ -2,14 +2,14 @@
 # Phase 1, bundle: bakes model weights and model-specific deps into image.
 # Phase 2, deploy: runs fully offline, zero external network calls.
 #
-# Uses pytorch/pytorch official base image with torch, torchvision, CUDA
-# pre-installed. All remaining dependency versions are pinned in catalog.json
-# and written to model-requirements.txt at bundle time.
+# torch and the CUDA runtime come from the PyTorch cu126 wheel index, which
+# ships CUDA as nvidia-*-cu12 packages, so the host supplies only the driver.
+# All model dependency versions are pinned in catalog.json and written to
+# model-requirements.txt at bundle time.
 
 ARG MODEL_ID=jinaai/jina-embeddings-v5-text-nano
 ARG MODEL_REVISION=""
 ARG HF_TOKEN=""
-ARG TORCH_BASE=pytorch/pytorch:2.8.0-cuda12.6-cudnn9-devel
 # Default GPU dtype for the encode loop. Override per model via --build-arg
 # DTYPE=float32 for models that produce NaN/Inf under fp16 (e.g. jina-bert
 # ALiBi variants — v1/v2-base series).
@@ -21,46 +21,92 @@ ARG DTYPE=float16
 # changes which rows share a forward pass.
 ARG BATCH=0
 
+# Which Wolfi base to build on. `public` is Chainguard's wolfi-base, which
+# anyone can pull. `official` is the distroless Wolfi Python the published
+# images are built from, which needs an Elastic login to pull. Only the base
+# stages below differ; BuildKit pulls just the pair the build uses.
+ARG BASE=public
+
 # ---------------------------------------------------------------------------
-# Stage 1: Download model weights and pre-cache dynamic modules
-# Uses CPU torch to keep the download stage lean.
+# Bases
+# The builder and runtime move as a pair: the venv names /usr/bin/python3.11,
+# and a runtime built from a different CPython breaks it with no build error.
+# The public builder is built on the public runtime for the same reason.
 # ---------------------------------------------------------------------------
-FROM python:3.11-slim AS downloader
+FROM docker.elastic.co/wolfi/python:3.11-dev@sha256:0a6c4910b95218fea4595501c16d9e9c6aa254fb87769ffe4021b2045cb2e0ac AS builder-official
+FROM docker.elastic.co/wolfi/python:3.11@sha256:feeaf4b7d638021401474d8cfc74770a65ab40e23a2980bbc4837c60127af068 AS runtime-official
+
+FROM cgr.dev/chainguard/wolfi-base@sha256:08df5982c3d27e70a4ce1607e3bb9af09d746f8722cf135a7694afef879fc5a2 AS runtime-public
+RUN apk add --no-cache python-3.11
+FROM runtime-public AS builder-public
+# The official -dev builder's toolchain, so a dependency that builds from source
+# builds on either base.
+RUN apk add --no-cache py3.11-pip python-3.11-dev build-base git
+
+# ---------------------------------------------------------------------------
+# Stage 1: Install every Python dependency into one venv
+# The official runtime is distroless, with no shell or pip, so all installing is here.
+# ---------------------------------------------------------------------------
+FROM builder-${BASE} AS builder
+
+USER root
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# The builder's own pip installs into the venv, so the runtime ships no pip.
+RUN python -m venv --without-pip /opt/venv
+ENV PATH="/opt/venv/bin:${PATH}" \
+    PIP_PYTHON=/opt/venv/bin/python
+
+COPY docker/model-requirements.txt /tmp/model-requirements.txt
+RUN TORCH_VER=$(grep -i '^torch==' /tmp/model-requirements.txt | head -1 | sed 's/torch//') && \
+    TV_VER=$(grep -i '^torchvision==' /tmp/model-requirements.txt | head -1 | sed 's/torchvision//') && \
+    pip install --no-cache-dir "torch${TORCH_VER}" "torchvision${TV_VER}" --index-url https://download.pytorch.org/whl/cu126
+# Held to the pins above as constraints: a dependency that wants another torch
+# would otherwise swap in PyPI's build, for a different CUDA, and leave
+# torchvision mismatched. With them it fails the build instead.
+RUN grep -iE '^(torch|torchvision)==' /tmp/model-requirements.txt > /tmp/torch-constraints.txt; \
+    grep -v '^\s*#' /tmp/model-requirements.txt | grep -v '^\s*$' | \
+    grep -iv '^torch' | grep -iv '^flash-attn' | \
+    xargs --no-run-if-empty pip install --no-cache-dir -c /tmp/torch-constraints.txt
+
+# Server framework deps, pinned. starlette too, since it carries the CVEs.
+RUN pip install --no-cache-dir \
+    "fastapi==0.141.1" \
+    "starlette==1.4.1" \
+    "uvicorn[standard]==0.52.1"
+
+# ---------------------------------------------------------------------------
+# Stage 2: Download model weights and pre-cache dynamic modules
+# Built on the builder, so the pre-load runs against exactly the packages the
+# runtime ships.
+# ---------------------------------------------------------------------------
+FROM builder AS downloader
 
 ARG MODEL_ID
 ARG MODEL_REVISION
 ARG HF_TOKEN
 ARG EXTRA_REPOS=""
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    HF_HOME=/model_cache \
+ENV HF_HOME=/model_cache \
     HF_TOKEN=${HF_TOKEN} \
     MODEL_ID=${MODEL_ID} \
     MODEL_REVISION=${MODEL_REVISION} \
     EXTRA_REPOS=${EXTRA_REPOS}
-
-# torch and torchvision from CPU index for download stage
-COPY docker/model-requirements.txt /tmp/model-requirements.txt
-RUN TORCH_VER=$(grep -i '^torch==' /tmp/model-requirements.txt | head -1 | sed 's/torch//') && \
-    TV_VER=$(grep -i '^torchvision==' /tmp/model-requirements.txt | head -1 | sed 's/torchvision//') && \
-    pip install --no-cache-dir "torch${TORCH_VER}" "torchvision${TV_VER}" --index-url https://download.pytorch.org/whl/cpu
-RUN grep -v '^\s*#' /tmp/model-requirements.txt | grep -v '^\s*$' | \
-    grep -iv '^torch' | grep -iv '^flash-attn' | \
-    xargs --no-run-if-empty pip install --no-cache-dir
 
 # Copy and run the download script
 COPY docker/download_model.py docker/verify_staging.py /tmp/
 RUN python /tmp/download_model.py
 
 # ---------------------------------------------------------------------------
-# Stage 2: Runtime image
-# pytorch/pytorch base has torch, torchvision, numpy, pillow, CUDA runtime.
-# We only need to pip install the remaining model-specific deps.
+# Stage 3: Runtime image
+# No RUN: the official base is distroless, with no shell to run one in, so
+# everything arrives by COPY.
 # ---------------------------------------------------------------------------
-FROM ${TORCH_BASE} AS runtime
+FROM runtime-${BASE} AS runtime
 
 ARG DTYPE=float16
 
@@ -71,96 +117,24 @@ ARG DTYPE=float16
 ARG BATCH=0
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    DEBIAN_FRONTEND=noninteractive
+    PYTHONUNBUFFERED=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl && \
-    rm -rf /var/lib/apt/lists/*
+# The container runtime injects the driver only into an image that asks for it.
+# `--gpus` sets the first two itself, but a compose file or a pod spec need not.
+ENV NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64 \
+    PATH="/usr/local/nvidia/bin:${PATH}"
 
 WORKDIR /app
 
-# Install remaining model deps from pinned requirements
-# torch, torchvision already in base image, skip them
-# flash-attn needs nvcc to compile from source
-#
-# Server code is COPYed last, after every multi-GB layer, so editing it
-# invalidates only the final layer. With it first, one line of Python forced a
-# full dependency reinstall and weight re-copy on every image built.
-COPY docker/model-requirements.txt /tmp/model-requirements.txt
-RUN python -c 'import torch; print(torch.__version__.split("+")[0])' > /tmp/base-torch-version && \
-    grep -v '^\s*#' /tmp/model-requirements.txt | grep -v '^\s*$' | \
-    grep -iv '^torch' | grep -iv '^flash-attn' | \
-    xargs --no-run-if-empty pip install --no-cache-dir
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:${PATH}"
 
-# Sync torchvision when a transitive dep moves torch off the base image. When
-# e.g. pylate 1.5 pulls a newer torch via fast-plaid, torchvision must be
-# re-installed in lockstep or torchvision::nms registration fails at import.
-# The base version is read back from the image rather than written here: a
-# literal would keep matching after TORCH_BASE moves, sending every model down
-# the sync branch and letting the catalog's torchvision pin drag torch back to
-# whatever that pin was built against.
-RUN BASE_TORCH=$(cat /tmp/base-torch-version) && \
-    INSTALLED_TORCH=$(python -c 'import torch; print(torch.__version__.split("+")[0])') && \
-    if [ "$INSTALLED_TORCH" = "$BASE_TORCH" ]; then \
-        echo "torch matches base ($INSTALLED_TORCH); torchvision sync skipped"; \
-    else \
-        TV_VER=$(grep -i '^torchvision==' /tmp/model-requirements.txt | head -1 | sed 's/torchvision//'); \
-        if [ -n "$TV_VER" ]; then \
-            echo "torch moved from base $BASE_TORCH to $INSTALLED_TORCH; syncing torchvision${TV_VER}" && \
-            pip install --no-cache-dir "torchvision${TV_VER}"; \
-        else \
-            echo "WARN: torch moved to $INSTALLED_TORCH but catalog has no torchvision pin"; \
-        fi; \
-    fi
-
-# Install flash-attn if listed in requirements. The upstream release wheels are
-# named for the torch minor they were compiled against, so the URL is derived
-# from the catalog pin and the torch actually installed above rather than
-# written out: a literal URL silently outlives the torch it was built for, and
-# an ABI mismatch only surfaces as an undefined symbol at import time.
-# Source builds run 1-3h per image, so the fallback announces itself loudly
-# enough to find in a fleet build log. It also needs nvcc, which only a CUDA
-# `-devel` base carries, and is checked for first: without the check a
-# `-runtime` base fails deep inside a compiler invocation, where the reported
-# error names a missing header rather than the base image that cannot build
-# this at all.
-RUN FLASH_SPEC=$(grep -i '^flash-attn==' /tmp/model-requirements.txt | head -1) && \
-    if [ -n "$FLASH_SPEC" ]; then \
-        FLASH_VER=${FLASH_SPEC#*==} && \
-        TORCH_MM=$(python -c 'import torch; print(".".join(torch.__version__.split("+")[0].split(".")[:2]))') && \
-        WHEEL="https://github.com/Dao-AILab/flash-attention/releases/download/v${FLASH_VER}/flash_attn-${FLASH_VER}+cu12torch${TORCH_MM}cxx11abiFALSE-cp311-cp311-linux_x86_64.whl" && \
-        echo "flash-attn ${FLASH_VER}: trying prebuilt wheel for torch ${TORCH_MM}" && \
-        if ! pip install --no-cache-dir "$WHEEL"; then \
-            if ! command -v nvcc > /dev/null; then \
-                echo "### flash-attn ${FLASH_VER} publishes no cu12torch${TORCH_MM} wheel and this base image has no nvcc, so it cannot be compiled here. Pin a flash-attn release that publishes a wheel for torch ${TORCH_MM}, or build on a CUDA -devel base. ###" && \
-                exit 1; \
-            fi && \
-            echo "### NO PREBUILT flash-attn ${FLASH_VER} WHEEL FOR torch ${TORCH_MM} - BUILDING FROM SOURCE (1-3h) ###" && \
-            apt-get update && apt-get install -y --no-install-recommends git && \
-            pip install --no-cache-dir "flash-attn==${FLASH_VER}" --no-build-isolation; \
-        fi; \
-    elif grep -qi '^flash-attn' /tmp/model-requirements.txt; then \
-        if ! command -v nvcc > /dev/null; then \
-            echo "### flash-attn is pinned without ==, which has no wheel to resolve, and this base image has no nvcc to compile it. Pin an exact version, or build on a CUDA -devel base. ###" && \
-            exit 1; \
-        fi && \
-        echo "### flash-attn pinned without == ; BUILDING FROM SOURCE (1-3h) ###" && \
-        apt-get update && apt-get install -y --no-install-recommends git && \
-        FLASH_VER=$(grep -i '^flash-attn' /tmp/model-requirements.txt | head -1 | sed 's/flash-attn//') && \
-        pip install --no-cache-dir "flash-attn${FLASH_VER}" --no-build-isolation; \
-    else \
-        echo "flash-attn not required for this model"; \
-    fi
-
-# Server framework deps, pinned
-RUN pip install --no-cache-dir \
-    "fastapi==0.115.6" \
-    "uvicorn[standard]==0.32.1"
-
-# Copy cached model weights from downloader stage
-COPY --from=downloader /model_cache /model_cache
+# Chowned here because the server writes trust_remote_code modules into it, and
+# a later `chown -R` duplicates the layer. 65532 is the base's nonroot user, by
+# number so that Kubernetes runAsNonRoot can verify it.
+COPY --from=downloader --chown=65532:65532 /model_cache /model_cache
 
 # Server code, last: the only layer a code change rebuilds.
 COPY models/catalog.json /app/catalog.json
@@ -185,10 +159,20 @@ ENV JINA_LICENSE_SECRET=${LICENSE_SECRET}
 LABEL org.opencontainers.image.source=https://github.com/jina-ai/jina-on-prem
 LABEL org.opencontainers.image.description="Jina AI air-gapped embedding/reranker model - GPU variant"
 LABEL org.opencontainers.image.licenses=Apache-2.0
+LABEL com.nvidia.volumes.needed="nvidia_driver"
+# The CUDA runtime the wheel index above vendors. No tag carries it, and the
+# driver on the customer's host has to support it.
+LABEL ai.jina.cuda.version="12.6"
+
+USER 65532
 
 EXPOSE 8080
 
+# urllib, not curl: curl existed only for this line and carried most of the CVEs.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
-    CMD curl -sf http://localhost:8080/health || exit 1
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=5)"]
 
-CMD ["sh", "-c", "JINA_MODEL_ID=$(cat /model_cache/MODEL_ID) exec python app.py"]
+# The base's ENTRYPOINT is the system interpreter, which would take this CMD as
+# its arguments. config.py reads /model_cache/MODEL_ID when JINA_MODEL_ID is unset.
+ENTRYPOINT []
+CMD ["/opt/venv/bin/python", "app.py"]

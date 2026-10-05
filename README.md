@@ -172,7 +172,7 @@ curl -s http://localhost:8080/health   # shows license status; /health always op
 - **Zero-dep CLI**: `jina-on-prem.py` uses Python stdlib only
 - **Weights baked in**: multi-stage Docker build downloads weights at bundle time; `HF_HUB_OFFLINE=1` + `TRANSFORMERS_OFFLINE=1` enforced at runtime
 - **No connection of its own**: the server opens nothing outbound on its own initiative. It will fetch an `http(s)` image or video URL when a *request* contains one - reachability is your network's decision, and `--network none` still serves every model. Only `http`/`https` and inline `data:` URLs are read, capped at 10 MB with an 8s budget
-- **Split Dockerfiles**: `Dockerfile.gpu` (pytorch base, CUDA, FP16) and `Dockerfile.cpu` (python:3.11-slim)
+- **Wolfi images**: `Dockerfile.gpu` (CUDA from the PyTorch wheels, FP16) and `Dockerfile.cpu`. The prebuilt images are distroless, with no shell or package manager, and run as a non-root user
 - **Per-model pinned deps**: `catalog.json` `deps` field drives exact versions per model
 - **Multi-schema API**: Jina, OpenAI, Voyage AI, Cohere, Gemini - all active simultaneously
 - **GPU auto-detect**: falls back to CPU if no CUDA available
@@ -195,8 +195,8 @@ jina-on-prem/
 - models/
   - catalog.json           # 29-model registry with pinned deps
 - docker/
-  - Dockerfile.gpu         # GPU image (pytorch base, FP16)
-  - Dockerfile.cpu         # CPU image (python:3.11-slim)
+  - Dockerfile.gpu         # GPU image (Wolfi, CUDA from PyTorch wheels, FP16)
+  - Dockerfile.cpu         # CPU image (Wolfi)
   - download_model.py      # Model download + patch script (build stage)
 - server/
   - app.py                 # FastAPI server: 5 API schemas

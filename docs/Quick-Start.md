@@ -72,6 +72,13 @@ docker logs -f jina-nano   # watch for "Uvicorn running on http://0.0.0.0:8080"
 
 For GPU: add `--gpus all` and use the `:gpu` tag. On Apple Silicon: add `--platform linux/amd64`.
 
+> **Moving on to docker compose or Kubernetes?** The compose files and the k8s manifest look the image up by its local name, `jina/<model>:<runtime>`. `pull-prebuilt.sh` and `bundle` both produce that name. After a manual pull, add it yourself, or compose fails with `pull access denied for jina/...`:
+>
+> ```bash
+> docker tag ghcr.io/jina-ai/jina-on-prem/jina-embeddings-v5-text-nano:cpu \
+>   jina/jina-embeddings-v5-text-nano:cpu
+> ```
+
 ## 4. Verify
 
 ```bash
@@ -112,7 +119,8 @@ Bundling Guide]
 ```
 
 - [Deployment Patterns](Deployment-Patterns) - end-to-end deployment patterns
-- [API Reference](API-Reference) - all five schemas, multimodal, ES integration
+- [API Reference](API-Reference) - all five schemas, multimodal
+- [Elasticsearch Integration](Elasticsearch-Integration) - inference endpoints, `semantic_text`, reranking, several replicas behind one URL
 - [Picking a Model](Picking-A-Model) - decision tree for the other 28 models
 - [Bundling Guide](Bundling-Guide) - build your own bundle for models not in the prebuilt list
 - [Cheat Sheet](Cheat-Sheet) - every command, endpoint and env var on one page

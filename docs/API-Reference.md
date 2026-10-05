@@ -189,33 +189,7 @@ The same model called with `retrieval.query` vs `retrieval.passage` (v3) returns
 
 ## Elasticsearch integration
 
-Embeddings (`service: openai`):
-```json
-PUT _inference/text_embedding/jina-embed
-{
-  "service": "openai",
-  "service_settings": {
-    "url": "http://your-host:8080/v1/embeddings",
-    "model_id": "jina-embeddings-v5-text-nano",
-    "api_key": "not-needed"
-  }
-}
-```
-
-Reranker (`service: cohere`):
-```json
-PUT _inference/rerank/jina-rerank
-{
-  "service": "cohere",
-  "service_settings": {
-    "url": "http://your-host:8080/v1/rerank",
-    "model_id": "jina-reranker-v3.5",
-    "api_key": "not-needed"
-  }
-}
-```
-
-Then query as usual via the `inference_id`. The `api_key` is required by the ES schema but unused server-side.
+Register embeddings as `service: openai` pointed at `/v1/embeddings`, and rerankers as `service: cohere` pointed at `/v1/rerank`. [Elasticsearch Integration](Elasticsearch-Integration) has the full walkthrough: endpoint registration, `semantic_text`, reranking, and running more than one replica behind a single URL.
 
 ## Auto-generated docs
 

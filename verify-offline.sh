@@ -179,7 +179,14 @@ test_image() {
         docker logs "$NAME" 2>&1 | grep -A 3 "was downloaded from" >> "$LOGFILE"
     fi
 
-    docker exec -i "$NAME" sh -c 'cat > /tmp/airgap_probe.py' <<< "$PROBE"
+    # docker cp, not a shell pipe: the image need not have a shell.
+    local PROBE_FILE
+    PROBE_FILE=$(mktemp)
+    printf '%s\n' "$PROBE" > "$PROBE_FILE"
+    # docker cp keeps mktemp's 0600 and lands it root-owned; the server is not root.
+    chmod 644 "$PROBE_FILE"
+    docker cp "$PROBE_FILE" "$NAME:/tmp/airgap_probe.py" >/dev/null
+    rm -f "$PROBE_FILE"
     local OUTPUT
     OUTPUT=$(docker exec "$NAME" python /tmp/airgap_probe.py 2>&1)
     local RC=$?

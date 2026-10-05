@@ -43,7 +43,7 @@ The bundle has the weights frozen. The deployed container will keep working fore
 Yes. `POST /v1/embeddings` accepts and returns the OpenAI schema. Drop in via `openai.OpenAI(base_url=...)`.
 
 **Does it work with Elasticsearch inference service?**
-Yes - register it as `service: openai` for embeddings, `service: cohere` for reranking. Example in [API Reference -> Elasticsearch integration](API-Reference#elasticsearch-integration).
+Yes - register it as `service: openai` for embeddings, `service: cohere` for reranking. Walkthrough in [Elasticsearch Integration](Elasticsearch-Integration).
 
 **Does it work with LlamaIndex / LangChain / Haystack?**
 Yes - any framework that takes an OpenAI-compatible endpoint or Cohere-compatible endpoint works. Just point `base_url` at the deployed host.

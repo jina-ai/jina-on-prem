@@ -10,79 +10,102 @@ ARG MODEL_ID=jinaai/jina-embeddings-v5-text-nano
 ARG MODEL_REVISION=""
 ARG HF_TOKEN=""
 
+# Which Wolfi base to build on. `public` is Chainguard's wolfi-base, which
+# anyone can pull. `official` is the distroless Wolfi Python the published
+# images are built from, which needs an Elastic login to pull. Only the base
+# stages below differ; BuildKit pulls just the pair the build uses.
+ARG BASE=public
+
 # ---------------------------------------------------------------------------
-# Stage 1: Download model weights and pre-cache dynamic modules
+# Bases
+# The builder and runtime move as a pair: the venv names /usr/bin/python3.11,
+# and a runtime built from a different CPython breaks it with no build error.
+# The public builder is built on the public runtime for the same reason.
 # ---------------------------------------------------------------------------
-FROM python:3.11-slim AS downloader
+FROM docker.elastic.co/wolfi/python:3.11-dev@sha256:0a6c4910b95218fea4595501c16d9e9c6aa254fb87769ffe4021b2045cb2e0ac AS builder-official
+FROM docker.elastic.co/wolfi/python:3.11@sha256:feeaf4b7d638021401474d8cfc74770a65ab40e23a2980bbc4837c60127af068 AS runtime-official
+
+FROM cgr.dev/chainguard/wolfi-base@sha256:08df5982c3d27e70a4ce1607e3bb9af09d746f8722cf135a7694afef879fc5a2 AS runtime-public
+RUN apk add --no-cache python-3.11
+FROM runtime-public AS builder-public
+# The official -dev builder's toolchain, so a dependency that builds from source
+# builds on either base.
+RUN apk add --no-cache py3.11-pip python-3.11-dev build-base git
+
+# ---------------------------------------------------------------------------
+# Stage 1: Install every Python dependency into one venv
+# The official runtime is distroless, with no shell or pip, so all installing is here.
+# ---------------------------------------------------------------------------
+FROM builder-${BASE} AS builder
+
+USER root
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# The builder's own pip installs into the venv, so the runtime ships no pip.
+RUN python -m venv --without-pip /opt/venv
+ENV PATH="/opt/venv/bin:${PATH}" \
+    PIP_PYTHON=/opt/venv/bin/python
+
+# flash-attn is skipped: it has no CPU build.
+COPY docker/model-requirements.txt /tmp/model-requirements.txt
+RUN TORCH_VER=$(grep -i '^torch==' /tmp/model-requirements.txt | head -1 | sed 's/torch//') && \
+    TV_VER=$(grep -i '^torchvision==' /tmp/model-requirements.txt | head -1 | sed 's/torchvision//') && \
+    pip install --no-cache-dir "torch${TORCH_VER}" "torchvision${TV_VER}" --index-url https://download.pytorch.org/whl/cpu
+RUN grep -v '^\s*#' /tmp/model-requirements.txt | grep -v '^\s*$' | \
+    grep -iv '^torch' | grep -iv '^flash-attn' | \
+    xargs --no-run-if-empty pip install --no-cache-dir
+
+# Server framework deps, pinned. starlette too, since it carries the CVEs.
+RUN pip install --no-cache-dir \
+    "fastapi==0.141.1" \
+    "starlette==1.4.1" \
+    "uvicorn[standard]==0.52.1"
+
+# ---------------------------------------------------------------------------
+# Stage 2: Download model weights and pre-cache dynamic modules
+# Built on the builder, so the pre-load runs against exactly the packages the
+# runtime ships.
+# ---------------------------------------------------------------------------
+FROM builder AS downloader
 
 ARG MODEL_ID
 ARG MODEL_REVISION
 ARG HF_TOKEN
 ARG EXTRA_REPOS=""
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    HF_HOME=/model_cache \
+ENV HF_HOME=/model_cache \
     HF_TOKEN=${HF_TOKEN} \
     MODEL_ID=${MODEL_ID} \
     MODEL_REVISION=${MODEL_REVISION} \
     EXTRA_REPOS=${EXTRA_REPOS}
-
-# Install model deps from pinned requirements for download and pre-load
-# torch and torchvision from CPU index, then remaining deps from PyPI
-COPY docker/model-requirements.txt /tmp/model-requirements.txt
-RUN TORCH_VER=$(grep -i '^torch==' /tmp/model-requirements.txt | head -1 | sed 's/torch//') && \
-    TV_VER=$(grep -i '^torchvision==' /tmp/model-requirements.txt | head -1 | sed 's/torchvision//') && \
-    pip install --no-cache-dir "torch${TORCH_VER}" "torchvision${TV_VER}" --index-url https://download.pytorch.org/whl/cpu
-RUN grep -v '^\s*#' /tmp/model-requirements.txt | grep -v '^\s*$' | \
-    grep -iv '^torch' | grep -iv '^flash-attn' | \
-    xargs --no-run-if-empty pip install --no-cache-dir
 
 # Copy and run the download script
 COPY docker/download_model.py docker/verify_staging.py /tmp/
 RUN python /tmp/download_model.py
 
 # ---------------------------------------------------------------------------
-# Stage 2: Runtime image, CPU-only, lean
-# python:3.11-slim base, no CUDA toolkit, much smaller image
+# Stage 3: Runtime image, CPU-only
+# No RUN: the official base is distroless, with no shell to run one in, so
+# everything arrives by COPY.
 # ---------------------------------------------------------------------------
-FROM python:3.11-slim AS runtime
+FROM runtime-${BASE} AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Install model deps from pinned requirements
-# torch and torchvision from CPU index, flash-attn skipped for CPU
-#
-# Server code is COPYed last, after every multi-GB layer, so editing it
-# invalidates only the final layer. With it first, one line of Python forced a
-# full torch reinstall and weight re-copy on every image built.
-COPY docker/model-requirements.txt /tmp/model-requirements.txt
-RUN TORCH_VER=$(grep -i '^torch==' /tmp/model-requirements.txt | head -1 | sed 's/torch//') && \
-    TV_VER=$(grep -i '^torchvision==' /tmp/model-requirements.txt | head -1 | sed 's/torchvision//') && \
-    pip install --no-cache-dir "torch${TORCH_VER}" "torchvision${TV_VER}" --index-url https://download.pytorch.org/whl/cpu
-RUN grep -v '^\s*#' /tmp/model-requirements.txt | grep -v '^\s*$' | \
-    grep -iv '^torch' | grep -iv '^flash-attn' | \
-    xargs --no-run-if-empty pip install --no-cache-dir
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:${PATH}"
 
-# Server framework deps, pinned
-RUN pip install --no-cache-dir \
-    "fastapi==0.115.6" \
-    "uvicorn[standard]==0.32.1"
-
-# Copy cached model weights from downloader stage
-COPY --from=downloader /model_cache /model_cache
+# Chowned here because the server writes trust_remote_code modules into it, and
+# a later `chown -R` duplicates the layer. 65532 is the base's nonroot user, by
+# number so that Kubernetes runAsNonRoot can verify it.
+COPY --from=downloader --chown=65532:65532 /model_cache /model_cache
 
 # Server code, last: the only layer a code change rebuilds.
 COPY models/catalog.json /app/catalog.json
@@ -114,9 +137,15 @@ LABEL org.opencontainers.image.source=https://github.com/jina-ai/jina-on-prem
 LABEL org.opencontainers.image.description="Jina AI air-gapped embedding/reranker model - CPU variant"
 LABEL org.opencontainers.image.licenses=Apache-2.0
 
+USER 65532
+
 EXPOSE 8080
 
+# urllib, not curl: curl existed only for this line and carried most of the CVEs.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
-    CMD curl -sf http://localhost:8080/health || exit 1
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=5)"]
 
-CMD ["sh", "-c", "JINA_MODEL_ID=$(cat /model_cache/MODEL_ID) exec python app.py"]
+# The base's ENTRYPOINT is the system interpreter, which would take this CMD as
+# its arguments. config.py reads /model_cache/MODEL_ID when JINA_MODEL_ID is unset.
+ENTRYPOINT []
+CMD ["/opt/venv/bin/python", "app.py"]

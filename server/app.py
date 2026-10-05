@@ -43,6 +43,12 @@ def _patch_transformers() -> None:
        calls don't prompt for interactive confirmation in offline containers.
     2. add_generation_mixin_to_remote_model: guard against models without
        prepare_inputs_for_generation (embedding-only models like JinaEmbeddingsV5).
+    3. use_gqa_in_sdpa: never ask SDPA for native GQA on CPU. torch's fused CPU
+       kernels need equal query and key/value head counts, so a GQA model falls
+       back to the math kernel, which materialises the full score matrix and
+       makes memory quadratic in sequence length. Declined, transformers repeats
+       the key/value heads itself and the fused kernel applies. Versions without
+       the helper always repeat them.
 
     A third patch used to live here, bypassing ``_patch_mistral_regex`` -- a
     private classmethod that only transformers 4.57.3 has, and that hits the hub
@@ -73,6 +79,21 @@ def _patch_transformers() -> None:
             auto_factory.add_generation_mixin_to_remote_model = (
                 safe_add_generation_mixin
             )
+    except Exception:
+        pass
+
+    try:
+        from transformers.integrations import sdpa_attention
+
+        use_gqa_in_sdpa = getattr(sdpa_attention, "use_gqa_in_sdpa", None)
+        if use_gqa_in_sdpa:
+
+            def gqa_off_cpu(attention_mask, key):
+                return key.device.type != "cpu" and use_gqa_in_sdpa(
+                    attention_mask, key
+                )
+
+            sdpa_attention.use_gqa_in_sdpa = gqa_off_cpu
     except Exception:
         pass
 
@@ -229,10 +250,16 @@ async def startup():
             f"expires={_lic.get('expires')} days_left={_lic.get('days_left')}"
         )
     elif _m == "enforce":
+        # Only expiry gets grace in decide(); every other reason blocks at once.
+        when = (
+            f"once the {_lic.get('grace_days')}-day grace window after expiry has passed"
+            if _lic.get("reason") == "license_expired"
+            else "immediately"
+        )
         logger.warning(
             f"License not valid ({_lic.get('reason')}) and mode=enforce: inference endpoints "
-            f"will 403 after the {_lic.get('grace_days')}-day grace window. This mode is for "
-            f"trials and POCs only, not for a production deployment."
+            f"will 403 {when}. This mode is for trials and POCs only, not for a production "
+            f"deployment."
         )
     else:
         logger.warning(

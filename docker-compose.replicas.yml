@@ -1,0 +1,58 @@
+# Two replicas of one model behind nginx, on a single published port.
+#
+# An Elasticsearch inference endpoint takes exactly one URL, so more than one
+# replica needs a proxy in front. Point the endpoint at port 8080 here and nginx
+# spreads requests across the replicas. See docs/Elasticsearch-Integration.md.
+#
+# The image is looked up by its local name, jina/<model>:<runtime>. `bundle` and
+# scripts/pull-prebuilt.sh both produce that name; after a manual
+# `docker pull ghcr.io/jina-ai/jina-on-prem/<model>:<runtime>`, run
+# `docker tag ghcr.io/jina-ai/jina-on-prem/<model>:<runtime> jina/<model>:<runtime>` first.
+#
+# Usage:
+#   MODEL=jina-embeddings-v5-text-nano RUNTIME=cpu docker compose -f docker-compose.replicas.yml up -d
+#   curl http://localhost:8080/health
+#
+# To add a replica, copy the jina-2 service and add its line to nginx-replicas.conf.
+# On GPU, give each replica its own card: set RUNTIME=gpu and uncomment the
+# deploy block under each replica with a different device_ids entry.
+
+# No healthcheck here: nginx waits on the one built into the image, whose start
+# period is sized for the slowest model load.
+x-replica: &replica
+  image: jina/${MODEL:-jina-embeddings-v5-text-nano}:${RUNTIME:-cpu}
+  restart: unless-stopped
+
+services:
+  jina-1:
+    <<: *replica
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           device_ids: ["0"]
+    #           capabilities: [gpu]
+
+  jina-2:
+    <<: *replica
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           device_ids: ["1"]
+    #           capabilities: [gpu]
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - ./nginx-replicas.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      jina-1:
+        condition: service_healthy
+      jina-2:
+        condition: service_healthy
+    restart: unless-stopped

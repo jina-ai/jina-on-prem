@@ -20,7 +20,7 @@ unexpected shape
 empty result]
 ```
 
-Jump to a section: [Docker / install](#docker-permission-denied) - [L4 stockout](#l4-stockout) - [CUDA mismatch](#cuda-mismatch) - [OOM](#out-of-memory-on-gpu) - [Transformers version pins](#transformers-version-pins) - [GHCR auth](#prebuilt-pull-unauthorized) - [Wrong endpoint](#wrong-endpoint-returns-500) - [Verifying the air gap](#verifying-the-air-gap) - [Disk full](#disk-full-during-multi-model-build) - [Flash-attn build](#bundle-build-fails-on-flash-attn-compile) - [Reranker NaN](#empty--nan-embeddings-on-qwen3-reranker)
+Jump to a section: [Docker / install](#docker-permission-denied) - [L4 stockout](#l4-stockout) - [CUDA mismatch](#cuda-mismatch) - [OOM](#out-of-memory-on-gpu) - [Transformers version pins](#transformers-version-pins) - [GHCR auth](#prebuilt-pull-unauthorized) - [Wrong endpoint](#wrong-endpoint-returns-500) - [Verifying the air gap](#verifying-the-air-gap) - [Disk full](#disk-full-during-multi-model-build) - [Base image pull](#bundle-build-fails-pulling-the-base-image) - [Reranker NaN](#empty--nan-embeddings-on-qwen3-reranker)
 
 ## Docker permission denied
 
@@ -106,7 +106,11 @@ Emulated output is correct but the throughput is a fraction of native, so treat 
 
 **Symptom**: GPU container exits immediately with `CUDA error: no kernel image is available for execution on the device` or `forward compatibility was attempted on non supported HW`.
 
-**Cause**: host's NVIDIA driver is older than what the image was compiled against. GPU image targets CUDA 12.1; you need driver `>=525.60`.
+**Cause**: host's NVIDIA driver is older than the CUDA the image carries. The GPU image ships CUDA 12.6, which runs on driver `>=525.60` through CUDA's minor-version compatibility. The image states its CUDA version in a label:
+
+```bash
+docker inspect --format '{{ index .Config.Labels "ai.jina.cuda.version" }}' jina/MODEL:gpu
+```
 
 **Fix**:
 
@@ -197,11 +201,13 @@ This is how [`verify-offline.sh`](https://github.com/jina-ai/jina-on-prem/blob/m
 
 Use `-p 8080:8080` for the deployment you actually run, and `--network none` plus `docker exec` when the question is whether it needs a network at all.
 
-## Bundle build fails on `flash-attn` compile
+## Bundle build fails pulling the base image
 
-**Symptom**: GPU bundle build hangs or OOMs during `pip install flash-attn`.
+**Symptom**: the build stops at a `FROM` line with `401 Unauthorized` from `docker.elastic.co`, or at `apk add` unable to reach `packages.wolfi.dev`.
 
-**Cause**: `flash-attn` requires `nvcc` (CUDA compiler), which isn't in the runtime-only base image. The Dockerfile uses the `-devel` variant of pytorch/pytorch which includes nvcc - if you've forked, make sure you're still on `pytorch/pytorch:2.5.1-cuda12.1-cudnn9-devel`.
+**Cause**: the Dockerfiles carry two bases. The default builds on `cgr.dev/chainguard/wolfi-base` and installs Python from `packages.wolfi.dev`, both anonymous. The other, selected by `--build-arg BASE=official`, is the base the prebuilt images use and needs an Elastic login. A Docker build without BuildKit also pulls it, because the legacy builder builds every stage in the file rather than only the ones the image needs.
+
+**Fix**: build with `python jina-on-prem.py bundle`, which uses the default base and turns BuildKit on. Behind a proxy or firewall, allow `cgr.dev` and `packages.wolfi.dev` alongside the Python package indexes and Hugging Face. See [Bundling Guide -> Base image](Bundling-Guide#base-image).
 
 ## Disk full during multi-model build
 

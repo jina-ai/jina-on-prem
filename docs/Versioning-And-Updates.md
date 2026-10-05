@@ -24,7 +24,7 @@ A jina-on-prem bundle freezes everything that influences inference output:
 - **Tokenizer + processor** files
 - **Python dependencies** at the versions declared in `models/catalog.json` `deps`
 - **Server code** (`server/app.py`) at the commit you built from
-- **Base image** (python:3.11-slim for CPU, pytorch/pytorch:2.5.1-cuda12.1-cudnn9-devel for GPU)
+- **Base image**, Wolfi, pinned by digest in the Dockerfiles (see [Bundling Guide -> Base image](Bundling-Guide#base-image))
 
 This means: **same bundle = byte-identical embeddings forever**. You can verify by hashing the response on two replicas after a host rebuild.
 
@@ -122,7 +122,6 @@ If you're maintaining a fork or pinning custom deps:
 **Pin exact versions** for:
 - transformers, torch, sentence-transformers (these affect output)
 - Any package the model's custom code imports
-- flash-attn (build environment matters)
 
 **Float to >= ranges** for:
 - huggingface_hub (rarely affects model behavior at runtime)

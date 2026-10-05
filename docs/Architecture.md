@@ -58,8 +58,8 @@ How the pieces fit together — for engineers integrating or debugging jina-on-p
   ├─────────────────────────────────────────────────────────┤
   │  DEPS        pinned Python deps from catalog.json       │
   ├─────────────────────────────────────────────────────────┤
-  │  BASE        python:3.11-slim    (CPU image)            │
-  │              pytorch/pytorch:2.5.1-cuda12.1 (GPU image) │
+  │  BASE        Wolfi, distroless in prebuilt images       │
+  │              + CUDA 12.6 from PyTorch wheels (GPU)      │
   └─────────────────────────────────────────────────────────┘
               │
               │  docker run

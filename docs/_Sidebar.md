@@ -15,6 +15,7 @@
 
 - [Bundling Guide](Bundling-Guide)
 - [API Reference](API-Reference)
+- [Elasticsearch Integration](Elasticsearch-Integration)
 - [Licensing](Licensing)
 - [Architecture](Architecture)
 - [Versioning & Updates](Versioning-And-Updates)

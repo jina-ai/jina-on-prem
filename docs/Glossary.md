@@ -16,7 +16,7 @@ Short definitions for terms used across the wiki.
 
 **CrossEncoder** — a model that takes a (query, document) pair and outputs a relevance score. The architecture pattern behind rerankers.
 
-**CUDA** — NVIDIA's GPU programming platform. Required for GPU images. Driver version >=525 needed for our CUDA 12.1 images.
+**CUDA** — NVIDIA's GPU programming platform. Required for GPU images. Our GPU images carry CUDA 12.6 and need driver 525 or newer.
 
 ## D
 

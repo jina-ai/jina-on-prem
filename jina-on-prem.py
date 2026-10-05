@@ -337,7 +337,10 @@ def cmd_bundle(args):
     if model.get("revision"):
         build_args += ["--build-arg", f"MODEL_REVISION={model['revision']}"]
     if args.hf_token:
-        build_args += ["--build-arg", f"HF_TOKEN={args.hf_token}"]
+        # Name only: docker reads the value from build_env, so the token never
+        # appears in this process's command line, where `ps` would show it.
+        build_args += ["--build-arg", "HF_TOKEN"]
+        build_env["HF_TOKEN"] = args.hf_token
     # GPU dtype override per model — some architectures (jina-bert ALiBi: v1/v2-base)
     # overflow to NaN under fp16. Defaults to float16 in the Dockerfile if absent.
     if not args.cpu_only and model.get("gpu_dtype"):
@@ -358,7 +361,7 @@ def cmd_bundle(args):
         for line in lines[-20:]:
             err(f"  {line}")
         err("\nCommon fixes:", YELLOW)
-        err("  - HF gated model: add --hf-token YOUR_TOKEN")
+        err("  - HF gated model: set HF_TOKEN=YOUR_TOKEN in the environment")
         err("  - Disk space:     docker system prune")
         err("  - Network:        ensure internet access for Phase 1")
         sys.exit(EXIT_RUNTIME_ERROR)
@@ -809,7 +812,7 @@ def make_parser():
               python jina-on-prem.py bundle --model jina-embeddings-v5-text-nano
               python jina-on-prem.py bundle --model jina-embeddings-v5-text-small --output small.tar.gz
               python jina-on-prem.py bundle --model jina-embeddings-v5-text-nano --cpu-only
-              python jina-on-prem.py bundle --model jina-reranker-v2-base-multilingual --hf-token TOKEN
+              HF_TOKEN=TOKEN python jina-on-prem.py bundle --model jina-reranker-v2-base-multilingual
               python jina-on-prem.py bundle --dry-run --model jina-embeddings-v5-text-nano
               python jina-on-prem.py bundle --model jina-embeddings-v5-text-nano --json
         """),
@@ -819,7 +822,10 @@ def make_parser():
     bundle_p.add_argument("--output", "-o", metavar="FILE",
                           help="Output .tar.gz path (default: jina-<model>-<runtime>.tar.gz)")
     bundle_p.add_argument("--hf-token", dest="hf_token", metavar="TOKEN",
-                          help="HuggingFace token for gated models")
+                          default=os.environ.get("HF_TOKEN"),
+                          help="HuggingFace token for gated models (default: $HF_TOKEN; "
+                               "prefer the environment variable, since a value given "
+                               "here is visible in `ps` for the whole build)")
     bundle_p.add_argument("--cpu-only", action="store_true",
                           help="Build CPU-only image (no GPU required)")
     bundle_p.add_argument("-y", "--yes", action="store_true",
@@ -935,7 +941,8 @@ def make_parser():
         if real == "bundle":
             alias_p.add_argument("--model")
             alias_p.add_argument("--output", "-o")
-            alias_p.add_argument("--hf-token", dest="hf_token")
+            alias_p.add_argument("--hf-token", dest="hf_token",
+                                 default=os.environ.get("HF_TOKEN"))
             alias_p.add_argument("--cpu-only", action="store_true")
             alias_p.add_argument("-y", "--yes", action="store_true")
             alias_p.add_argument("--dry-run", action="store_true")

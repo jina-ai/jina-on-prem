@@ -32,7 +32,7 @@ Output: a single self-contained `.tar.gz`. Bundle once, transfer, run forever of
 | Python 3.10+ | CLI is single-file, stdlib only |
 | Disk: 30 GB+ | 200 GB if bundling multiple models |
 | Network | bundle phase pulls weights from HuggingFace |
-| For GPU bundles | no GPU needed at build time; Dockerfile uses pre-built PyTorch CUDA base |
+| For GPU bundles | no GPU needed at build time; CUDA comes from the PyTorch wheels |
 
 ![bundle](images/02-bundle.gif)
 
@@ -106,7 +106,7 @@ Sizes: 2-4 GB for nano/small text models, up to ~8 GB for v5-text-small GPU, up 
 
 |  | CPU image | GPU image |
 |---|---|---|
-| Base image | `python:3.11-slim` | `pytorch/pytorch:2.5.1-cuda12.1-cudnn9-devel` |
+| Base image | `cgr.dev/chainguard/wolfi-base` | `cgr.dev/chainguard/wolfi-base`, with CUDA from the PyTorch wheels |
 | Image size | smaller (~2-4 GB) | larger (~8-12 GB) |
 | Runs on host with GPU | yes (ignores GPU) | yes |
 | Runs on host without GPU | yes | no (CUDA missing) |
@@ -114,6 +114,14 @@ Sizes: 2-4 GB for nano/small text models, up to ~8 GB for v5-text-small GPU, up 
 | Build wall-clock | ~3-15 min | ~10-30 min |
 
 If unsure, build both. The runtime host decides which to load.
+
+## Base image
+
+A bundle builds on Chainguard's `cgr.dev/chainguard/wolfi-base`, which anyone can pull, and installs Python 3.11 from Wolfi's package repository. The base is pinned by digest in `docker/Dockerfile.cpu` and `docker/Dockerfile.gpu`; Python is not pinned, so a bundle gets the newest 3.11 patch release Wolfi carries on the day it is built. The build machine therefore needs to reach `cgr.dev` and `packages.wolfi.dev`, as well as the Python package indexes and Hugging Face.
+
+The prebuilt images use the same Dockerfiles on a distroless Wolfi Python base, which needs an Elastic login to pull; `--build-arg BASE=official` selects it. Everything after the base is the same file, so a bundle installs the same Python packages. What differs is the operating system layer: a bundle keeps `wolfi-base`'s shell and `apk`, so an image scanner lists a few more packages in it than in a prebuilt image.
+
+Bundling on this base is supported. At each release, a CPU and a GPU model are built this way and their vectors compared with the prebuilt images.
 
 ## Bundle wall-clock examples
 
@@ -124,7 +132,7 @@ Measured on `g2-standard-4` (4 vCPU + 1xL4) in `asia-southeast1-a` (May 2026):
 | jina-embeddings-v5-text-nano | cpu | 3.5 min | 766 MB |
 | jina-embeddings-v5-text-small | gpu | 14 min | 4.4 GB |
 
-GPU bundle wall-clock is dominated by the pytorch CUDA base image pull (~6 GB).
+GPU bundle wall-clock is dominated by downloading the PyTorch CUDA wheels.
 
 ## Disk hygiene during multi-model builds
 
@@ -166,7 +174,7 @@ That's the entire air-gapped deploy. The image has `HF_HUB_OFFLINE=1` and `TRANS
 
 - Each model's `transformers` version is pinned. See [Troubleshooting -> Transformers version pins](Troubleshooting#transformers-version-pins).
 - Reranker models load as `CrossEncoder`, not `SentenceTransformer`. Handled in the server, relevant only if you `serve` directly.
-- v5-omni models need ~30 GB free disk during build (large base + flash-attn compile).
+- v5-omni models need ~30 GB free disk during build.
 - The bundle deletes each model repo's `requirements.txt` to prevent runtime auto-upgrade. This is intentional.
 - A GPU bundle can run for the better part of an hour, so run it under `nohup` or `tmux`. On a preemptible or spot instance it will otherwise die with your session. Docker images survive a reboot; `/tmp` does not, so write build logs somewhere persistent.
 

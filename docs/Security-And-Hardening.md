@@ -11,7 +11,7 @@ What the container does and does not do on a network, and what you have to add a
 | Encrypts in transit | **No** — terminate TLS in front of it, see [TLS](#tls) |
 | Calls out on its own initiative | **No** — no license server, no telemetry, no update check, no model download |
 | Calls out when a request asks it to | Only on a multimodal model, and only for an `http(s)` media URL the request itself contains — see [The one outbound path](#the-one-outbound-path) |
-| Runs as | **root**, unless you say otherwise — see [Run it as a non-root user](#run-it-as-a-non-root-user) |
+| Runs as | uid 65532, not root, see [Run it as a non-root user](#run-it-as-a-non-root-user) |
 | Writes outside the container | Nothing. No volume is required; the model lives in the image |
 
 ## Properties for a compliance review
@@ -70,15 +70,15 @@ So the audit question is not "will it run remote code" but "what code is in this
 
 ## Run it as a non-root user
 
-The image does not set a `USER`, so the process runs as root inside the container. Nothing in the server needs root — it reads the model from the image and listens on 8080.
+The image sets `USER 65532`, so the server runs as a non-root user without any flag. Nothing in it needs root: it reads the model from the image and listens on 8080. The prebuilt images are also distroless, with no shell or package manager to run anything else; an image you bundle yourself keeps the shell and `apk` of its base (see [Bundling Guide -> Base image](Bundling-Guide#base-image)).
 
 ```bash
-docker run --user 65534:65534 --read-only \
+docker run --read-only \
   --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
   -p 127.0.0.1:8080:8080 jina/MODEL:cpu
 ```
 
-`--read-only` works because the container writes nothing persistent; `/tmp` is given as a tmpfs for Python's own scratch use. In Kubernetes the equivalent is a `securityContext` with `runAsNonRoot: true`, `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false` and dropped capabilities.
+`--user` still works if your policy assigns its own uid, for example `--user 65534:65534`. `--read-only` works because the container writes nothing persistent; `/tmp` is given as a tmpfs for Python's own scratch use. In Kubernetes the equivalent is a `securityContext` with `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false` and dropped capabilities; `runAsNonRoot: true` passes as it is, because the image names its user by number.
 
 GPU deployments need the NVIDIA runtime's device access, which is granted by `--gpus`, not by root.
 
@@ -90,7 +90,7 @@ GPU deployments need the NVIDIA runtime's device access, which is granted by `--
 | Terminate TLS at a proxy in front | The server speaks plain HTTP |
 | Authenticate at that proxy or gateway | Same reason |
 | Restrict egress from the container | Makes the media-URL path unusable, and proves the air gap |
-| Run with `--user`, `--read-only`, `--cap-drop ALL` | Nothing needs root or a writable filesystem |
+| Run with `--read-only`, `--cap-drop ALL` | Nothing needs a writable filesystem or extra capabilities, and the image already runs as a non-root user |
 | Pin the image by digest or `-<sha>` tag | `:cpu` and `:gpu` move when a new build is published |
 | Choose a text-only model where multimodal is not needed | Removes the only outbound code path |
 | Scan the image on arrival | It is a normal OCI image; your existing scanner applies |

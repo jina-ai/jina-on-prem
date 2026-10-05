@@ -1,8 +1,14 @@
 # jina-on-prem deployment via docker compose.
 #
 # Single-container deploy (default). For multi-model with embed + rerank, see
-# docker-compose.multi.yml. Models must be loaded into the local Docker daemon
-# first (docker load < MODEL.tar.gz, or docker pull from your registry).
+# docker-compose.multi.yml. For several replicas of one model behind a load
+# balancer, see docker-compose.replicas.yml. Models must be loaded into the local
+# Docker daemon first (docker load < MODEL.tar.gz, or docker pull from your registry).
+#
+# The image is looked up by its local name, jina/<model>:<runtime>. `bundle` and
+# scripts/pull-prebuilt.sh both produce that name; after a manual
+# `docker pull ghcr.io/jina-ai/jina-on-prem/<model>:<runtime>`, run
+# `docker tag ghcr.io/jina-ai/jina-on-prem/<model>:<runtime> jina/<model>:<runtime>` first.
 #
 # Usage:
 #   MODEL=jina-embeddings-v5-text-nano RUNTIME=cpu docker compose up -d
@@ -18,7 +24,7 @@ services:
       - "${PORT:-8080}:8080"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=5)"]
       interval: 30s
       timeout: 5s
       start_period: 60s

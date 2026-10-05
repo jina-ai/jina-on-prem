@@ -59,7 +59,7 @@
         "Pillow": "==10.4.0",
         "librosa": "==0.10.2",
         "av": "==12.3.0",
-        "flash-attn": "==2.8.3",
+        "flash-attn": null,
         "torchvision": "==0.23.0"
       },
       "prebuilt": true,
@@ -127,7 +127,7 @@
         "Pillow": "==10.4.0",
         "librosa": "==0.10.2",
         "av": "==12.3.0",
-        "flash-attn": "==2.8.3",
+        "flash-attn": null,
         "torchvision": "==0.23.0"
       },
       "prebuilt": true,
@@ -293,13 +293,13 @@
       "paper": "https://arxiv.org/abs/2512.04032",
       "deps": {
         "transformers": "==4.57.0",
-        "torch": "==2.5.1",
+        "torch": "==2.8.0",
         "Pillow": "==10.4.0",
         "accelerate": "==1.2.1",
         "einops": "==0.8.1",
         "huggingface_hub": ">=0.34.0",
         "numpy": ">=2.0.0,<2.3.0",
-        "torchvision": "==0.20.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": false,
       "prebuilt_versions": {
@@ -332,12 +332,12 @@
       "api_endpoint": "/v1/rerank",
       "deps": {
         "transformers": "==4.57.1",
-        "torch": "==2.5.1",
+        "torch": "==2.8.0",
         "accelerate": "==1.2.1",
         "huggingface_hub": ">=0.34.0",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "torchvision": "==0.20.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -374,14 +374,14 @@
       "deps": {
         "transformers": "==4.51.0",
         "sentence-transformers": "==3.4.1",
-        "torch": "==2.5.1",
+        "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": "==0.14.0",
         "accelerate": "==1.2.1",
         "huggingface_hub": "==0.30.2",
         "numpy": "==1.26.4",
-        "flash-attn": "==2.7.3",
-        "torchvision": "==0.20.1"
+        "flash-attn": null,
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -441,14 +441,14 @@
       "deps": {
         "transformers": "==4.48.3",
         "sentence-transformers": "==3.4.1",
-        "torch": "==2.5.1",
+        "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": "==0.14.0",
         "accelerate": "==1.2.1",
         "timm": "==1.0.12",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "torchvision": "==0.20.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -508,14 +508,14 @@
       "deps": {
         "transformers": "==4.48.3",
         "sentence-transformers": "==3.4.1",
-        "torch": "==2.5.1",
+        "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": "==0.14.0",
         "accelerate": "==1.2.1",
         "timm": "==1.0.12",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "torchvision": "==0.20.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -570,7 +570,7 @@
       "deps": {
         "transformers": "==4.57.0",
         "sentence-transformers": "==3.4.1",
-        "torch": "==2.5.1",
+        "torch": "==2.8.0",
         "einops": "==0.8.1",
         "peft": "==0.15.2",
         "accelerate": "==1.2.1",
@@ -578,7 +578,7 @@
         "numpy": ">=2.0.0,<2.3.0",
         "timm": ">=1.0.0",
         "Pillow": "==10.4.0",
-        "torchvision": "==0.20.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -613,7 +613,7 @@
       "deps": {
         "transformers": "==5.7.0",
         "sentence-transformers": "==5.4.1",
-        "torch": "==2.5.1",
+        "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": ">=0.15.0",
         "accelerate": "==1.2.1",
@@ -622,7 +622,7 @@
         "flash-attn": null,
         "Pillow": "==10.4.0",
         "timm": "==1.0.12",
-        "torchvision": "==0.20.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -657,12 +657,12 @@
       "deps": {
         "transformers": "==4.48.3",
         "sentence-transformers": "==2.7.0",
-        "torch": "==2.4.1",
+        "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": "==2.7.3",
+        "flash-attn": null,
         "accelerate": ">=1.0.0",
-        "torchvision": "==0.19.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -717,14 +717,14 @@
       "deps": {
         "transformers": "==4.48.3",
         "sentence-transformers": "==3.4.1",
-        "torch": "==2.5.1",
+        "torch": "==2.8.0",
         "einops": "==0.8.0",
         "Pillow": "==10.4.0",
         "timm": "==1.0.12",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "torchvision": "==0.20.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -783,14 +783,14 @@
       "deps": {
         "transformers": "==4.48.3",
         "sentence-transformers": "==3.4.1",
-        "torch": "==2.5.1",
+        "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": "==0.14.0",
         "accelerate": "==1.2.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "torchvision": "==0.20.1"
+        "torchvision": "==0.23.0"
       },
       "extra_repos": [
         "jinaai/xlm-roberta-flash-implementation@845308d0fd72a8406a3e378450e1a09522790419"
@@ -882,14 +882,14 @@
       "deps": {
         "transformers": "==4.48.3",
         "sentence-transformers": "==3.4.1",
-        "torch": "==2.5.1",
+        "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": "==0.14.0",
         "accelerate": "==1.2.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": "==2.7.3",
-        "torchvision": "==0.20.1"
+        "flash-attn": null,
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -923,14 +923,14 @@
       "deps": {
         "transformers": "==4.48.3",
         "sentence-transformers": "==3.4.1",
-        "torch": "==2.5.1",
+        "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": "==0.14.0",
         "accelerate": "==1.2.1",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
-        "flash-attn": "==2.7.3",
-        "torchvision": "==0.20.1"
+        "flash-attn": null,
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -964,12 +964,12 @@
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
-        "torch": "==2.4.1",
+        "torch": "==2.8.0",
         "einops": "==0.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "torchvision": "==0.19.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -1013,14 +1013,14 @@
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==3.4.1",
-        "torch": "==2.4.1",
+        "torch": "==2.8.0",
         "einops": "==0.8.0",
         "timm": "==1.0.12",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
         "Pillow": ">=9.0.0",
-        "torchvision": "==0.19.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -1054,11 +1054,11 @@
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
-        "torch": "==2.4.1",
+        "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "torchvision": "==0.19.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -1092,11 +1092,11 @@
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
-        "torch": "==2.4.1",
+        "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "torchvision": "==0.19.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -1130,11 +1130,11 @@
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
-        "torch": "==2.4.1",
+        "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "torchvision": "==0.19.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -1223,11 +1223,11 @@
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
-        "torch": "==2.4.1",
+        "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "torchvision": "==0.19.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -1266,11 +1266,11 @@
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
-        "torch": "==2.4.1",
+        "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "torchvision": "==0.19.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -1310,11 +1310,11 @@
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
-        "torch": "==2.4.1",
+        "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "torchvision": "==0.19.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -1354,11 +1354,11 @@
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
-        "torch": "==2.4.1",
+        "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "torchvision": "==0.19.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -1397,11 +1397,11 @@
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
-        "torch": "==2.4.1",
+        "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "torchvision": "==0.19.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {
@@ -1439,11 +1439,11 @@
       "deps": {
         "transformers": "==4.44.2",
         "sentence-transformers": "==2.7.0",
-        "torch": "==2.4.1",
+        "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "torchvision": "==0.19.1"
+        "torchvision": "==0.23.0"
       },
       "prebuilt": true,
       "prebuilt_versions": {

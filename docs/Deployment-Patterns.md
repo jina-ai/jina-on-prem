@@ -39,7 +39,7 @@ text and image]:::rec
 
 **Use**: `jina-embeddings-v5-text-small` (multilingual, 1024-dim) for indexing + `jina-reranker-v3.5` for top-K reranking. Both fit on a single L4.
 
-**Hardware**: 1x NVIDIA L4 (24GB VRAM) per host, 100GB disk for both bundles + cache. Two replicas behind a load balancer if QPS > 50.
+**Hardware**: 1x NVIDIA L4 (24GB VRAM) per host, 100GB disk for both bundles + cache. Two replicas behind a load balancer if QPS > 50; an ES endpoint takes one URL, so see [Elasticsearch Integration](Elasticsearch-Integration#more-than-one-replica) for the proxy in front.
 
 **Deploy**:
 1. On a connected machine, run `./scripts/pull-prebuilt.sh jina-embeddings-v5-text-small gpu` and `./scripts/pull-prebuilt.sh jina-reranker-v3.5 gpu`. Output: two `.tar.gz` files.

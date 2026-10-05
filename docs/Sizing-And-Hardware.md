@@ -15,9 +15,9 @@ or move to bigger GPU]
 
 | | CPU image (`:cpu` tag) | GPU image (`:gpu` tag) |
 |---|---|---|
-| Base | `python:3.11-slim` | `pytorch/pytorch:2.5.1-cuda12.1-cudnn9-devel` |
+| Base | Wolfi, see [Bundling Guide -> Base image](Bundling-Guide#base-image) | Wolfi, with CUDA 12.6 from the PyTorch wheels |
 | Image size | 2-4 GB | 8-12 GB |
-| Needs GPU on host | no | yes (CUDA 12.1+, driver 525+) |
+| Needs GPU on host | no | yes (NVIDIA driver 525+) |
 | Latency, single request | 200-2000 ms | 10-200 ms |
 | Throughput, batched | ~5-20 docs/s | 100-1000 docs/s |
 | Cost on GCP (1 month, on-demand) | ~$50 (e2-standard-4) | ~$500 (g2-standard-4 + L4) |
@@ -173,7 +173,7 @@ For higher throughput:
 1. **Ask for `base64`**, as above. Free, and the largest single factor on bulk requests.
 2. **Batch at the client.** Send 32-256 inputs per request, not one at a time.
 3. **Use matryoshka** to truncate output dims at query time if the index dim doesn't need to be full size.
-4. **Multiple replicas.** A 4-vCPU + 1xL4 host can run one container. Two hosts -> 2x. Load balance with anything (nginx, HAProxy, ALB).
+4. **Multiple replicas.** A 4-vCPU + 1xL4 host can run one container. Two hosts -> 2x. Load balance with anything (nginx, HAProxy, ALB); [Elasticsearch Integration](Elasticsearch-Integration#more-than-one-replica) has a ready compose file with nginx in front.
 5. **Bigger GPU.** A10G is ~2x L4, A100 ~4x for these models.
 
 ## GPU dynamic batching — the `:gpu-opt` images
@@ -284,7 +284,7 @@ Before deploying or transferring a bundle:
 - [ ] Disk: 2-3x the bundle size free
 - [ ] Port 8080 (or chosen port) free
 - [ ] Network plan: how does the calling app reach this host? localhost / LAN IP / internal DNS?
-- [ ] (Optional) Load balancer in front if multi-replica
+- [ ] (Optional) Load balancer in front if multi-replica, see [Elasticsearch Integration](Elasticsearch-Integration#more-than-one-replica)
 
 If this is not already configured, `scripts/bootstrap-gcp.sh` is a template — adapt it for your cloud or on-prem environment.
 
