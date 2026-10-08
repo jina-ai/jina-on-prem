@@ -3,16 +3,16 @@ Common questions with short answers.
 ## Business / licensing
 
 **Do we need to buy a license?**
-For most production use yes - all Jina v5/v4/v3 models are CC-BY-NC-4.0 and the "NC" forbids commercial use without a license. v2 and v1 models are Apache-2.0, free for any use. Contact [Elastic sales](https://www.elastic.co/contact). The CLI itself, the toolkit, and the Docker images are Apache-2.0.
+For most production use yes - Jina v5 and v3 models are CC-BY-NC-4.0, whose "NC" forbids commercial use without a license, and v4 is under the Qwen Research License. The Apache-2.0 models, free for any use, are the v2 text embeddings (`jina-embeddings-v2-base-*`), `jina-clip-v1`, `jina-colbert-v1-en` and the v1 embedding and reranker models; the License column of the [Model Catalog](Model-Catalog) is authoritative. Contact [Elastic sales](https://www.elastic.co/contact). The CLI itself, the toolkit, and the Docker images are Apache-2.0.
 
 **Can I evaluate without a commercial license?**
 Yes - use any Apache-2.0 model (`jina-embeddings-v2-base-en`, `jina-clip-v1`, `jina-reranker-v1-*`). Quality is older but the deployment workflow is identical. Upgrade to a v5 model when you are ready for production.
 
 **Where do the weights come from?**
-HuggingFace Hub at bundle time. Repos under `jinaai/` org. Once bundled, the offline deploy never touches HuggingFace.
+Hugging Face Hub at bundle time. Repos under `jinaai/` org. Once bundled, the offline deploy never touches Hugging Face.
 
 **Does this phone home or send telemetry?**
-No. The toolkit has no analytics, no license check, no version-check ping. `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` are baked into the image.
+No. The toolkit has no analytics, no license server, no version-check ping. The license key is checked locally with an HMAC signature comparison, with no network involved. `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` are baked into the image.
 
 ## Technical
 
@@ -23,7 +23,7 @@ No. Internet is only needed during *bundling* (downloading model weights). The b
 No, but throughput will be much lower on CPU. See [Sizing & Hardware](Sizing-And-Hardware).
 
 **Can we run multiple models on the same host?**
-Yes - each is a separate container on a separate port. With 1xL4 (24GB VRAM) you can hold two ~3GB-VRAM models comfortably.
+Yes - each is a separate container on a separate port. With 1xL4 (24 GB VRAM) you can hold two ~3GB-VRAM models comfortably.
 
 **Does it support Kubernetes?**
 Yes, no special integration - it's just a stateless container with one HTTP port. Sample manifest in [Sizing & Hardware -> Redundancy](Sizing-And-Hardware#redundancy).
@@ -34,7 +34,7 @@ Yes, with a flag. The CPU image is `linux/amd64`, so `docker pull` fails with `n
 **Will it work with our load balancer / WAF?**
 Yes - it's plain HTTP/JSON. Add TLS, auth headers, IP allow-lists at the LB layer.
 
-**What if the model upstream gets pulled from HuggingFace?**
+**What if the model upstream gets pulled from Hugging Face?**
 The bundle has the weights frozen. The deployed container will keep working forever, regardless of upstream changes.
 
 ## Integration
@@ -60,7 +60,7 @@ The endpoint shape matches `models/{model}:embedContent` and `:batchEmbedContent
 Build a new bundle on the connected machine, transfer it, `docker load`, point the load balancer at the new container, drain the old one. No state to migrate.
 
 **How do I monitor it?**
-`GET /health` for liveness/readiness probes. Any HTTP-level metric (request rate, latency, error code) via your usual stack (Prometheus pull from in front of the LB, or sidecar exporter). The container itself doesn't expose metrics endpoints today.
+`GET /health` for liveness/readiness probes. Any HTTP-level metric (request rate, latency, error code) via your usual stack (Prometheus pull from in front of the LB, or sidecar exporter). The container has no `/metrics` endpoint, but `/health` carries a `throughput` block once it has served a request, and every inference response carries `X-Jina-Elapsed-Ms` and `X-Jina-Tok-Per-S` headers.
 
 **How do I know my embeddings are deterministic across deploys?**
 Same model, same dtype (`gpu_dtype` in catalog), same transformers/torch versions, same input -> same output bit-exact. The bundle pins all of these. Confirm by hashing the response on two replicas.
@@ -80,7 +80,7 @@ Those are great projects for hosted-yourself LLMs. jina-on-prem is specifically 
 You can, and for some models that's a fine path. jina-on-prem's value-add is: pinning the exact transformers/torch versions per model (custom code requires specific versions), wrapping the multi-schema API, and the bundle-and-transfer workflow with documented walkthroughs. ONNX export drops some model-specific code paths (LoRA adapters, custom rerankers) that the maintained Python implementation supports.
 
 **"Can you guarantee it never sends data out?"**
-Yes by design - HF_HUB_OFFLINE=1 + TRANSFORMERS_OFFLINE=1 + no other outbound code. The image and source code on GitHub are auditable. Stronger guarantee: run it on a host with no egress route at all (most air-gapped environments already enforce this).
+Yes by design - HF_HUB_OFFLINE=1 + TRANSFORMERS_OFFLINE=1, and the one outbound code path is the media URL fetch, reachable only by a multimodal request that carries an `http(s)` URL. The image and source code on GitHub are auditable. Stronger guarantee: run it on a host with no egress route at all (most air-gapped environments already enforce this).
 
 **"What's the long-term commitment?"**
 The Apache-2.0 toolkit, Dockerfiles, and CLI are public. If Jina shut down tomorrow, you could keep rebundling existing models from the weights you hold. The CC-BY-NC license on the weights is what a commercial license covers, not the runtime. For the full support/maintenance horizon and what "end of life" means for an air-gapped model, see [Product & Model Lifecycle (EOL)](Product-And-Model-Lifecycle).

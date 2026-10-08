@@ -20,7 +20,7 @@ flowchart TB
 
     subgraph Phase2["Phase 2: DEPLOY - no network needed"]
         E["docker load < model.tar.gz"] --> F["docker run -p 8080:8080"]
-        F --> G["Multi-schema API ready: OpenAI / Gemini / Cohere / Voyage"]
+        F --> G["Multi-schema API ready: Jina / OpenAI / Gemini / Cohere / Voyage"]
         G --> H["Elasticsearch / Your App"]
     end
 ```
@@ -92,6 +92,8 @@ Drops in via OpenAI SDK with `base_url="http://your-host:8080/v1"`.
 | `jina-reranker-v3.5` | reranker | text | 0.6B | ~3GB | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3.5) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3.5) |
 | `jina-reranker-v3` | reranker | text | 597M | ~3GB | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3) |
 
+`jina-embeddings-v3` is in maintenance: existing deployments stay supported, and new deployments should prefer `jina-embeddings-v5-text-small` (see [Product & Model Lifecycle](https://github.com/jina-ai/jina-on-prem/wiki/Product-And-Model-Lifecycle#current-lifecycle-status)).
+
 Full catalog with all 29 models, VRAM, context windows, and licenses: [Model Catalog wiki](https://github.com/jina-ai/jina-on-prem/wiki/Model-Catalog) (auto-generated from [`models/catalog.json`](models/catalog.json)).
 
 > CC-BY-NC-4.0 models require a commercial license for production use. Contact [Elastic sales](https://www.elastic.co/contact).
@@ -104,19 +106,19 @@ Published for the 16 embedding models. Rerankers, ColBERT, reader and VLM models
 
 ```bash
 docker run --gpus all -p 8080:8080 \
-  ghcr.io/jina-ai/jina-on-prem/jina-embeddings-v3:gpu-opt
+  ghcr.io/jina-ai/jina-on-prem/jina-embeddings-v5-text-small:gpu-opt
 ```
 
-Same weights, same API, same output as `:gpu` — verified per model, not assumed: on eight of the sixteen the vectors are identical to the last bit, and on the rest they agree to cosine ≥ 0.9998. Still **multi-task**: every task (`retrieval`/`text-matching`/`clustering`/`classification`) behaves as it does on `:gpu`. **fp16** by default, matching the stock `:gpu` dtype.
+Same weights, same API, same output as `:gpu`, verified per model, not assumed: on eight of the sixteen the vectors are identical to the last bit, and on the rest they agree to cosine ≥ 0.9998. Still **multi-task**: every task the model publishes (`retrieval.query`, `text-matching`, `classification` and the rest) behaves as it does on `:gpu`. **fp16** by default, matching the stock `:gpu` dtype.
 
 Where the batcher earns its keep, and where it does not:
 
-- **Many clients sending one or a few inputs each** — this is the case it exists for.
-- **Few clients sending large `input` arrays** — no gain. The client is already batching, and `:gpu` is the simpler choice.
+- **Many clients sending one or a few inputs each**: this is the case it exists for.
+- **Few clients sending large `input` arrays**: no gain. The client is already batching, and `:gpu` is the simpler choice.
 
-Whichever image you run, ask for `encoding_format: "base64"` — same numbers, and up to **2.6× the throughput** on bulk requests, because a 768-dimension vector goes out as one string instead of 768 JSON floats. The OpenAI SDK does this by default. Tunable via `JINA_BATCH_TOKENS`, `JINA_BATCH_WAIT_MS` and `JINA_DTYPE`, with defaults baked in.
+Whichever image you run, ask for `encoding_format: "base64"`: same numbers, and up to **2.6× the throughput** on bulk requests, because a 768-dimension vector goes out as one string instead of 768 JSON floats. The OpenAI SDK does this by default. Tunable via `JINA_BATCH_TOKENS`, `JINA_BATCH_WAIT_MS` and `JINA_DTYPE`, with defaults baked in.
 
-Which image for which traffic, the measured `:gpu` / `:gpu-opt` comparison, and per-model image sizes: [Sizing & Hardware](https://github.com/jina-ai/jina-on-prem/wiki/Sizing-And-Hardware#gpu-dynamic-batching--the-gpu-opt-images).
+Which image for which traffic, the measured `:gpu` / `:gpu-opt` comparison, and image sizes: [Sizing & Hardware](https://github.com/jina-ai/jina-on-prem/wiki/Sizing-And-Hardware#gpu-dynamic-batching-the-gpu-opt-images).
 
 ## API at a glance
 
@@ -151,7 +153,7 @@ curl http://localhost:8080/v1/chat/completions \
 
 Tasks (`retrieval`, `text-matching`, `classification`, ...), matryoshka truncation (`dimensions: 128`), and multimodal inputs (omni / clip / v4 / vlm models): see the [API Reference wiki](https://github.com/jina-ai/jina-on-prem/wiki/API-Reference).
 
-Elasticsearch inference service drop-in: [Elasticsearch integration](https://github.com/jina-ai/jina-on-prem/wiki/API-Reference#elasticsearch-integration).
+Elasticsearch inference service drop-in: [Elasticsearch integration](https://github.com/jina-ai/jina-on-prem/wiki/Elasticsearch-Integration).
 
 ## Licensing (time-sensitive keys)
 
@@ -160,7 +162,7 @@ Optional offline entitlement signal: a signed, expiring key that records a visib
 ```bash
 python jina-on-prem.py keygen --sub acme-corp --days 90        # mint a 90-day key
 docker run -e JINA_LICENSE_KEY=JINA-xxx.yyy -p 8080:8080 jina/MODEL:cpu
-curl -s http://localhost:8080/health   # shows license status; /health always open
+curl -s http://localhost:8080/health   # shows license status; every GET, /health and the docs pages always pass
 ```
 
 **Fail-open by default: a running deployment is never blocked.** The default `warn` mode always serves - a missing/expired/invalid key only logs and shows in `/health`. Hard 403 blocking is opt-in via `JINA_LICENSE_MODE=enforce` (trials/POCs only), and even then an expired key survives a grace window. Compliance speed-bump, not DRM - the signing secret ships in the image, so this is an honest-system check rather than a lock. Details: [Licensing wiki](https://github.com/jina-ai/jina-on-prem/wiki/Licensing).
@@ -191,20 +193,32 @@ python jina-on-prem.py serve --local-path /data/models/jina-v5-nano
 
 ```
 jina-on-prem/
-- jina-on-prem.py             # CLI: bundle / deploy / serve / list
+- jina-on-prem.py             # CLI: list / bundle / deploy / serve / keygen
 - models/
-  - catalog.json           # 29-model registry with pinned deps
+  - catalog.json           # model registry with pinned deps
 - docker/
   - Dockerfile.gpu         # GPU image (Wolfi, CUDA from PyTorch wheels, FP16)
   - Dockerfile.cpu         # CPU image (Wolfi)
   - download_model.py      # Model download + patch script (build stage)
+  - verify_staging.py      # build gate: remote-code files staged before runtime
 - server/
-  - app.py                 # FastAPI server: 5 API schemas
-  - requirements.txt       # Server framework deps
+  - app.py                 # FastAPI app: mounts the adapters, license gate, /health
+  - adapters/              # one module per API schema: Jina, OpenAI, Voyage, Cohere, Gemini
+  - families/              # one class per model runtime: embedding, reranking, generation
+  - ...                    # engine, batching, tasks, license, telemetry and helpers
+  - requirements.txt       # deps for `serve` mode; images pin theirs in the Dockerfiles
+- k8s/
+  - jina-on-prem.yaml      # Kubernetes Deployment, Service, HPA, optional Ingress
+- examples/
+  - python_client.py       # minimal client for the common request patterns
 - scripts/
   - bootstrap-gcp.sh       # one-shot GCP L4 builder provisioner
   - pull-prebuilt.sh       # pull GHCR image + save tar.gz for offline transport
   - benchmark.py           # throughput benchmark
+- docker-compose.yml          # one model
+- docker-compose.multi.yml    # embedding + reranker
+- docker-compose.replicas.yml # replicas of one model behind nginx
+- nginx-replicas.conf         # nginx config for the replicas file
 - verify-offline.sh          # prove an image serves with no network at all
 ```
 
@@ -214,6 +228,9 @@ jina-on-prem/
 - [Bundling Guide](https://github.com/jina-ai/jina-on-prem/wiki/Bundling-Guide) - build your own from a connected machine, GCP L4 walkthrough
 - [Model Catalog](https://github.com/jina-ai/jina-on-prem/wiki/Model-Catalog) - all 29 models with full metadata
 - [API Reference](https://github.com/jina-ai/jina-on-prem/wiki/API-Reference) - five schemas, multimodal inputs, tasks, ES integration
+- [Elasticsearch Integration](https://github.com/jina-ai/jina-on-prem/wiki/Elasticsearch-Integration) - inference endpoints for embeddings and rerank
+- [Sizing & Hardware](https://github.com/jina-ai/jina-on-prem/wiki/Sizing-And-Hardware) - capacity planning and published image sizes
+- [Licensing](https://github.com/jina-ai/jina-on-prem/wiki/Licensing) - the optional offline license key, its modes and `/health` fields
 - [Troubleshooting](https://github.com/jina-ai/jina-on-prem/wiki/Troubleshooting) - common errors and the fixes that work
 - [Product & Model Lifecycle (EOL)](https://github.com/jina-ai/jina-on-prem/wiki/Product-And-Model-Lifecycle) - how long a deployed model is supported, and why models are maintained differently from software
 - [Security & Hardening](https://github.com/jina-ai/jina-on-prem/wiki/Security-And-Hardening) - network behaviour, authentication, and a hardening checklist

@@ -35,11 +35,12 @@ curl http://localhost:8080/health
 |---|---|---|---|---|
 | `jina-embeddings-v5-text-nano` | first demo, OpenAI replacement | 239M | ~2GB | yes |
 | `jina-embeddings-v5-text-small` | production multilingual | 677M | ~3GB | yes |
+| `jina-embeddings-v5-omni-nano` | multimodal RAG on a smaller GPU | 1.04B | ~5GB | yes |
 | `jina-embeddings-v5-omni-small` | multimodal RAG | 1.74B | ~8GB | yes |
 | `jina-reranker-v3.5` | top-K reranking, 131K context | 0.6B | ~3GB | yes |
 | `jina-reranker-v3` | top-K reranking, lighter host RAM on `:cpu` | 597M | ~3GB | yes |
 | `jina-clip-v2` | image + text search | 865M | ~4GB | yes |
-| `jina-embeddings-v3` | stable, widely deployed | 570M | ~3GB | yes |
+| `jina-embeddings-v3` | in maintenance; new deployments should prefer `jina-embeddings-v5-text-small` ([Lifecycle](Product-And-Model-Lifecycle#current-lifecycle-status)) | 570M | ~3GB | yes |
 
 Full table: [Model Catalog](Model-Catalog).
 
@@ -58,24 +59,25 @@ Full table: [Model Catalog](Model-Catalog).
 
 ## Tasks (v5)
 
-`retrieval` (default), `text-matching`, `classification`, `clustering`. Pass via `task` field. Different task = different vector.
+`retrieval.query`, `retrieval.passage`, `text-matching` (default), `classification`, `clustering`. Pass via `task` field; any other value returns HTTP 400. Different task = different vector.
 
 ## Matryoshka truncation
 
-`{"input":["hi"], "dimensions": 128}` → returns 128-dim vector. Supported dims: 32, 64, 128, 256, 512, 768/1024/2048 depending on model.
+`{"input":["hi"], "dimensions": 128}` → returns 128-dim vector. Any value up to the model's full output is accepted and truncated to; the Output column of the [Model Catalog](Model-Catalog) gives the smallest width each model was trained for.
 
 ## License
 
 | License | Models | Commercial use |
 |---|---|---|
-| CC-BY-NC-4.0 | All v5, v4, v3, reranker-v3 / -v3.5, clip-v2, ColBERT, code-embeddings, ReaderLM, vlm | needs commercial license - contact [Elastic sales](https://www.elastic.co/contact) |
-| Apache-2.0 | v2 (all variants), v1, clip-v1, reranker v1 | free for any use |
+| CC-BY-NC-4.0 | All v5, v3, reranker-v3 / -v3.5 / -m0 / -v2-base-multilingual, clip-v2, colbert-v2, code-embeddings, ReaderLM-v2, reader-lm, vlm | needs commercial license - contact [Elastic sales](https://www.elastic.co/contact) |
+| Qwen Research License | v4 | needs commercial license - contact [Elastic sales](https://www.elastic.co/contact) |
+| Apache-2.0 | v2 text embeddings (`jina-embeddings-v2-base-*`), v1 embeddings and rerankers, clip-v1, colbert-v1-en | free for any use |
 
 ## Hardware quick rules
 
-- < 10 QPS sustained → CPU is fine
-- > 10 QPS or low-latency → L4 (24GB VRAM, handles any single model)
-- > 100 QPS → multiple replicas behind an LB, or A10G/A100
+- Low sustained QPS → CPU is fine; the cut-over is in [Sizing & Hardware -> Runtime: GPU or CPU?](Sizing-And-Hardware#runtime-gpu-or-cpu)
+- Above that, or low-latency → L4 (24 GB VRAM, handles any single model)
+- More than one L4 can serve → multiple replicas behind an LB, or A10G/A100; plan from [Throughput math](Sizing-And-Hardware#throughput-math)
 
 ## Pre-flight checklist
 
@@ -88,8 +90,8 @@ Full table: [Model Catalog](Model-Catalog).
 
 ## Key technical guarantees
 
-1. Data and queries never leave the deployment host — `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` are baked into the image; no code path exists for an outbound call.
-2. OpenAI-compatible — any client using `openai.OpenAI(base_url=...)` works without code changes.
+1. Data and queries never leave the deployment host: `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` are baked into the image. The one outbound code path is the media URL fetch, reachable only by a multimodal request that carries an `http(s)` URL; see [Security & Hardening](Security-And-Hardening#the-one-outbound-path).
+2. OpenAI-compatible: any client using `openai.OpenAI(base_url=...)` works without code changes.
 3. The air-gap is verifiable: run on a host with no egress route and `docker logs` will be silent on outbound attempts. Source code on GitHub is Apache-2.0 and auditable.
 
 ## Common first-mile errors

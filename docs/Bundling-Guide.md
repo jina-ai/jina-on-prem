@@ -8,8 +8,10 @@ Output: a single self-contained `.tar.gz`. Bundle once, transfer, run forever of
 
 ```
   connected builder   ──►  python jina-on-prem.py bundle  ──►  docker build
-  (network + Docker)         (reads catalog.json)            stage 1: HF download + patch
-                                                              stage 2: pinned deps + server + OFFLINE=1
+  (network + Docker)         (reads catalog.json)            stage 1: pinned deps into a venv
+                                                              stage 2: HF download + patch
+                                                              stage 3: COPY-only runtime, no RUN:
+                                                                       venv + weights + server + OFFLINE=1
                                                                     │
                                                                     ▼
                                                     docker save | gzip ──► MODEL-cpu.tar.gz
@@ -30,8 +32,8 @@ Output: a single self-contained `.tar.gz`. Bundle once, transfer, run forever of
 | Linux x86_64 | Ubuntu 22.04 tested. macOS works via Docker Desktop but slow |
 | Docker 24+ with BuildKit | comes with modern Docker |
 | Python 3.10+ | CLI is single-file, stdlib only |
-| Disk: 30 GB+ | 200 GB if bundling multiple models |
-| Network | bundle phase pulls weights from HuggingFace |
+| Disk: 100 GB or more | enough for one or two models, including the BuildKit cache; bundling the whole catalog takes several hundred GB |
+| Network | bundle phase pulls weights from Hugging Face |
 | For GPU bundles | no GPU needed at build time; CUDA comes from the PyTorch wheels |
 
 ![bundle](images/02-bundle.gif)
@@ -91,6 +93,14 @@ python3 jina-on-prem.py serve --model MODEL               # no Docker, requires 
 
 Backward-compatible aliases: `pack` -> `bundle`, `load` -> `deploy`.
 
+A gated Hugging Face model needs a token at bundle time. Pass it in the environment:
+
+```bash
+HF_TOKEN=hf_... python3 jina-on-prem.py bundle --model MODEL
+```
+
+`--hf-token` also exists, but a value given on the command line is visible in the process list for the whole build, so prefer the environment variable. `bundle` hands the token to `docker build` by name only, so it never appears on that command line either.
+
 ## Output
 
 A successful bundle produces:
@@ -100,16 +110,16 @@ jina-embeddings-v5-text-nano-cpu.tar.gz       # for --cpu-only
 jina-embeddings-v5-text-small-gpu.tar.gz      # for GPU runtime
 ```
 
-Sizes: 2-4 GB for nano/small text models, up to ~8 GB for v5-text-small GPU, up to ~12 GB for omni/v4.
+Sizes: under 2 GB for the nano/small text models on CPU and 4-6 GB on GPU; multimodal models run larger. See [Sizing & Hardware -> Published image sizes](Sizing-And-Hardware#published-image-sizes).
 
 ## CPU vs GPU runtime
 
 |  | CPU image | GPU image |
 |---|---|---|
 | Base image | `cgr.dev/chainguard/wolfi-base` | `cgr.dev/chainguard/wolfi-base`, with CUDA from the PyTorch wheels |
-| Image size | smaller (~2-4 GB) | larger (~8-12 GB) |
+| Image size | weights plus a CPU-only torch | adds a few GB of CUDA runtime on top; see [Sizing & Hardware](Sizing-And-Hardware#published-image-sizes) |
 | Runs on host with GPU | yes (ignores GPU) | yes |
-| Runs on host without GPU | yes | no (CUDA missing) |
+| Runs on host without GPU | yes | yes, falls back to CPU |
 | Inference speed | ~10x slower | full speed |
 | Build wall-clock | ~3-15 min | ~10-30 min |
 
@@ -117,9 +127,9 @@ If unsure, build both. The runtime host decides which to load.
 
 ## Base image
 
-A bundle builds on Chainguard's `cgr.dev/chainguard/wolfi-base`, which anyone can pull, and installs Python 3.11 from Wolfi's package repository. The base is pinned by digest in `docker/Dockerfile.cpu` and `docker/Dockerfile.gpu`; Python is not pinned, so a bundle gets the newest 3.11 patch release Wolfi carries on the day it is built. The build machine therefore needs to reach `cgr.dev` and `packages.wolfi.dev`, as well as the Python package indexes and Hugging Face.
+A bundle builds on Chainguard's `cgr.dev/chainguard/wolfi-base`, which anyone can pull, and installs Python 3.11 from Wolfi's package repository. The base is pinned by digest in `docker/Dockerfile.cpu` and `docker/Dockerfile.gpu`; Python is not pinned, so a bundle gets the newest 3.11 patch release Wolfi carries on the day it is built. The build machine therefore needs to reach `cgr.dev` and `packages.wolfi.dev`, as well as the Python package indexes, `download.pytorch.org` for the torch wheels, and Hugging Face.
 
-The prebuilt images use the same Dockerfiles on a distroless Wolfi Python base, which needs an Elastic login to pull; `--build-arg BASE=official` selects it. Everything after the base is the same file, so a bundle installs the same Python packages. What differs is the operating system layer: a bundle keeps `wolfi-base`'s shell and `apk`, so an image scanner lists a few more packages in it than in a prebuilt image.
+The prebuilt images use the same Dockerfiles on a distroless Wolfi Python base, which needs an Elastic login to pull. `bundle` has no flag for it: selecting it means running `docker build` by hand with `--build-arg BASE=official`. Everything after the base is the same file, so a bundle installs the same Python packages. What differs is the operating system layer: a bundle keeps `wolfi-base`'s shell and `apk`, so an image scanner lists a few more packages in it than in a prebuilt image.
 
 Bundling on this base is supported. At each release, a CPU and a GPU model are built this way and their vectors compared with the prebuilt images.
 
@@ -168,7 +178,7 @@ docker run -d -p 8080:8080 jina/MODEL:cpu
 curl http://localhost:8080/health
 ```
 
-That's the entire air-gapped deploy. The image has `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` baked in - any code path that would call out to HuggingFace fails immediately rather than silently downloading.
+That's the entire air-gapped deploy. The image has `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` baked in - any code path that would call out to Hugging Face fails immediately rather than silently downloading.
 
 ## Caveats worth knowing before you build
 

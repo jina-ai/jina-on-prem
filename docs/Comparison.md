@@ -6,12 +6,13 @@ flowchart TB
     classDef skip fill:#ffe0e0,stroke:#c44
 
     Q{Workload?} --> E[Embeddings or reranking]
-    Q --> C[Chat / generation]
-    Q --> V[Vision-language chat]
+    Q --> V[Vision-language reading
+with jina-vlm]
+    Q --> C[General LLM chat / generation]
 
     E --> Air[Use jina-on-prem]:::use
+    V --> Air
     C --> O[Use Ollama or vLLM]:::skip
-    V --> O
 
     Air --> N{Network?}
     N -- truly offline --> Bun[Bundle phase + ship .tar.gz]
@@ -29,7 +30,7 @@ flowchart TB
 | Quantization story | aggressive (Q4_K_M is default) | bundle ships original precision |
 | Out-of-the-box embeddings | yes, general-purpose models | yes, Jina v5/v4/v3 |
 | Out-of-the-box reranking | no | yes (`/v1/rerank`) |
-| Multi-schema API | OpenAI only | OpenAI + Cohere + Gemini + Voyage |
+| Multi-schema API | OpenAI only | Jina + OpenAI + Cohere + Gemini + Voyage |
 | Air-gap story | run offline, but you still pull models from ollama.com | full air-gap bundling |
 | Sweet spot | LLM chat at the edge | embeddings + reranking in regulated environments |
 
@@ -87,7 +88,7 @@ flowchart TB
 You could build your own Docker image with HF transformers and the model weights. What does jina-on-prem add?
 
 - **Pinned deps per model**, exact rather than ranged, and readable straight out of `models/catalog.json`
-- **Multi-schema API** (OpenAI + Cohere + Gemini + Voyage) - 1000+ lines of `server/app.py` you don't have to write
+- **Multi-schema API** (Jina + OpenAI + Cohere + Gemini + Voyage) - the adapters in `server/adapters/`, error envelopes included, that you don't have to write
 - **Patched custom code** for offline use (delete model repo requirements.txt, monkeypatch `trust_remote_code`)
 - **Tested workflow** for 29 models including the gnarly ones (omni multimodal, Qwen3-based rerankers, ColBERT, ReaderLM, VLM)
 - **Maintained**: when upstream changes break a model, the catalog is updated and a new bundle is shipped
@@ -121,7 +122,7 @@ The fastest "show me it works" path:
 3. `curl /v1/embeddings`
 4. Open `/docs` (FastAPI swagger UI) to see all 5 schemas
 
-To compare models side by side: build a `.tar.gz` for a second model (v3 or v4) using the same workflow. Different bundle = different model, same runtime contract.
+To compare models side by side: build a `.tar.gz` for a second model (another v5 variant, or a reranker) using the same workflow. Different bundle = different model, same runtime contract.
 
 ## Next
 

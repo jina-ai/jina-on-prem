@@ -20,7 +20,7 @@ unexpected shape
 empty result]
 ```
 
-Jump to a section: [Docker / install](#docker-permission-denied) - [L4 stockout](#l4-stockout) - [CUDA mismatch](#cuda-mismatch) - [OOM](#out-of-memory-on-gpu) - [Transformers version pins](#transformers-version-pins) - [GHCR auth](#prebuilt-pull-unauthorized) - [Wrong endpoint](#wrong-endpoint-returns-500) - [Verifying the air gap](#verifying-the-air-gap) - [Disk full](#disk-full-during-multi-model-build) - [Base image pull](#bundle-build-fails-pulling-the-base-image) - [Reranker NaN](#empty--nan-embeddings-on-qwen3-reranker)
+Jump to a section: [Docker / install](#docker-permission-denied) - [L4 stockout](#l4-stockout) - [CUDA mismatch](#cuda-mismatch) - [OOM](#out-of-memory-on-gpu) - [Transformers version pins](#transformers-version-pins) - [GHCR auth](#prebuilt-pull-unauthorized) - [Wrong endpoint](#wrong-endpoint-returns-400) - [License 403](#403-with-type-license_error) - [Verifying the air gap](#verifying-the-air-gap) - [Disk full](#disk-full-during-multi-model-build) - [Base image pull](#bundle-build-fails-pulling-the-base-image) - [Reranker NaN](#empty--nan-embeddings-on-qwen3-reranker)
 
 ## Docker permission denied
 
@@ -59,7 +59,7 @@ The zone 'projects/PROJECT/zones/ZONE' does not have enough resources to fulfill
 
 **Cause**: L4 GPUs are heavily oversubscribed, and several US zones are commonly out at the same time.
 
-**Fix**: retry in another zone, or fall back to another GPU type with quota in a zone you can get. A retry loop is at the bottom of [`scripts/bootstrap-gcp.sh`](https://github.com/jina-ai/jina-on-prem/blob/main/scripts/bootstrap-gcp.sh).
+**Fix**: retry in another zone, or fall back to another GPU type with quota in a zone you can get. [`scripts/bootstrap-gcp.sh`](https://github.com/jina-ai/jina-on-prem/blob/main/scripts/bootstrap-gcp.sh) takes the zone as its second argument and `GPU_TYPE` from the environment, so a retry is a rerun with either changed.
 
 No GPU is needed to build an image, including a GPU image, so a CPU-only instance avoids this entirely.
 
@@ -71,7 +71,7 @@ No GPU is needed to build an image, including a GPU image, so a CPU-only instanc
 Error response from daemon: error from registry: unauthorized
 ```
 
-**Cause**: published images pull anonymously, so this is not a credentials problem — nothing is published at the name you asked for. Either the model has no prebuilt image, or the runtime tag does not exist for it (`gpu-opt` is published for the embedding models only).
+**Cause**: published images pull anonymously, so this is not a credentials problem: nothing is published at the name you asked for. Either the model has no prebuilt image, or the runtime tag does not exist for it (`gpu-opt` is published for the embedding models only).
 
 **Fix**: check the Prebuilt column of the [Model Catalog](Model-Catalog) for that model, and bundle it yourself if there is none:
 
@@ -164,13 +164,21 @@ Only 4.57.3 is affected. Verified on `jina-reranker-v3.5`, loading by repo id wi
 
 All working versions produce identical scores, so the pin is about offline behaviour, not quality.
 
-## Wrong endpoint returns 500
+## Wrong endpoint returns 400
 
-**Symptom**: calling `/v1/embeddings` on a reranker container returns HTTP 500 (or vice versa).
+**Symptom**: calling `/v1/embeddings` on a reranker container returns HTTP 400 with `Model 'MODEL' is a reranker model. Use POST /v1/rerank instead.` An embedding container answers `/v1/rerank` with a 400 too.
 
-**Cause**: reranker models can't serve embedding requests. They expose `/v1/rerank` only. The server doesn't currently return a helpful 400 for this case.
+**Cause**: reranker models can't serve embedding requests. They expose `/v1/rerank` and `/v2/rerank`, and the 400 on a reranker names `/v1/rerank`. An embedding container hit at `/v1/rerank` answers 400 with `Loaded model does not support reranking`.
 
 **Fix**: route the request to the right container. Embedding clients hit the embedding container; reranking clients hit the reranker container.
+
+## 403 with type `license_error`
+
+**Symptom**: inference requests return HTTP 403 with a body like `{"error": {"code": "no_license", "message": "...", "type": "license_error"}}`, while `/health` answers normally.
+
+**Cause**: the container runs with `JINA_LICENSE_MODE=enforce`, and the key is missing, invalid, scoped to another model, or expired past its grace window. The default `warn` mode never returns this.
+
+**Fix**: read `code`, or `license.reason` in `/health`, against [Licensing -> Reason codes](Licensing#reason-codes). Then set a key that covers this image, or run in the default `warn` mode if this is not a time-boxed trial.
 
 ## Empty / NaN embeddings on Qwen3 reranker
 
@@ -187,7 +195,7 @@ model.tokenizer.pad_token = model.tokenizer.eos_token
 
 **Symptom**: testing with `docker run --network none -p 8080:8080 ...` and the host can't reach `localhost:8080`.
 
-**Cause**: `--network none` gives the container a network namespace with nothing in it but loopback — no interface, no address. There is nothing for `-p` to forward to, so the mapping never comes up.
+**Cause**: `--network none` gives the container a network namespace with nothing in it but loopback: no interface, no address. There is nothing for `-p` to forward to, so the mapping never comes up.
 
 **Fix**: reach the server over the container's own loopback instead of through a published port:
 
@@ -197,7 +205,7 @@ docker exec airgap-check python -c \
   "import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8080/health').read())"
 ```
 
-This is how [`verify-offline.sh`](https://github.com/jina-ai/jina-on-prem/blob/main/verify-offline.sh) verifies an image, and it is the stronger test: `--network none` makes egress impossible at the kernel level, where `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` only stop the code paths that honour them. The same script then proves the container cannot reach out, by checking that a socket to huggingface.co and to a raw IP both fail from inside.
+This is how [`verify-offline.sh`](https://github.com/jina-ai/jina-on-prem/blob/main/verify-offline.sh) verifies an image, and it is the stronger test: `--network none` makes egress impossible at the kernel level, where `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` only stop the code paths that honour them. The same script then proves the container cannot reach out, by checking that a socket to huggingface.co, to api.jina.ai and to a raw IP all fail from inside.
 
 Use `-p 8080:8080` for the deployment you actually run, and `--network none` plus `docker exec` when the question is whether it needs a network at all.
 

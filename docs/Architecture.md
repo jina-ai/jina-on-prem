@@ -1,4 +1,4 @@
-How the pieces fit together — for engineers integrating or debugging jina-on-prem.
+How the pieces fit together, for engineers integrating or debugging jina-on-prem.
 
 ![mascot](images/pixel-mascot-shield.png)
 
@@ -15,13 +15,14 @@ How the pieces fit together — for engineers integrating or debugging jina-on-p
   │         │                                                       │
   │         ▼                                                       │
   │  DOCKER_BUILDKIT=1 docker build                                 │
-  │  │   stage 1 (downloader): download weights from HF Hub,        │
-  │  │                          patch model code,                   │
+  │  │   stage 1 (builder):    install pinned deps into /opt/venv   │
+  │  │   stage 2 (downloader): on the builder, download weights     │
+  │  │                          from HF Hub, patch model code,      │
   │  │                          delete model repo requirements.txt  │
-  │  │   stage 2 (runtime):    install pinned deps,                 │
-  │  │                          copy weights from stage 1,          │
-  │  │                          add server/app.py,                  │
-  │  │                          HF_HUB_OFFLINE=1 + OFFLINE=1        │
+  │  │   stage 3 (runtime):    COPY only, no RUN, distroless        │
+  │  │                          on the official base: venv from 1,  │
+  │  │                          weights from 2, server/,            │
+  │  │                          HF_HUB_OFFLINE=1                    │
   │  ▼                                                              │
   │  docker save | gzip > MODEL.tar.gz                              │
   └──────────────────────────────┬──────────────────────────────────┘
@@ -49,7 +50,7 @@ How the pieces fit together — for engineers integrating or debugging jina-on-p
   ┌─────────────────────────────────────────────────────────┐
   │  ENV         HF_HUB_OFFLINE=1   TRANSFORMERS_OFFLINE=1  │
   ├─────────────────────────────────────────────────────────┤
-  │  SERVER      server/app.py + requirements.txt           │
+  │  SERVER      server/: app.py, adapters/, families/      │
   │              FastAPI multi-schema API                   │
   ├─────────────────────────────────────────────────────────┤
   │  CODE        custom model code, patched for offline     │
@@ -98,7 +99,7 @@ One container, five protocols. Every schema's router is mounted in every contain
 ```mermaid
 sequenceDiagram
     participant Build as Build (connected)
-    participant HF as HuggingFace Hub
+    participant HF as Hugging Face Hub
     participant Image as Docker image
     participant Deploy as Deploy (offline)
     participant App as Your app
@@ -115,7 +116,7 @@ TRANSFORMERS_OFFLINE=1
     App->>Deploy: POST /v1/embeddings
     Deploy->>Deploy: encode locally
     Deploy->>App: vectors
-    Note over Deploy,App: zero outbound calls
+    Note over Deploy,App: no outbound calls, except a media URL carried by a request
 ever
 ```
 
@@ -127,8 +128,9 @@ At runtime, any code path that would try to download a missing file fails immedi
 jina-on-prem.py (single file, stdlib only)
 - list      - browse the model catalog
 - bundle    - build an image and save it as a transferable tar.gz
-- deploy    - load the tar.gz, run it, wait for the health check
+- deploy    - load the tar.gz, run it, print the health check command
 - serve     - run the server directly, without Docker
+- keygen    - mint an offline license key
 ```
 
 No third-party imports in the CLI. The model deps install inside the Docker image only.
@@ -139,18 +141,35 @@ No third-party imports in the CLI. The model deps install inside the Docker imag
 jina-on-prem/
 - jina-on-prem.py             CLI (stdlib only)
 - models/
-  - catalog.json             29 models with pinned deps, vram, modality
+  - catalog.json             every model, with pinned deps, vram, modality
 - docker/
-  - Dockerfile.cpu           two-stage: downloader + runtime
-  - Dockerfile.gpu           two-stage with CUDA + cudnn
-  - download_model.py        runs in stage 1, downloads + patches
+  - Dockerfile.cpu           three stages: builder, downloader, COPY-only runtime
+  - Dockerfile.gpu           the same, with CUDA from the PyTorch cu126 wheels
+  - download_model.py        runs in the downloader stage, downloads + patches
+  - verify_staging.py        build gate: trust_remote_code files already staged
 - server/
-  - app.py                   FastAPI app, mounts every schema's router
-  - requirements.txt         server framework deps
+  - app.py                   FastAPI app: mounts the adapters, license gate, /health
+  - adapters/                one module per wire contract: Jina, OpenAI, Voyage, Cohere, Gemini
+  - families/                one class per model runtime: load, task mapping, inference
+  - engine.py                the loaded model's lifecycle and the inference verbs
+  - batching.py              cross-request batching for the embedding path
+  - tasks.py                 task vocabularies, ours and the other vendors'
+  - license.py               offline license key check
+  - telemetry.py             /health throughput block and X-Jina-* headers
+  - (other modules)          config, catalog lookup, media decoding, serialization, errors
+  - requirements.txt         deps for `serve` mode; images pin their own in the Dockerfiles
+- k8s/
+  - jina-on-prem.yaml        Kubernetes manifest: Deployment, Service, HPA, optional Ingress
+- examples/
+  - python_client.py         minimal client for the common request patterns
 - scripts/
   - bootstrap-gcp.sh         provision a builder
   - pull-prebuilt.sh         pull GHCR image and tar.gz it
   - benchmark.py             throughput micro-benchmark
+- docker-compose.yml         one model
+- docker-compose.multi.yml   embedding + reranker, two containers
+- docker-compose.replicas.yml  replicas of one model behind nginx, one port
+- nginx-replicas.conf        nginx config for the replicas file
 - docs/                      the source of these wiki pages
 - verify-offline.sh          prove an image serves with no network at all
 ```

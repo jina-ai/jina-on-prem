@@ -1,4 +1,4 @@
-What the container does and does not do on a network, and what you have to add around it. Written to be quotable in a security questionnaire — every claim here is checkable against the image or the source.
+What the container does and does not do on a network, and what you have to add around it. Written to be quotable in a security questionnaire: every claim here is checkable against the image or the source.
 
 > **The one thing to configure before production:** the server has no authentication. Anyone who can reach port 8080 can use it. Put it behind something that authenticates, and do not expose the port beyond your own network.
 
@@ -7,10 +7,10 @@ What the container does and does not do on a network, and what you have to add a
 | | |
 |---|---|
 | Listens on | TCP 8080, plain HTTP |
-| Authenticates requests | **No** — see [Authentication](#authentication) |
-| Encrypts in transit | **No** — terminate TLS in front of it, see [TLS](#tls) |
-| Calls out on its own initiative | **No** — no license server, no telemetry, no update check, no model download |
-| Calls out when a request asks it to | Only on a multimodal model, and only for an `http(s)` media URL the request itself contains — see [The one outbound path](#the-one-outbound-path) |
+| Authenticates requests | **No**, see [Authentication](#authentication) |
+| Encrypts in transit | **No**; terminate TLS in front of it, see [TLS](#tls) |
+| Calls out on its own initiative | **No**: no license server, no telemetry, no update check, no model download |
+| Calls out when a request asks it to | Only for an `http(s)` media URL the request itself contains, on any model; see [The one outbound path](#the-one-outbound-path) |
 | Runs as | uid 65532, not root, see [Run it as a non-root user](#run-it-as-a-non-root-user) |
 | Writes outside the container | Nothing. No volume is required; the model lives in the image |
 
@@ -27,7 +27,7 @@ For the request lifecycle and a step-by-step of why nothing leaves, see [Why On-
 
 ## Authentication
 
-There is none. The server does not read an `Authorization` header, has no API-key concept, and does not distinguish callers. This is deliberate — it is designed to sit inside a perimeter you already control, and adding a second credential system would be one more thing to rotate in an environment where rotation is expensive.
+There is none. The server does not read an `Authorization` header, has no API-key concept, and does not distinguish callers. This is deliberate: it is designed to sit inside a perimeter you already control, and adding a second credential system would be one more thing to rotate in an environment where rotation is expensive.
 
 It means the port is the access control, so:
 
@@ -35,11 +35,11 @@ It means the port is the access control, so:
 - **Put a reverse proxy in front** if more than one team or application calls it: nginx, Envoy, HAProxy or your existing API gateway, doing authentication and TLS in one place.
 - **Use network policy as the real boundary.** In Kubernetes, a `NetworkPolicy` restricting ingress to the calling namespace is stronger than anything the container could check itself.
 
-`GET /health` is unauthenticated by design and returns no request data — model id, device, readiness, the schema list, and license status. Treat it as safe to expose to your monitoring, and note that it does reveal which model you run.
+`GET /health` is unauthenticated by design and returns no request data: model id, device, readiness, the schema list, and license status. Treat it as safe to expose to your monitoring, and note that it does reveal which model you run. With a license key set, it also reveals who the key is issued to (`licensed_to`), the purchase it names (`order_product_id`) and its expiry.
 
 ## TLS
 
-The server speaks plain HTTP. Terminate TLS in front of it — the same reverse proxy that authenticates is the right place — and keep the hop from proxy to container on a network you control, or on localhost.
+The server speaks plain HTTP. Terminate TLS in front of it, in the same reverse proxy that authenticates, and keep the hop from proxy to container on a network you control, or on localhost.
 
 There is no configuration to make the container itself serve HTTPS, and adding one would mean shipping certificate handling and rotation into an image that is meant to be replaced rather than reconfigured.
 
@@ -49,16 +49,16 @@ A **multimodal** model accepts an image, audio or video input, and that input ma
 
 What constrains it:
 
-- **It does not exist on a text-only model.** Every media-accepting endpoint calls `require_multimodal()` first, so on `jina-embeddings-v5-text-*`, `v3`, the `v2` family, the rerankers and ColBERT there is no reachable fetch at all.
-- **Only `http` and `https`.** A `file:`, `gs:`, `s3:` or any other scheme is rejected with a 400, and a redirect to one of them is rejected too — the redirect handler re-checks the scheme rather than trusting the first URL.
-- **10 MB per input, with a fetch timeout.** A large or slow URL fails the request instead of holding the worker.
+- **A text-only model can still fetch.** The URL is read while the request is parsed, and the Jina and Gemini schemas parse media before checking whether the model accepts it, while the OpenAI chat route checks first. A text-only model can therefore fetch a URL and then reject the request with a 400. The limits below apply on every model, and the network policy below decides whether the fetch can reach anything.
+- **Only `http` and `https`.** A `file:`, `gs:`, `s3:` or any other scheme is rejected with a 400, and a redirect to one of them is rejected too, because the redirect handler re-checks the scheme rather than trusting the first URL.
+- **10 MB per input, a fetch timeout and a redirect limit**, the constants at the top of `server/media.py`. A large or slow URL fails the request instead of holding the worker.
 - **Your network decides whether it resolves.** With `--network none`, or with an egress policy, the fetch simply fails and the request returns an error.
 
-If you want the capability without the fetch, send media as an inline `data:` URL or an upload. Those never touch the network.
+If you want the capability without the fetch, send media inline, as base64 or a `data:` URL. Inline media never touches the network.
 
 ## Custom model code, and why `trust_remote_code` is forced on
 
-Jina's models ship their own modeling code alongside the weights, which `transformers` loads only when `trust_remote_code` is enabled. The server enables it unconditionally — it replaces `transformers.dynamic_module_utils.resolve_trust_remote_code` with a function that always returns `True`.
+Jina's models ship their own modeling code alongside the weights, which `transformers` loads only when `trust_remote_code` is enabled. The server enables it unconditionally: it replaces `transformers.dynamic_module_utils.resolve_trust_remote_code` with a function that always returns `True`.
 
 Stated that way it sounds like the container will execute whatever a model repository serves it. It will not, and the reason is the same offline guarantee as everything else:
 
@@ -78,7 +78,27 @@ docker run --read-only \
   -p 127.0.0.1:8080:8080 jina/MODEL:cpu
 ```
 
-`--user` still works if your policy assigns its own uid, for example `--user 65534:65534`. `--read-only` works because the container writes nothing persistent; `/tmp` is given as a tmpfs for Python's own scratch use. In Kubernetes the equivalent is a `securityContext` with `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false` and dropped capabilities; `runAsNonRoot: true` passes as it is, because the image names its user by number.
+`--user` still works if your policy assigns its own uid, for example `--user 65534:65534`, and `--read-only` works with `/tmp` given as a tmpfs for Python's own scratch use. The image owns `/model_cache` as uid 65532 because the server would otherwise write `trust_remote_code` modules there on first load; a different uid or a read-only filesystem works only because the build gate refuses to finish an image until those modules are already staged, which makes that write unnecessary.
+
+In Kubernetes the equivalent is a `securityContext` with `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false` and dropped capabilities; `runAsNonRoot: true` passes as it is, because the image names its user by number. The shipped [`k8s/jina-on-prem.yaml`](https://github.com/jina-ai/jina-on-prem/blob/main/k8s/jina-on-prem.yaml) carries no `securityContext`, so add one to the container, alongside `ports`, with a `/tmp` volume for the read-only root:
+
+```yaml
+      containers:
+      - name: jina-embed
+        image: jina/jina-embeddings-v5-text-small:gpu
+        securityContext:
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}
+```
 
 GPU deployments need the NVIDIA runtime's device access, which is granted by `--gpus`, not by root.
 

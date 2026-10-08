@@ -23,7 +23,7 @@ A jina-on-prem bundle freezes everything that influences inference output:
 - **Model weights** at the exact HF commit at bundle time
 - **Tokenizer + processor** files
 - **Python dependencies** at the versions declared in `models/catalog.json` `deps`
-- **Server code** (`server/app.py`) at the commit you built from
+- **Server code** (`server/`) at the commit you built from
 - **Base image**, Wolfi, pinned by digest in the Dockerfiles (see [Bundling Guide -> Base image](Bundling-Guide#base-image))
 
 This means: **same bundle = byte-identical embeddings forever**. You can verify by hashing the response on two replicas after a host rebuild.
@@ -33,10 +33,10 @@ This means: **same bundle = byte-identical embeddings forever**. You can verify 
 | Trigger | What changes | Action |
 |---|---|---|
 | Upstream model release (e.g. v5.1) | `hf_repo` weights | Rebundle, redeploy |
-| Server bug fix | `server/app.py` | Rebundle (no model change), redeploy |
-| Security CVE in a Python dep | `deps` versions | Pin to patched version in `catalog.json`, rebundle |
-| Bigger context or new task type | `server/app.py` | Rebundle |
-| New API schema added | `server/app.py` | Rebundle |
+| Server bug fix | `server/` | Rebundle (no model change), redeploy |
+| Security CVE in a Python dep | Model deps and torch: `deps` in `catalog.json`. fastapi, starlette, uvicorn: the pins in `docker/Dockerfile.cpu` and `docker/Dockerfile.gpu` | Pin the patched version where that dep is pinned, rebundle |
+| Bigger context or new task type | `server/tasks.py` and the `task_enum` in `catalog.json` | Rebundle |
+| New API schema added | `server/adapters/` | Rebundle |
 | You want to test a different model | new bundle for new model | New bundle, deploy alongside |
 
 ## Zero-downtime rollout
@@ -73,7 +73,7 @@ docker stop jina-blue
 docker rm jina-blue
 ```
 
-For Kubernetes, use a normal `Deployment` rollout (`kubectl set image deployment/jina-embed jina-embed=jina/MODEL:v2`). Default rolling update handles this.
+For Kubernetes, use a normal `Deployment` rollout (`kubectl -n jina-on-prem set image deployment/jina-embed jina-embed=REGISTRY/MODEL:gpu-<sha>`, with the `-<sha>` tag your cluster's registry holds). Default rolling update handles this.
 
 ## Embedding determinism across versions
 
@@ -148,8 +148,8 @@ In a regulated environment you will usually need to track:
 | Item | Where to find it |
 |---|---|
 | Bundle SHA | `sha256sum jina-MODEL-cpu.tar.gz` |
-| Image digest | `docker inspect --format='{{.Id}}' jina/MODEL:cpu` |
-| Source commit | `LABEL org.opencontainers.image.source` in Dockerfile -> repo + tag |
+| Image digest | `docker inspect --format='{{index .RepoDigests 0}}' jina/MODEL:cpu` for a pulled image. One loaded from a bundle tarball has no registry digest; use `--format='{{.Id}}'` there. |
+| Source commit | The `<runtime>-<sha>` tag of a prebuilt image; `LABEL org.opencontainers.image.source` names only the repo URL |
 | Build date | `LABEL` could include build date if you set it |
 | Dependency lockfile | `models/catalog.json` `deps` block per model |
 

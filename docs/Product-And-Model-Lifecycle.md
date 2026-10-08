@@ -1,12 +1,12 @@
-The support, maintenance, and end-of-life (EOL) policy for self-managed (SM) / air-gapped Jina AI models. This page explains, in plain terms, how long a model you deploy will keep working, how long Jina/Elastic maintains it, what "end of life" actually means when the weights live inside your own network, and - importantly - what "maintenance" can and cannot mean for a machine-learning model as opposed to ordinary software. It is the reference for field, support, procurement, security, and audit questions about the lifetime of a Jina SM deployment.
+The support, maintenance, and end-of-life (EOL) policy for jina-on-prem, the self-managed, air-gapped deployment of Jina AI models. This page explains, in plain terms, how long a model you deploy will keep working, how long Jina/Elastic maintains it, what "end of life" actually means when the weights live inside your own network, and - importantly - what "maintenance" can and cannot mean for a machine-learning model as opposed to ordinary software. It is the reference for field, support, procurement, security, and audit questions about the lifetime of a jina-on-prem deployment.
 
-> **Read this first.** Hosted-API providers (OpenAI, Cohere, Azure Foundry, Amazon Bedrock) tie "end of life" to a *shutdown date*: after that date the endpoint is switched off and your requests fail. Air-gapped Jina SM is different by design. You hold the weights inside your own perimeter, so there is **no technical kill switch, no phone-home, and no date on which the software forces itself to stop** - a deployed model does not go dark because a clock ran out on our side. EOL here is about how long *we* keep maintaining and supporting a model, not about a remote switch that disables it.
+> **Read this first.** Hosted-API providers (OpenAI, Cohere, Azure Foundry, Amazon Bedrock) tie "end of life" to a *shutdown date*: after that date the endpoint is switched off and your requests fail. Air-gapped jina-on-prem is different by design. You hold the weights inside your own perimeter, so there is **no technical kill switch, no phone-home, and no date on which the software forces itself to stop** - a deployed model does not go dark because a clock ran out on our side. EOL here is about how long *we* keep maintaining and supporting a model, not about a remote switch that disables it.
 >
-> **Two distinct things - do not conflate them:** (1) *Technical continuity* - the bundle keeps running as long as you run it; nothing we operate can remotely disable it. (2) *Commercial right to use* - Jina SM is sold as a **term-based subscription**, not a perpetual license. Production use requires a **current, in-term commercial entitlement**, and continued use past the term requires **renewal**, exactly like other Elastic SM subscriptions. So the mental model is: **you are not renting *access* from our servers (there is nothing to shut off), but you are subscribing to the *right to use* on a term that must be renewed.** The absence of a technical kill switch is an availability/reliability guarantee, not a grant of perpetual license rights. See [Licensing and the subscription term](#licensing-and-the-subscription-term).
+> **Two distinct things - do not conflate them:** (1) *Technical continuity* - the bundle keeps running as long as you run it; nothing we operate can remotely disable it. (2) *Commercial right to use* - jina-on-prem is sold as a **term-based subscription**, not a perpetual license. Production use requires a **current, in-term commercial entitlement**, and continued use past the term requires **renewal**, exactly like other Elastic self-managed subscriptions. So the mental model is: **you are not renting *access* from our servers (there is nothing to shut off), but you are subscribing to the *right to use* on a term that must be renewed.** The absence of a technical kill switch is an availability/reliability guarantee, not a grant of perpetual license rights. See [Licensing and the subscription term](#licensing-and-the-subscription-term).
 
 ## Contents
 
-- [How SM lifecycle differs from a hosted API](#how-sm-lifecycle-differs-from-a-hosted-api)
+- [How the jina-on-prem lifecycle differs from a hosted API](#how-the-jina-on-prem-lifecycle-differs-from-a-hosted-api)
 - [Models are not software: what "maintenance" really means](#models-are-not-software-what-maintenance-really-means)
 - [Lifecycle stages](#lifecycle-stages)
 - [Maintenance term (how long we support a model)](#maintenance-term-how-long-we-support-a-model)
@@ -17,7 +17,7 @@ The support, maintenance, and end-of-life (EOL) policy for self-managed (SM) / a
 - [Current lifecycle status](#current-lifecycle-status)
 - [FAQ](#faq)
 
-## How SM lifecycle differs from a hosted API
+## How the jina-on-prem lifecycle differs from a hosted API
 
 ```mermaid
 flowchart LR
@@ -29,13 +29,13 @@ flowchart LR
 inference STOPS - 410 Gone]:::hosted
     end
 
-    subgraph S[Jina SM air-gap - you control the weights]
+    subgraph S[jina-on-prem air-gap - you control the weights]
       S1[GA] --> S2[Legacy] --> S3[Maintenance] --> S4[End of Life
 support ends - inference KEEPS RUNNING]:::sm
     end
 ```
 
-| | Hosted API (OpenAI / Cohere / Azure) | Jina SM (air-gap) |
+| | Hosted API (OpenAI / Cohere / Azure) | jina-on-prem (air-gap) |
 |---|---|---|
 | What EOL takes away | Access to the model (endpoint shut down) | Only our maintenance + support |
 | Does inference stop at EOL? | Yes - requests fail | **No** - your bundle runs indefinitely |
@@ -49,8 +49,8 @@ This is the most common misunderstanding, and getting it wrong leads to unrealis
 
 **What we CAN maintain during a model's supported life:**
 
-- **The runtime and server** (`server/app.py`): API compatibility, new schema support, bug fixes in request handling, batching, and I/O.
-- **Dependencies**: patching a CVE in `transformers`, `torch`, or any bundled Python package by pinning to a fixed version and rebundling. See [Versioning & Updates -> Catalog and dependency bumps](Versioning-And-Updates).
+- **The runtime and server** (`server/`): API compatibility, new schema support, bug fixes in request handling, batching, and I/O.
+- **Dependencies**: patching a CVE in `transformers`, `torch`, or any bundled Python package by pinning to a fixed version and rebundling. See [Versioning & Updates -> Catalog and dependency bumps](Versioning-And-Updates#catalog-and-dependency-bumps).
 - **Packaging**: new base images, CPU/GPU build fixes, quantization variants of the *same* weights (for example an INT8/FP8 build to fit smaller hardware). Quantization is a lossless-to-near-lossless repackaging of the existing weights - it does not retrain them.
 - **Documentation, sizing, and deployment guidance.**
 
@@ -66,7 +66,7 @@ This is why the lifecycle below separates **runtime maintenance** (which we do, 
 
 ## Lifecycle stages
 
-Every Jina SM model generation is in exactly one stage. The stage describes the **level of maintenance and support we commit to** - never whether the model still runs for you.
+Every jina-on-prem model generation is in exactly one stage. The stage describes the **level of maintenance and support we commit to** - never whether the model still runs for you.
 
 | Stage | What it means | New deployments | Your existing deployment runs? | Runtime maintenance (CVE / deps / bug fixes) | Support (Q&A, guidance) |
 |---|---|---|---|---|---|
@@ -75,13 +75,13 @@ Every Jina SM model generation is in exactly one stage. The stage describes the 
 | **Maintenance** | Superseded by a newer generation. Still receives security and critical runtime fixes; no new features. Migration recommended. | Discouraged | Yes | Security / critical only | Full |
 | **End of Life (EOL)** | We no longer issue fixes or provide standard support. The model **keeps running in your environment** - you own its continued operation, and you can keep running it as long as you like. | Not recommended | Yes (you operate it) | None from us | Best-effort / none |
 
-Note there is deliberately **no "Shutdown" or "Retired" stage**. Those stages only exist for hosted services with a vendor-controlled endpoint. In an air-gap deployment there is nothing for us to retire - the artifact is yours. See [Versioning & Updates -> What a bundle pins](Versioning-And-Updates) and [FAQ -> What if the model upstream gets pulled from HuggingFace?](FAQ).
+Note there is deliberately **no "Shutdown" or "Retired" stage**. Those stages only exist for hosted services with a vendor-controlled endpoint. In an air-gap deployment there is nothing for us to retire - the artifact is yours. See [Versioning & Updates -> What a bundle pins](Versioning-And-Updates#what-a-bundle-pins) and [FAQ -> What if the model upstream gets pulled from Hugging Face?](FAQ).
 
 ## Maintenance term (how long we support a model)
 
 The **Maintenance Term** is the window during which Jina/Elastic actively maintains a model generation - runtime security patches, critical bug fixes, dependency updates, and packaging support.
 
-Because these are long-lived, on-premise and often air-gapped deployments in regulated environments - where re-certifying a new model is expensive and slow - we commit to a long horizon. For each Jina SM model generation, the Maintenance Term runs for **at least the longer of:**
+Because these are long-lived, on-premise and often air-gapped deployments in regulated environments - where re-certifying a new model is expensive and slow - we commit to a long horizon. For each jina-on-prem model generation, the Maintenance Term runs for **at least the longer of:**
 
 - **36 months (3 years)** from the model generation's GA (initial public release) date, **or**
 - **24 months (2 years)** from the GA date of its **direct replacement** generation,
@@ -125,18 +125,18 @@ Because nothing is ever force-retired, our notices are there to help you *plan*,
 
 ## Determinism and migration guarantees
 
-- **A bundle is immutable.** Same bundle + same input = bit-identical output, forever. Reaching EOL does not change this. See [Versioning & Updates -> Embedding determinism](Versioning-And-Updates). This is a direct consequence of frozen weights (see [Models are not software](#models-are-not-software-what-maintenance-really-means)).
+- **A bundle is immutable.** Same bundle + same input = bit-identical output, forever. Reaching EOL does not change this. See [Versioning & Updates -> Embedding determinism](Versioning-And-Updates#embedding-determinism-across-versions). This is a direct consequence of frozen weights (see [Models are not software](#models-are-not-software-what-maintenance-really-means)).
 - **Upgrades are always yours to initiate**, using the blue/green pattern in [Versioning & Updates](Versioning-And-Updates). No auto-upgrade, no forced cutover, ever.
-- **Reindex planning**: moving to a newer generation changes the embeddings (that is the point of a better model), so plan a reindex window - see [Versioning & Updates -> Reindex strategy](Versioning-And-Updates).
+- **Reindex planning**: moving to a newer generation changes the embeddings (that is the point of a better model), so plan a reindex window - see [Versioning & Updates -> Reindex strategy](Versioning-And-Updates#reindex-strategy).
 - **Long-term continuity**: the Apache-2.0 toolkit, Dockerfiles, and CLI are public. Even after a generation reaches EOL, you can re-bundle any model you are licensed for directly from its weights, subject to the model license. See [FAQ -> What's the long-term commitment?](FAQ).
 
 ## Licensing and the subscription term
 
-**Jina SM is a term-based subscription, not a perpetual license.** You buy the right to use the software for a defined term and must **renew to retain that right**, the same way other Elastic self-managed subscriptions work. Nothing on this page changes that.
+**jina-on-prem is a term-based subscription, not a perpetual license.** You buy the right to use the software for a defined term and must **renew to retain that right**, the same way other Elastic self-managed subscriptions work. Nothing on this page changes that.
 
 What the air-gap architecture changes is only the *enforcement mechanism*, not the *commercial obligation*:
 
-| Axis | What it means | Jina SM |
+| Axis | What it means | jina-on-prem |
 |---|---|---|
 | **Commercial right to use** | The contractual license to run the software in production | **Term subscription** - time-bound, must be renewed |
 | **Technical continuity** | Whether the software keeps functioning at runtime | No kill switch, no phone-home, no forced-stop date |
@@ -160,12 +160,12 @@ Generation-level status. Individual model IDs and per-model licenses are in the 
 | Reader / HTML-to-Markdown | `ReaderLM-v2` (GA 2025-01-16) | `reader-lm-1.5b` / `-0.5b` | |
 | Vision-language (reader / OCR) | `jina-vlm` (GA 2025-12-04) | - | |
 
-> Dates are model GA (initial public release) dates from the official model catalog. This table is generation-level planning guidance; it is not a commitment to retire any model on a specific date, because SM models are not retired.
+> Dates are model GA (initial public release) dates from the official model catalog. This table is generation-level planning guidance; it is not a commitment to retire any model on a specific date, because jina-on-prem models are not retired.
 
 ## FAQ
 
 **If a model is at End of Life, do I have to stop using it?**
-EOL only means we stop shipping fixes and standard support for that generation - there is no technical switch that stops it, so a deployed bundle keeps running exactly as before. Note this is separate from your subscription: you still need a current, in-term commercial subscription to be licensed to run it (Jina SM is a term subscription, not a perpetual license - see [Licensing and the subscription term](#licensing-and-the-subscription-term)). Freezing a validated model for years under an active subscription is a normal and supported choice.
+EOL only means we stop shipping fixes and standard support for that generation - there is no technical switch that stops it, so a deployed bundle keeps running exactly as before. Note this is separate from your subscription: you still need a current, in-term commercial subscription to be licensed to run it (jina-on-prem is a term subscription, not a perpetual license - see [Licensing and the subscription term](#licensing-and-the-subscription-term)). Freezing a validated model for years under an active subscription is a normal and supported choice.
 
 **Can you fix the model's accuracy on our specific documents/language without us migrating?**
 No - and this is fundamental, not a policy choice. A model's quality is determined by its trained weights, which are frozen. There is no patch that changes what a model has learned. Better quality on a task comes only from a newer generation (new weights), which you adopt as a migration. What we *can* do within a generation is fix the runtime, patch dependencies, and provide quantized builds of the same weights.

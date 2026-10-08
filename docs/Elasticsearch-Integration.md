@@ -1,5 +1,3 @@
-# Elasticsearch Integration
-
 Elasticsearch calls jina-on-prem through its [inference API](https://www.elastic.co/docs/api/doc/elasticsearch/group/endpoint-inference). You register the container once as an inference endpoint, and from then on Elasticsearch sends it text at index time and at query time. Your application only talks to Elasticsearch.
 
 jina-on-prem speaks the protocols of two services Elasticsearch already has built in:

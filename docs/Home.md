@@ -13,8 +13,8 @@ For first-time deployments, start with **[Why On-Prem](Why-On-Prem)**, then **[Q
   ┌────────────────┐    USB / SCP / disk    ┌────────────────┐    port 8080
   │ connected host │   ──────────────────►  │ air-gapped host│   ──────►  app
   │                │       .tar.gz          │                │
-  │ jina-on-prem.py │                        │  docker load   │  OpenAI / Cohere
-  │   bundle       │                        │  docker run    │  Gemini / Voyage
+  │ jina-on-prem.py │                        │  docker load   │  Jina / OpenAI
+  │   bundle       │                        │  docker run    │  Cohere / Gemini / Voyage
   └────────────────┘                        └────────────────┘
         │                                          │
         ▼                                          ▼
@@ -33,7 +33,7 @@ That's the whole product. The connected machine has internet to fetch model weig
 - **5 API schemas simultaneously**: Jina, OpenAI, Cohere, Google Gemini, Voyage AI - drop-in for any client.
 - **Multimodal**: text + image + audio + video on omni/clip/v4 models.
 - **GPU and CPU**: same model can be packaged either way.
-- **Elasticsearch inference service**: works as a `service: openai` endpoint out of the box.
+- **Elasticsearch inference service**: works out of the box as a `service: openai` endpoint for `text_embedding` and a `service: cohere` endpoint for `rerank`. See [Elasticsearch Integration](Elasticsearch-Integration).
 
 ## Pick your starting point
 
@@ -45,6 +45,8 @@ That's the whole product. The connected machine has internet to fetch model weig
 | Building a new bundle from scratch | [Bundling Guide](Bundling-Guide) |
 | Rolling out a new model version | [Versioning & Updates](Versioning-And-Updates) |
 | Reviewing this for security or compliance | [Security & Hardening](Security-And-Hardening) |
+| Wiring it into Elasticsearch | [Elasticsearch Integration](Elasticsearch-Integration) |
+| Checking a license key or the commercial terms | [Licensing](Licensing) |
 | Hitting an error | [Troubleshooting](Troubleshooting), then [Support](Support) |
 
 ## License note

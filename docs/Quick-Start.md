@@ -22,7 +22,7 @@ curl /v1/embeddings]
 ## Prerequisites
 
 - Docker installed (`docker ps` returns without error)
-- ~3GB free disk
+- Free disk of about twice the image size, see [Sizing & Hardware -> Disk planning](Sizing-And-Hardware#disk-planning)
 - Port 8080 available
 
 No registry account and no token. Prebuilt images live in `ghcr.io/jina-ai/jina-on-prem/*` and pull anonymously.
@@ -35,7 +35,7 @@ No registry account and no token. Prebuilt images live in `ghcr.io/jina-ai/jina-
 docker pull ghcr.io/jina-ai/jina-on-prem/jina-embeddings-v5-text-nano:cpu
 ```
 
-~800 MB compressed, 2.9 GB on disk. Takes 1-3 minutes on a typical link.
+For the download and on-disk size of each image, see [Sizing & Hardware -> Published image sizes](Sizing-And-Hardware#published-image-sizes).
 
 > **Apple Silicon Mac:** that command fails with `no matching manifest for linux/arm64/v8`, because prebuilts are published for `linux/amd64` only. Name the platform and Docker pulls the amd64 image to run under Rosetta emulation - correct, just slow:
 >
@@ -85,7 +85,7 @@ For GPU: add `--gpus all` and use the `:gpu` tag. On Apple Silicon: add `--platf
 curl http://localhost:8080/health
 ```
 ```json
-{"status":"ok","model":"jina-embeddings-v5-text-nano","device":"cpu","ready":true,"multimodal":false,"endpoint":"/v1/embeddings","schemas":["jina","openai","voyage","gemini","cohere"],"license":{"mode":"warn","valid":false,"reason":"no_license","fail_open":true}}
+{"status":"ok","model":"jina-embeddings-v5-text-nano","category":"text","device":"cpu","ready":true,"multimodal":false,"endpoint":"/v1/embeddings","schemas":["jina","openai","voyage","gemini","cohere"],"license":{"mode":"warn","valid":false,"reason":"no_license","fail_open":true}}
 ```
 
 `"valid": false` with no key is the expected state: the default mode serves normally and only reports. See [Licensing](Licensing).
@@ -127,7 +127,7 @@ Bundling Guide]
 
 ## When things go wrong
 
-The three errors that catch most first-time users:
+The errors that catch most first-time users:
 
 - `permission denied while trying to connect to the docker API` -> you're not in the `docker` group. [Fix](Troubleshooting#docker-permission-denied).
 - `Error response from daemon: error from registry: unauthorized` -> no image is published for that model and runtime. Check the Prebuilt column of the [Model Catalog](Model-Catalog).

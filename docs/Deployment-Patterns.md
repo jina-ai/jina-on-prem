@@ -39,25 +39,25 @@ text and image]:::rec
 
 **Use**: `jina-embeddings-v5-text-small` (multilingual, 1024-dim) for indexing + `jina-reranker-v3.5` for top-K reranking. Both fit on a single L4.
 
-**Hardware**: 1x NVIDIA L4 (24GB VRAM) per host, 100GB disk for both bundles + cache. Two replicas behind a load balancer if QPS > 50; an ES endpoint takes one URL, so see [Elasticsearch Integration](Elasticsearch-Integration#more-than-one-replica) for the proxy in front.
+**Hardware**: 1x NVIDIA L4 (24 GB VRAM) per host, 100GB disk for both bundles + cache. Add a second replica behind a load balancer once one host no longer keeps up; [Sizing & Hardware -> Throughput math](Sizing-And-Hardware#throughput-math) gives the per-L4 rates to plan from. An ES endpoint takes one URL, so see [Elasticsearch Integration](Elasticsearch-Integration#more-than-one-replica) for the proxy in front.
 
 **Deploy**:
 1. On a connected machine, run `./scripts/pull-prebuilt.sh jina-embeddings-v5-text-small gpu` and `./scripts/pull-prebuilt.sh jina-reranker-v3.5 gpu`. Output: two `.tar.gz` files.
 2. Transfer both to the target host (SCP, USB, or whatever your change-control process allows).
-3. `docker load < ...` and `docker run --gpus all -p 8080:8080 ...` for each on different ports.
+3. `docker load < ...` and `docker run --gpus all -p 8080:8080 ...` for each. Both containers listen on 8080 inside. The registrations below put them on two hosts, as [Elasticsearch Integration](Elasticsearch-Integration#register-a-reranker-and-rerank-results) does; on one host, publish the reranker on a second host port instead, as `docker-compose.multi.yml` does with 8081, and register that port.
 4. Wire ES inference service to both:
 
 ```json
 PUT _inference/text_embedding/jina-embed
 {"service": "openai", "service_settings": {
-  "url": "http://embed-host:8080/v1/embeddings",
+  "url": "http://jina-host:8080/v1/embeddings",
   "model_id": "jina-embeddings-v5-text-small",
   "api_key": "not-needed"
 }}
 
 PUT _inference/rerank/jina-rerank
 {"service": "cohere", "service_settings": {
-  "url": "http://rerank-host:8081/v1/rerank",
+  "url": "http://jina-rerank-host:8080/v1/rerank",
   "model_id": "jina-reranker-v3.5",
   "api_key": "not-needed"
 }}
@@ -71,9 +71,9 @@ PUT _inference/rerank/jina-rerank
 
 **Use**: `jina-embeddings-v5-text-nano` (CPU-friendly, 768-dim). The smallest model that's still a credible quality replacement.
 
-**Hardware**: CPU is fine for < 100 QPS - 4 vCPU + 4GB RAM. Add a GPU only if latency is critical.
+**Hardware**: a CPU host with 4 vCPU and 4GB RAM is fine at low sustained load; [Sizing & Hardware -> Runtime: GPU or CPU?](Sizing-And-Hardware#runtime-gpu-or-cpu) gives the point where a GPU pays off. Add a GPU sooner only if latency is critical.
 
-**Deploy**: 5 lines of bash:
+**Deploy**:
 ```bash
 docker load < jina-embeddings-v5-text-nano-cpu.tar.gz
 docker run -d -p 8080:8080 jina/jina-embeddings-v5-text-nano:cpu
@@ -96,7 +96,7 @@ That's it. No application code change beyond `base_url`.
 
 **Sizing**: ~3GB VRAM, fits anywhere. L4 or T4 if GPU.
 
-**Tip**: use the `task` field. `retrieval` for semantic search, `classification` for the triage classifier, `clustering` for grouping similar tickets. See [API Reference -> Embedding tasks](API-Reference#embedding-tasks).
+**Tip**: use the `task` field. `retrieval.query` for search queries and `retrieval.passage` for the documents you index, `classification` for the triage classifier, `clustering` for grouping similar tickets. See [API Reference -> Embedding tasks](API-Reference#embedding-tasks).
 
 ## Scenario D - Image and text search
 
@@ -117,7 +117,7 @@ curl http://host:8080/v1/embeddings \
   ]}]}'
 ```
 
-Image must be base64-encoded inline (no URLs - the air-gap forbids outbound fetches). Max 10 MB per input.
+An `http(s)` image URL is also accepted and fetched by the server, but in an air-gapped network that fetch fails, so send the image as inline base64 or a `data:` URL there. Max 10 MB per input.
 
 ## Scenario E - Code search
 
@@ -127,7 +127,7 @@ Image must be base64-encoded inline (no URLs - the air-gap forbids outbound fetc
 
 **Hardware**: 1.5b needs ~4GB VRAM. 0.5b runs on CPU for low-volume.
 
-**Tip**: build per-language indexes, then query with `task: "retrieval"`. Code-specific reranking with `jina-reranker-v3.5` on top of the top-100.
+**Tip**: build per-language indexes, index code with `task: "nl2code.passage"` and send natural-language queries with `task: "nl2code.query"`. Code-specific reranking with `jina-reranker-v3.5` on top of the top-100.
 
 ## Scenario F - Better reranking on top of existing retrieval
 
@@ -135,10 +135,7 @@ Image must be base64-encoded inline (no URLs - the air-gap forbids outbound fetc
 
 **Use**: `jina-reranker-v3.5` (131K context, multilingual, top-quality).
 
-**Hardware**: ~3GB VRAM on the `:gpu` image. The `:cpu` image is bounded by host
-RAM rather than by top-K alone, because the whole request goes through one
-forward pass - size it from your largest request using
-[Reranker host memory](Sizing-And-Hardware#reranker-host-memory).
+**Hardware**: ~3GB VRAM on the `:gpu` image. The `:cpu` image is bounded by host RAM rather than by top-K alone, because the whole request goes through one forward pass - size it from your largest request using [Reranker host memory](Sizing-And-Hardware#reranker-host-memory).
 
 **Deploy** alongside existing system, no changes to retrieval:
 
@@ -162,7 +159,7 @@ curl http://rerank-host:8080/v1/rerank \
 
 **Security properties for compliance review**:
 - Model weights and dependencies run on the deployment host. No data or queries leave the environment.
-- The container has `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` baked in — no code path exists for the model to fetch anything at runtime.
+- The container has `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` baked in, so the model fetches nothing at runtime. The one outbound code path is the media URL fetch, reachable only by a multimodal request that carries an `http(s)` URL.
 - The image is built once on a connected machine, transferred via the organisation's change-control process, and run on offline machines indefinitely.
 - No license server, no phone-home, no telemetry.
 - Source code is on GitHub (Apache-2.0 for the CLI) and is auditable.
