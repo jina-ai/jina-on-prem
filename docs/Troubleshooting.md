@@ -211,11 +211,11 @@ Use `-p 8080:8080` for the deployment you actually run, and `--network none` plu
 
 ## Bundle build fails pulling the base image
 
-**Symptom**: the build stops at a `FROM` line with `401 Unauthorized` from `docker.elastic.co`, or at `apk add` unable to reach `packages.wolfi.dev`.
+**Symptom**: the build stops at a `FROM` line with `401 Unauthorized` from `docker.elastic.co`, or at `apk add` unable to reach `apk.cgr.dev`.
 
-**Cause**: the Dockerfiles carry two bases. The default builds on `cgr.dev/chainguard/wolfi-base` and installs Python from `packages.wolfi.dev`, both anonymous. The other, selected by `--build-arg BASE=official`, is the base the prebuilt images use and needs an Elastic login. A Docker build without BuildKit also pulls it, because the legacy builder builds every stage in the file rather than only the ones the image needs.
+**Cause**: the Dockerfiles carry two bases. The default builds on `cgr.dev/chainguard/wolfi-base` and installs Python from `apk.cgr.dev`, both anonymous. The other, selected by `--build-arg BASE=official`, is the base the prebuilt images use and needs an Elastic login. A Docker build without BuildKit also pulls it, because the legacy builder builds every stage in the file rather than only the ones the image needs.
 
-**Fix**: build with `python jina-on-prem.py bundle`, which uses the default base and turns BuildKit on. Behind a proxy or firewall, allow `cgr.dev` and `packages.wolfi.dev` alongside the Python package indexes and Hugging Face. See [Bundling Guide -> Base image](Bundling-Guide#base-image).
+**Fix**: build with `python jina-on-prem.py bundle`, which uses the default base and turns BuildKit on. Behind a proxy or firewall, allow `cgr.dev` and `apk.cgr.dev` alongside the Python package indexes and Hugging Face. See [Bundling Guide -> Base image](Bundling-Guide#base-image).
 
 ## Disk full during multi-model build
 

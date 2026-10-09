@@ -27,6 +27,12 @@ ARG BATCH=0
 # stages below differ; BuildKit pulls just the pair the build uses.
 ARG BASE=public
 
+# Pinned to the versions inside the official builder, so a bundle runs the
+# published images' interpreter. Both, because wolfi-base ships an older
+# libcrypto.so.4 that apk keeps for an unpinned python-3.11, and hashlib breaks.
+ARG PY_APK_VER=3.11.17-r1
+ARG OPENSSL_APK_VER=4.0.3-r2
+
 # ---------------------------------------------------------------------------
 # Bases
 # The builder and runtime move as a pair: the venv names /usr/bin/python3.11,
@@ -37,11 +43,15 @@ FROM docker.elastic.co/wolfi/python:3.11-dev@sha256:0a6c4910b95218fea4595501c16d
 FROM docker.elastic.co/wolfi/python:3.11@sha256:feeaf4b7d638021401474d8cfc74770a65ab40e23a2980bbc4837c60127af068 AS runtime-official
 
 FROM cgr.dev/chainguard/wolfi-base@sha256:08df5982c3d27e70a4ce1607e3bb9af09d746f8722cf135a7694afef879fc5a2 AS runtime-public
-RUN apk add --no-cache python-3.11
+ARG PY_APK_VER
+ARG OPENSSL_APK_VER
+RUN apk add --no-cache python-3.11=${PY_APK_VER} \
+    openssl-4.0-libcrypto=${OPENSSL_APK_VER} openssl-4.0-libssl=${OPENSSL_APK_VER}
 FROM runtime-public AS builder-public
+ARG PY_APK_VER
 # The official -dev builder's toolchain, so a dependency that builds from source
 # builds on either base.
-RUN apk add --no-cache py3.11-pip python-3.11-dev build-base git
+RUN apk add --no-cache py3.11-pip python-3.11-dev=${PY_APK_VER} build-base git
 
 # ---------------------------------------------------------------------------
 # Stage 1: Install every Python dependency into one venv
