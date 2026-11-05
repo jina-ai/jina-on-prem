@@ -246,10 +246,7 @@ def _parse_content_part(part: dict) -> list:
 
     t = part.get("type", "")
 
-    # `{"type": "text", ...}` is OpenAI's spelling; a bare `{"text": ...}` with
-    # no discriminator is Jina's own TextDoc, which the public API accepts in
-    # `input` and which `documents` already accepts on the rerank side.
-    if t == "text" or (not t and "text" in part):
+    if _is_text_part(part):
         return [part.get("text", "")]
 
     # Elastic Inference Service: {"type": "image", "format": "base64", "value": "..."}
@@ -316,6 +313,32 @@ def _parse_openai_item(item) -> list:
 
     # Single-part item: delegate to content-part parser
     return _parse_content_part(item)
+
+
+def _is_text_part(part: dict) -> bool:
+    """`{"type": "text", ...}` is OpenAI's spelling; a bare `{"text": ...}` with
+    no discriminator is Jina's own TextDoc, which the public API accepts in
+    `input` and which `documents` already accepts on the rerank side."""
+    t = part.get("type", "")
+    return t == "text" or (not t and "text" in part)
+
+
+def is_media(item) -> bool:
+    """Whether an `input` item would decode to something other than text, read
+    off its shape alone.
+
+    This is what the text-only refusal has to be decided on. Decoding is the
+    exposure -- the image decoder runs on the caller's bytes -- so a model that
+    does not take images must refuse before `_parse_openai_item` ever sees the
+    item, and `{"text": ...}` must still pass on it. Anything that is neither a
+    string nor a dict is left to the parser, whose error names the real
+    problem.
+    """
+    if not isinstance(item, dict):
+        return False
+    if "content" in item and isinstance(item["content"], list):
+        return any(isinstance(p, dict) and not _is_text_part(p) for p in item["content"])
+    return not _is_text_part(item)
 
 
 def fuse_content(content: list) -> Union[str, list]:

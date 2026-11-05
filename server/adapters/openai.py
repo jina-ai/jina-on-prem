@@ -132,6 +132,9 @@ def parse_message(message: dict) -> tuple:
             url = part.get("value", "")
         else:
             raise BadRequest(f"Unsupported content part type: {kind!r}")
+        # Before the decode, not after: a text-only model must never run the
+        # image decoder on a caller's bytes.
+        engine.require_multimodal()
         image = from_url_or_data(url)[0]
         parts.append({"type": "image", "image": image})
         images.append(image)

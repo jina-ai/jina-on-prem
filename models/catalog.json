@@ -48,7 +48,7 @@
       "paper": "https://arxiv.org/abs/2605.08384",
       "deps": {
         "transformers": "==5.7.0",
-        "sentence-transformers": "==5.4.1",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": ">=0.15.0",
@@ -56,7 +56,7 @@
         "timm": "==1.0.12",
         "huggingface_hub": ">=0.34.0",
         "numpy": "==1.26.4",
-        "Pillow": "==10.4.0",
+        "Pillow": "==13.0.0",
         "librosa": "==0.10.2",
         "av": "==12.3.0",
         "flash-attn": null,
@@ -116,7 +116,7 @@
       "paper": "https://arxiv.org/abs/2605.08384",
       "deps": {
         "transformers": "==5.7.0",
-        "sentence-transformers": "==5.4.1",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": ">=0.15.0",
@@ -124,7 +124,7 @@
         "timm": "==1.0.12",
         "huggingface_hub": ">=0.34.0",
         "numpy": "==1.26.4",
-        "Pillow": "==10.4.0",
+        "Pillow": "==13.0.0",
         "librosa": "==0.10.2",
         "av": "==12.3.0",
         "flash-attn": null,
@@ -184,7 +184,7 @@
       "paper": "https://arxiv.org/abs/2602.15547",
       "deps": {
         "transformers": "==4.51.0",
-        "sentence-transformers": "==3.4.1",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": "==0.14.0",
@@ -249,7 +249,7 @@
       "paper": "https://arxiv.org/abs/2602.15547",
       "deps": {
         "transformers": "==4.48.3",
-        "sentence-transformers": "==3.4.1",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": "==0.14.0",
@@ -294,7 +294,7 @@
       "deps": {
         "transformers": "==4.57.0",
         "torch": "==2.8.0",
-        "Pillow": "==10.4.0",
+        "Pillow": "==13.0.0",
         "accelerate": "==1.2.1",
         "einops": "==0.8.1",
         "huggingface_hub": ">=0.34.0",
@@ -373,7 +373,7 @@
       "paper": "https://arxiv.org/abs/2509.25085",
       "deps": {
         "transformers": "==4.51.0",
-        "sentence-transformers": "==3.4.1",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": "==0.14.0",
@@ -440,7 +440,7 @@
       "paper": "https://arxiv.org/abs/2508.21290",
       "deps": {
         "transformers": "==4.48.3",
-        "sentence-transformers": "==3.4.1",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": "==0.14.0",
@@ -507,7 +507,7 @@
       "paper": "https://arxiv.org/abs/2508.21290",
       "deps": {
         "transformers": "==4.48.3",
-        "sentence-transformers": "==3.4.1",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": "==0.14.0",
@@ -569,7 +569,7 @@
       "paper": "https://arxiv.org/abs/2506.18902",
       "deps": {
         "transformers": "==4.57.0",
-        "sentence-transformers": "==3.4.1",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "einops": "==0.8.1",
         "peft": "==0.15.2",
@@ -577,7 +577,7 @@
         "huggingface_hub": ">=0.34.0",
         "numpy": ">=2.0.0,<2.3.0",
         "timm": ">=1.0.0",
-        "Pillow": "==10.4.0",
+        "Pillow": "==13.0.0",
         "torchvision": "==0.23.0"
       },
       "prebuilt": true,
@@ -612,7 +612,7 @@
       "api_endpoint": "/v1/rerank",
       "deps": {
         "transformers": "==5.7.0",
-        "sentence-transformers": "==5.4.1",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": ">=0.15.0",
@@ -620,7 +620,7 @@
         "huggingface_hub": ">=0.34.0",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "Pillow": "==10.4.0",
+        "Pillow": "==13.0.0",
         "timm": "==1.0.12",
         "torchvision": "==0.23.0"
       },
@@ -656,7 +656,7 @@
       "paper": "https://arxiv.org/abs/2503.01151",
       "deps": {
         "transformers": "==4.48.3",
-        "sentence-transformers": "==2.7.0",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
@@ -716,10 +716,10 @@
       "paper": "https://arxiv.org/abs/2412.08802",
       "deps": {
         "transformers": "==4.48.3",
-        "sentence-transformers": "==3.4.1",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "einops": "==0.8.0",
-        "Pillow": "==10.4.0",
+        "Pillow": "==13.0.0",
         "timm": "==1.0.12",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
@@ -782,7 +782,7 @@
       "paper": "https://arxiv.org/abs/2409.10173",
       "deps": {
         "transformers": "==4.48.3",
-        "sentence-transformers": "==3.4.1",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": "==0.14.0",
@@ -845,10 +845,11 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.24.0",
-        "pylate": "==1.5.0"
+        "pylate": "==1.5.0",
+        "pyarrow": "==25.0.1"
       },
       "extra_repos": [
-        "jinaai/xlm-roberta-flash-implementation@845308d0fd72a8406a3e378450e1a09522790419"
+        "jinaai/xlm-roberta-flash-implementation@bd55a5ec8e6c0fb1d6c26efb4b6a4a74ce8a88d3"
       ],
       "prebuilt": true,
       "prebuilt_versions": {
@@ -881,7 +882,7 @@
       "api_endpoint": "/v1/chat/completions",
       "deps": {
         "transformers": "==4.48.3",
-        "sentence-transformers": "==3.4.1",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": "==0.14.0",
@@ -922,7 +923,7 @@
       "api_endpoint": "/v1/chat/completions",
       "deps": {
         "transformers": "==4.48.3",
-        "sentence-transformers": "==3.4.1",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "einops": "==0.8.0",
         "peft": "==0.14.0",
@@ -963,7 +964,7 @@
       "api_endpoint": "/v1/rerank",
       "deps": {
         "transformers": "==4.44.2",
-        "sentence-transformers": "==2.7.0",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "einops": "==0.8.0",
         "huggingface_hub": "==0.27.1",
@@ -1012,14 +1013,14 @@
       "paper": "https://arxiv.org/abs/2405.20204",
       "deps": {
         "transformers": "==4.44.2",
-        "sentence-transformers": "==3.4.1",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "einops": "==0.8.0",
         "timm": "==1.0.12",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
         "flash-attn": null,
-        "Pillow": ">=9.0.0",
+        "Pillow": "==13.0.0",
         "torchvision": "==0.23.0"
       },
       "prebuilt": true,
@@ -1053,7 +1054,7 @@
       "api_endpoint": "/v1/rerank",
       "deps": {
         "transformers": "==4.44.2",
-        "sentence-transformers": "==2.7.0",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
@@ -1091,7 +1092,7 @@
       "api_endpoint": "/v1/rerank",
       "deps": {
         "transformers": "==4.44.2",
-        "sentence-transformers": "==2.7.0",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
@@ -1129,7 +1130,7 @@
       "api_endpoint": "/v1/rerank",
       "deps": {
         "transformers": "==4.44.2",
-        "sentence-transformers": "==2.7.0",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
@@ -1180,7 +1181,8 @@
         "numpy": "==1.26.4",
         "flash-attn": null,
         "torchvision": "==0.24.0",
-        "pylate": "==1.5.0"
+        "pylate": "==1.5.0",
+        "pyarrow": "==25.0.1"
       },
       "extra_repos": [
         "jinaai/jina-bert-implementation@f3ec4cf7de7e561007f27c9efc7148b0bd713f81"
@@ -1222,7 +1224,7 @@
       "gpu_dtype": "float32",
       "deps": {
         "transformers": "==4.44.2",
-        "sentence-transformers": "==2.7.0",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
@@ -1265,7 +1267,7 @@
       "gpu_dtype": "float32",
       "deps": {
         "transformers": "==4.44.2",
-        "sentence-transformers": "==2.7.0",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
@@ -1309,7 +1311,7 @@
       "gpu_dtype": "float32",
       "deps": {
         "transformers": "==4.44.2",
-        "sentence-transformers": "==2.7.0",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
@@ -1353,7 +1355,7 @@
       "gpu_dtype": "float32",
       "deps": {
         "transformers": "==4.44.2",
-        "sentence-transformers": "==2.7.0",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
@@ -1396,7 +1398,7 @@
       "paper": "https://arxiv.org/abs/2310.19923",
       "deps": {
         "transformers": "==4.44.2",
-        "sentence-transformers": "==2.7.0",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",
@@ -1438,7 +1440,7 @@
       "paper": "https://arxiv.org/abs/2307.11224",
       "deps": {
         "transformers": "==4.44.2",
-        "sentence-transformers": "==2.7.0",
+        "sentence-transformers": "==5.6.0",
         "torch": "==2.8.0",
         "huggingface_hub": "==0.27.1",
         "numpy": "==1.26.4",

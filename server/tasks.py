@@ -97,8 +97,17 @@ def map_prompt_name(task: str, prompts: Optional[dict]) -> Optional[str]:
         ``JinaEmbeddingsV4Model.encode`` defaults to ``"query"`` (prepends
         ``"Query: "``). We mirror that fallback when the model prompts dict has
         the matching key. Code-embeddings has neither key, return None.
+
+    Only prompts with text count. sentence-transformers 5 seeds every model's
+    dict with ``query`` and ``document`` set to ``""`` for its own
+    ``encode_query`` / ``encode_document``, whether or not the model declares
+    them; matched as keys, that empty ``document`` sat in front of v4's real
+    ``passage`` and the request went to the model with no prefix at all.
     """
-    if not prompts or not task:
+    if not task:
+        return None
+    prompts = {key: text for key, text in (prompts or {}).items() if text}
+    if not prompts:
         return None
     # v3 keys its prompts dict by the task name itself (e.g.
     # ``"retrieval.passage": "Represent the document for retrieval: "``) rather

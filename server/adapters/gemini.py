@@ -22,6 +22,7 @@ import engine
 import tasks
 from errors import BadRequest, JinaError, request_id
 from media import _parse_content_part as parse_content_part
+from media import is_media
 
 from .jina import reject_foreign_model
 
@@ -195,6 +196,9 @@ def content_item(content):
     string; anything with `inlineData` makes the whole thing a fused
     multimodal block."""
     raw = content if isinstance(content, list) else (content or {}).get("parts", [])
+    # Decided before any part is decoded; see `media.is_media`.
+    if any(is_media(part) for part in raw):
+        engine.require_multimodal()
     parts = []
     for part in raw:
         if isinstance(part, dict) and "text" in part and "inlineData" not in part:
@@ -202,7 +206,6 @@ def content_item(content):
         elif isinstance(part, dict):
             parts.extend(parse_content_part(part))
     if any(not isinstance(part, str) for part in parts):
-        engine.require_multimodal()
         return parts if len(parts) > 1 else parts[0]
     return " ".join(parts)
 

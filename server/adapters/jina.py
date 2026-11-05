@@ -45,6 +45,7 @@ from errors import (
     jina_validation_body,
 )
 from media import _parse_openai_item as parse_openai_item
+from media import is_media
 
 router = APIRouter(tags=["Jina"])
 
@@ -307,18 +308,19 @@ def embedding_items(raw: Union[str, dict, list]) -> list:
     """Turn the request's `input` into what `engine.embed` consumes: strings,
     decoded media, or a list of parts meaning one fused embedding.
 
-    The multimodal check runs on what the parts turn out to *be*, not on how
-    the request was written. `{"text": "..."}` and `{"type": "text", "text":
-    "..."}` are Jina's own TextDoc forms and are plain text however they are
-    spelled, so a text-only model must serve them -- checking first rejected
-    them with "this model is text-only", which is both wrong and confusing.
+    The multimodal check runs before anything is decoded, on the shape of each
+    item: decoding is the exposure a text-only model must not have. It is a
+    check on shape rather than on the presence of a dict, because `{"text":
+    "..."}` and `{"type": "text", "text": "..."}` are Jina's own TextDoc forms
+    and are plain text however they are spelled, so a text-only model must
+    serve them.
     """
     items = raw if isinstance(raw, list) else [raw]
     if all(isinstance(item, str) for item in items):
         return items
-    parsed = [parse_openai_item(item) for item in items]
-    if any(not isinstance(part, str) for parts in parsed for part in parts):
+    if any(is_media(item) for item in items):
         engine.require_multimodal()
+    parsed = [parse_openai_item(item) for item in items]
     return [parts[0] if len(parts) == 1 else parts for parts in parsed]
 
 
@@ -373,6 +375,7 @@ def query_text(query: Union[str, dict]):
     if "text" in query:
         return query["text"]
     if "image" in query:
+        engine.require_multimodal()
         return parse_openai_item(query)[0]
     raise BadRequest("Query object must have a 'text' or 'image' key.", field="query")
 
