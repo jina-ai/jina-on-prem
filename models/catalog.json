@@ -308,6 +308,76 @@
       }
     },
     {
+      "id": "jina-ocr-v1",
+      "hf_repo": "jinaai/jina-ocr-v1",
+      "revision": "904f815deed0fbeab02d82d4648b70106272ffe3",
+      "type": "ocr",
+      "family": "ocr",
+      "runtime": "vllm_chat",
+      "parameters": "3.4B",
+      "context": 32768,
+      "modality": "multimodal",
+      "license_category": "reader",
+      "language": "multilingual",
+      "license": "CC-BY-NC-4.0",
+      "release": "2026-09-14",
+      "vram_gb": 16,
+      "gpu_dtype": "bfloat16",
+      "description": "Document OCR: one page image in, Markdown out (tables as HTML, formulas as LaTeX). 3.4B-parameter MoE, ~570M active, 32K context. GPU only, served on vLLM.",
+      "tasks": [
+        "ocr"
+      ],
+      "endpoints": [
+        "ocr"
+      ],
+      "api_endpoint": "/v1/chat/completions",
+      "paper": "https://arxiv.org/abs/2609.03181",
+      "deps": {},
+      "max_media_bytes": 41943040,
+      "max_image_pixels": 160000000,
+      "vllm": {
+        "architectures": {
+          "DeepseekOCRForCausalLMOCR": "deepseek_ocr_mtp:DeepseekOCRForCausalLMOCR"
+        },
+        "engine": {
+          "max_model_len": 32768,
+          "attention_backend": "FLASHINFER",
+          "enable_prefix_caching": false,
+          "gpu_memory_utilization": 0.85,
+          "limit_mm_per_prompt": {
+            "image": 1
+          },
+          "mm_processor_cache_gb": 0,
+          "hf_overrides": {
+            "architectures": [
+              "DeepseekOCRForCausalLMOCR"
+            ]
+          },
+          "compilation_config": {
+            "cudagraph_mode": "FULL_AND_PIECEWISE"
+          },
+          "override_generation_config": {
+            "temperature": 0.0,
+            "repetition_penalty": 1.05,
+            "max_new_tokens": 8192
+          }
+        },
+        "serving": {
+          "repetition_detection": {
+            "max_pattern_size": 35,
+            "min_pattern_size": 35,
+            "min_count": 10
+          },
+          "force_include_usage": true,
+          "enable_prompt_tokens_details": true
+        }
+      },
+      "prebuilt": true,
+      "prebuilt_versions": {
+        "gpu": ""
+      }
+    },
+    {
       "id": "jina-reranker-v3.5",
       "hf_repo": "jinaai/jina-reranker-v3.5",
       "revision": "e8a93f33f0b22108f8c2364f8484ce3422552fbc",

@@ -13,6 +13,14 @@
 #
 # Both expose the same multi-schema API. Point your retrieval app at 8080 and
 # your reranking step at 8081.
+#
+# A model served on vLLM (`runtime: vllm_chat` in models/catalog.json)
+# pre-allocates most of the GPU's memory at startup and would leave nothing for
+# a second service on the same card. To share one GPU, give it
+# `JINA_GPU_MEMORY_FRACTION` under `environment:` (the default is the model's
+# `gpu_memory_utilization` in the catalog) and size the other model into what
+# remains; and give its service `shm_size: 2g` and a longer healthcheck
+# `start_period`, as docker-compose.yml does.
 
 services:
   embed:

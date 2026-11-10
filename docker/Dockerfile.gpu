@@ -30,8 +30,8 @@ ARG BASE=public
 # Pinned to the versions inside the official builder, so a bundle runs the
 # published images' interpreter. Both, because wolfi-base ships an older
 # libcrypto.so.4 that apk keeps for an unpinned python-3.11, and hashlib breaks.
-ARG PY_APK_VER=3.11.17-r1
-ARG OPENSSL_APK_VER=4.0.3-r2
+ARG PY_APK_VER=3.11.18-r1
+ARG OPENSSL_APK_VER=4.0.3-r8
 
 # ---------------------------------------------------------------------------
 # Bases

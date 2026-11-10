@@ -158,7 +158,8 @@ Generation-level status. Individual model IDs and per-model licenses are in the 
 | Code embedding | `jina-code-embeddings-1.5b` / `0.5b` (GA 2025-09-01) | - | |
 | Reranker | `jina-reranker-v3.5` (GA 2026-07-27) | `jina-reranker-v3` (GA 2025-10-01), `jina-reranker-m0` (multimodal), `jina-reranker-v2-base-multilingual` | |
 | Reader / HTML-to-Markdown | `ReaderLM-v2` (GA 2025-01-16) | `reader-lm-1.5b` / `-0.5b` | |
-| Vision-language (reader / OCR) | `jina-vlm` (GA 2025-12-04) | - | |
+| Document OCR | `jina-ocr-v1` (GA 2026-09-14) | - | GPU only; served on vLLM |
+| Vision-language | `jina-vlm` (GA 2025-12-04) | - | |
 
 > Dates are model GA (initial public release) dates from the official model catalog. This table is generation-level planning guidance; it is not a commitment to retire any model on a specific date, because jina-on-prem models are not retired.
 

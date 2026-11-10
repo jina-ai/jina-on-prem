@@ -203,8 +203,25 @@ def cmd_list(args):
 # ---------------------------------------------------------------------------
 
 def get_dockerfile_path(runtime: str = "gpu") -> Path:
-    """Return the Dockerfile path for the given runtime (gpu or cpu)."""
+    """Return the Dockerfile path for the given runtime (gpu, cpu or vllm)."""
     return SCRIPT_DIR / "docker" / f"Dockerfile.{runtime}"
+
+
+def dockerfile_for(model: dict, runtime: str) -> Path:
+    """The Dockerfile that builds this model's image for this runtime.
+
+    A model served on vLLM has its own, GPU-only image line: the engine pins
+    its own torch and CUDA, so it cannot share the catalog-pinned builds. The
+    customer still pulls and runs it as ``:gpu``; the engine is not part of
+    the tag.
+    """
+    if model.get("runtime", "").startswith("vllm_"):
+        if runtime != "gpu":
+            err(f"Error: {model['id']} is served on vLLM and has no {runtime} image.", RED)
+            err("Fix: build it without --cpu-only; it needs an NVIDIA GPU.", YELLOW)
+            sys.exit(EXIT_USER_ERROR)
+        return get_dockerfile_path("vllm")
+    return get_dockerfile_path(runtime)
 
 
 def build_model_requirements(model: dict) -> str:
@@ -271,7 +288,7 @@ def cmd_bundle(args):
         deps_str = build_model_requirements(model).strip()
         if deps_str:
             err(f"\n  Model deps:\n    " + deps_str.replace("\n", "\n    "))
-        err(f"\n  Dockerfile: {get_dockerfile_path(runtime)}")
+        err(f"\n  Dockerfile: {dockerfile_for(model, runtime)}")
         err(f"\n{GREEN}Nothing built. Remove --dry-run to proceed.{RESET}")
         sys.exit(EXIT_OK)
 
@@ -301,7 +318,7 @@ def cmd_bundle(args):
 
     check_docker()
 
-    dockerfile = get_dockerfile_path(runtime)
+    dockerfile = dockerfile_for(model, runtime)
     if not dockerfile.exists():
         err(f"Error: Dockerfile not found: {dockerfile}", RED)
         err("Fix: Make sure you are running from the jina-on-prem directory.", YELLOW)

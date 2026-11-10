@@ -1,0 +1,130 @@
+# Jina AI Model: On-Prem Docker Image, vLLM variant (GPU only)
+# Phase 1, bundle: bakes model weights into the image.
+# Phase 2, deploy: runs fully offline, zero external network calls.
+#
+# The image line for a catalog model whose `runtime` is `vllm_chat`. It is
+# built on vLLM's own release image rather than the Wolfi base the other
+# images share, because the engine pins its own torch, CUDA and attention
+# kernels, and its MoE kernels are compiled by Triton at runtime, which needs
+# a C toolchain in the container. There is therefore no distroless variant of
+# this image; what it ships is what every vLLM-based serving image ships.
+#
+# The customer pulls and runs it as `:gpu`, the same as any other model: the
+# engine is an implementation detail, not part of the tag.
+#
+# The base is pinned by digest. A tag is mutable, and the digest is what
+# actually freezes the vLLM, torch and CUDA versions the model was validated
+# against. The driver on the customer's host has to support the CUDA line in
+# the label below.
+
+ARG MODEL_ID=jinaai/jina-ocr-v1
+ARG MODEL_REVISION=""
+ARG HF_TOKEN=""
+ARG DTYPE=bfloat16
+
+FROM vllm/vllm-openai:v0.24.0-cu129@sha256:6b005c78cd17a1f0215f31e95d183833f4dfd6167c4473241b80d1c8843b91e8
+
+# ---------------------------------------------------------------------------
+# Weights, into the HF cache the server reads offline
+# ---------------------------------------------------------------------------
+ARG MODEL_ID
+ARG MODEL_REVISION
+ARG HF_TOKEN
+
+ENV HF_HOME=/model_cache
+
+# The chown happens in the same layer as the download: a later `chown -R`
+# rewrites every weight file into a second layer the size of the model.
+COPY docker/download_vllm_model.py /tmp/download_vllm_model.py
+RUN HF_TOKEN="${HF_TOKEN}" MODEL_ID="${MODEL_ID}" MODEL_REVISION="${MODEL_REVISION}" \
+    python3 /tmp/download_vllm_model.py && rm /tmp/download_vllm_model.py && \
+    chown -R 65532:65532 /model_cache
+
+# ---------------------------------------------------------------------------
+# Server code and the architecture plugin
+# ---------------------------------------------------------------------------
+WORKDIR /app
+
+COPY models/catalog.json /app/catalog.json
+COPY server/ /app/
+
+# The entry point below is a dotted path vLLM imports in every process it
+# spawns, and it resolves only if /app is importable there. Set explicitly:
+# uvicorn puts the working directory on sys.path, a spawned engine process
+# does not, and vLLM logs a plugin that fails to import and carries on, so
+# the architecture would silently go unregistered.
+ENV PYTHONPATH=/app
+
+# Metadata only (--no-deps; the package ships no modules). The assert runs
+# vLLM's own plugin loader against the baked catalog and cache: metadata
+# proves the declaration, not that it imports, and this is what catches a
+# PYTHONPATH that does not reach /app or a snapshot the plugin cannot find.
+COPY docker/vllm-plugin /tmp/vllm-plugin
+RUN pip install --no-cache-dir --no-deps /tmp/vllm-plugin && rm -rf /tmp/vllm-plugin && \
+    HF_HUB_OFFLINE=1 python3 -c "\
+from vllm.plugins import load_general_plugins; load_general_plugins(); \
+from vllm import ModelRegistry; import vllm_plugin; from config import settings; \
+names = vllm_plugin.architectures(settings.model_id); \
+missing = [n for n in names if n not in ModelRegistry.get_supported_archs()]; \
+assert not missing, f'{missing} never reached the registry'; \
+print(f'vLLM plugin registered {sorted(names) or \"nothing (built-in architecture)\"}')"
+
+# ---------------------------------------------------------------------------
+# Runtime
+# ---------------------------------------------------------------------------
+ARG DTYPE
+
+# Enforce air-gap: all model files are baked in, no downloads at runtime.
+ENV HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    JINA_OFFLINE=1 \
+    TRUST_REMOTE_CODE=1 \
+    HF_HUB_TRUST_REMOTE_CODE=1 \
+    JINA_DTYPE=${DTYPE} \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# The engine runs in a process it spawns, not a fork; see server/families.
+ENV VLLM_WORKER_MULTIPROC_METHOD=spawn
+
+# Compile and kernel caches go where a non-root user can write. They are
+# rebuilt on every cold start, which is part of why one takes minutes.
+ENV VLLM_CACHE_ROOT=/tmp/vllm \
+    TRITON_CACHE_DIR=/tmp/triton \
+    FLASHINFER_WORKSPACE_BASE=/tmp/flashinfer \
+    HOME=/tmp
+
+# License gate signing secret. Optional; defaults to the public constant in
+# server/license.py. Rotate at bundle time with --build-arg LICENSE_SECRET=...
+# (must match `keygen --secret`). Symbolic compliance gate, not DRM.
+ARG LICENSE_SECRET=""
+ENV JINA_LICENSE_SECRET=${LICENSE_SECRET}
+
+# Same numeric non-root user as the other images, so a pod spec's
+# runAsNonRoot verifies it the same way; and `python` on PATH, which the
+# base lacks and the compose health checks, verify-offline.sh and the
+# examples all invoke the same way on every image.
+RUN useradd --uid 65532 --no-create-home --shell /usr/sbin/nologin nonroot && \
+    ln -s /usr/bin/python3 /usr/local/bin/python
+USER 65532
+
+LABEL org.opencontainers.image.source=https://github.com/jina-ai/jina-on-prem
+LABEL org.opencontainers.image.description="Jina AI air-gapped generative model on vLLM - GPU variant"
+LABEL org.opencontainers.image.licenses=Apache-2.0
+LABEL com.nvidia.volumes.needed="nvidia_driver"
+# The CUDA line vLLM's base image was built against; the driver on the
+# customer's host has to support it.
+LABEL ai.jina.cuda.version="12.9"
+
+EXPOSE 8080
+
+# A long start period: the engine compiles and captures CUDA graphs before it
+# is ready, and on a smaller card that is minutes rather than seconds.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=600s --retries=5 \
+    CMD ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=5)"]
+
+# The base's ENTRYPOINT is vLLM's own API server; ours is the same app every
+# other image runs. One process: the app owns one in-process engine, and a
+# second worker would try to build a second one on the same GPU.
+ENTRYPOINT []
+CMD ["python3", "app.py"]

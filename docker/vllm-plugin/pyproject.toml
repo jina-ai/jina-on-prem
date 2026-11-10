@@ -1,0 +1,22 @@
+# Metadata-only distribution whose one purpose is a `vllm.general_plugins`
+# entry point. vLLM calls `load_general_plugins()` in every process it spawns,
+# and the engine process is where the model is actually built, so this is the
+# only registration that reaches it; see server/vllm_plugin.py.
+#
+# Ships no modules of its own (py-modules = []); the entry point targets
+# server/vllm_plugin.py, which the image puts on PYTHONPATH. Installed with
+# --no-deps so only the entry-point metadata lands.
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jina-on-prem-vllm-plugin"
+version = "0.1.0"
+description = "Registers a catalog model's own architectures with vLLM in every process."
+
+[project.entry-points."vllm.general_plugins"]
+jina_on_prem_architectures = "vllm_plugin:register"
+
+[tool.setuptools]
+py-modules = []

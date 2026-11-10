@@ -126,6 +126,15 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
+if engine.SPEC.runtime.startswith("vllm_"):
+    # vLLM's own chat route, mounted ahead of this server's so it is the one
+    # that matches; the handler is filled in from startup once the engine is
+    # warm. Its exception handlers are app-wide, which is fine for a process
+    # that serves this one model.
+    import vllm_serving  # noqa: E402
+
+    vllm_serving.mount_chat_completions(app, max_images=vllm_serving.image_limit(engine.SPEC))
+    vllm_serving.register_vllm_exception_handlers(app)
 app.include_router(adapters.router)
 
 
@@ -237,9 +246,25 @@ async def _license_gate(request, call_next):
     )
 
 
+@app.on_event("shutdown")
+async def shutdown():
+    # A family that owns an engine process has to stop it; the others hold
+    # nothing this process's exit does not release.
+    engine.shutdown()
+
+
 @app.on_event("startup")
 async def startup():
-    engine.load()
+    try:
+        engine.load()
+        await engine.warmup()
+    except BaseException:
+        # A failed start-up must still release what load acquired: a family
+        # with an engine process would otherwise leave it running until the
+        # container dies.
+        engine.shutdown()
+        raise
+    app.state.openai_serving_chat = engine.chat_serving()
     _lic = _license.status(settings.license_key, settings.model_id)
     _m = _lic.get("mode")
     if _m == "off":

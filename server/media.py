@@ -5,9 +5,24 @@ import urllib.parse
 import urllib.request
 from typing import Union
 
+import catalog
+from config import settings
 from errors import BadRequest, JinaError, PayloadTooLarge
 
-MAX_MEDIA_BYTES = 10 * 1024 * 1024  # 10 MB per input
+
+DEFAULT_MEDIA_BYTES = 10 * 1024 * 1024
+
+
+def _media_limit() -> int:
+    """Per-input ceiling: the catalog's, where the model sets one, else the
+    default. An embedding model sees thumbnails; a page reader sees scans at
+    print resolution, and the catalog is where that difference is recorded."""
+    if catalog.is_known(settings.model_id):
+        return catalog.spec_for(settings.model_id).max_media_bytes or DEFAULT_MEDIA_BYTES
+    return DEFAULT_MEDIA_BYTES
+
+
+MAX_MEDIA_BYTES = _media_limit()
 
 # A URL in the request body is the CALLER's fetch, and refusing it in code
 # protected nobody. The air gap is enforced by the network the container is
@@ -138,6 +153,56 @@ def _fetch(url: str) -> tuple:
             f"{url} is over the {MAX_MEDIA_BYTES:,} byte limit for one input"
         )
     return raw, mime
+
+
+def load_bytes(url: str) -> tuple:
+    """An image reference resolved to (raw_bytes, mime_type) under the same
+    scheme check and byte limit as every other input, and bounded from its
+    header, untouched otherwise: for a caller that hands the bytes on to a
+    decoder of its own rather than decoding them here."""
+    if url.startswith("data:"):
+        raw, mime = _decode_b64(url)
+    else:
+        raw, mime = _fetch(url)
+    return raw, _bounded_image_mime(raw, mime)
+
+
+def _image_pixel_limit() -> float:
+    from PIL import Image
+
+    if catalog.is_known(settings.model_id):
+        limit = catalog.spec_for(settings.model_id).max_image_pixels
+        if limit:
+            return limit
+    return Image.MAX_IMAGE_PIXELS or float("inf")
+
+
+def _bounded_image_mime(raw: bytes, hint: str) -> str:
+    """Apply the pixel bound from the header alone, and name the codec.
+
+    ``Image.open`` parses only the header, so the bound is decidable before a
+    bitmap is ever allocated, which is the point when the decoder that will
+    allocate one is not this process's: a model engine's image processors
+    set ``Image.MAX_IMAGE_PIXELS`` to None on import, so a page past Pillow's
+    own guard would otherwise expand without limit there. Bytes that are not
+    an image are refused here too, rather than failing inside the engine.
+    """
+    from PIL import Image
+
+    try:
+        image = Image.open(io.BytesIO(raw))
+        width, height = image.size
+        mime = Image.MIME.get(image.format or "", "")
+    except Image.DecompressionBombError:
+        raise PayloadTooLarge("Image too large: exceeds the decode limit.")
+    except Exception as e:
+        raise BadRequest(f"Cannot decode image: {e}")
+    limit = _image_pixel_limit()
+    if width * height > limit:
+        raise PayloadTooLarge(
+            f"Image too large: {width}x{height} exceeds the {limit:,}-pixel decode limit."
+        )
+    return mime or _detect_mime(raw, hint) or "application/octet-stream"
 
 
 def _from_url_or_data(url: str, default_mime: str = "") -> list:

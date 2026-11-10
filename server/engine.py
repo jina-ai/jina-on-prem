@@ -44,6 +44,7 @@ MULTIMODAL_MODEL_IDS = {
     "jina-clip-v1",
     "jina-reranker-m0",
     "jina-vlm",
+    "jina-ocr-v1",
 }
 
 _family: Optional[Family] = None
@@ -135,7 +136,27 @@ def is_ready() -> bool:
     thread that would never take it -- healthy to anything watching, dead to
     anything asking.
     """
-    return _family is not None and (_batcher is None or _batcher.alive)
+    return (
+        _family is not None
+        and (_batcher is None or _batcher.alive)
+        and _family.alive()
+    )
+
+
+def shutdown() -> None:
+    if _family is not None:
+        _family.shutdown()
+
+
+async def warmup() -> None:
+    if _family is not None:
+        await _family.warmup()
+
+
+def chat_serving():
+    """vLLM's chat handler for a family that serves the route through it;
+    None for every other family."""
+    return getattr(_family, "chat", None)
 
 
 def is_multimodal() -> bool:

@@ -72,6 +72,8 @@ So the audit question is not "will it run remote code" but "what code is in this
 
 The image sets `USER 65532`, so the server runs as a non-root user without any flag. Nothing in it needs root: it reads the model from the image and listens on 8080. The prebuilt images are also distroless, with no shell or package manager to run anything else; an image you bundle yourself keeps the shell and `apk` of its base (see [Bundling Guide -> Base image](Bundling-Guide#base-image)).
 
+The exception is a model served on vLLM, any catalog entry whose `runtime` is `vllm_chat`. Its image is built on vLLM's own release image, which carries a C toolchain because the engine compiles its GPU kernels at runtime, so it is not distroless and a scanner will report what every vLLM-based serving image carries: an OS userland, Python packaging tools, the CUDA runtime. It still runs as `USER 65532`, still reads only its baked model, still opens no outbound connection, and the air gap is still the network you give it. Treat its scan results the way you would any vLLM deployment's.
+
 ```bash
 docker run --read-only \
   --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \

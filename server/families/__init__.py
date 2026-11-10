@@ -51,6 +51,19 @@ class Family(ABC):
         self._load_tokenizer()
         self._finalize_cpu_bf16()
 
+    def alive(self) -> bool:
+        """Still able to answer. A Transformers model in memory always is; a
+        family that owns an engine process reports that process."""
+        return True
+
+    async def warmup(self) -> None:
+        """Pay any first-request cost before the container reports ready.
+        Awaited from the app's startup, so a family that drives an async
+        engine can run a request through it."""
+
+    def shutdown(self) -> None:
+        """Release what ``load`` acquired beyond this process's memory."""
+
     @property
     def encode_kwargs(self) -> frozenset[str]:
         """Extra ``encode()`` kwargs this loaded model genuinely consumes.
@@ -304,7 +317,7 @@ def family_for(spec) -> Family:
         EmbeddingsV5OmniFamily,
         SentenceTransformerFamily,
     )
-    from .generation import TextChatFamily, VlmFamily
+    from .generation import TextChatFamily, VllmChatFamily, VlmFamily
     from .reranking import ColbertFamily, CrossEncoderFamily, JinaRankingFamily
 
     return {
@@ -318,4 +331,5 @@ def family_for(spec) -> Family:
         "colbert": ColbertFamily,
         "vlm": VlmFamily,
         "text_chat": TextChatFamily,
+        "vllm_chat": VllmChatFamily,
     }[spec.runtime](spec)

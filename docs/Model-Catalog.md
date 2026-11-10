@@ -1,4 +1,4 @@
-All 29 models supported by jina-on-prem, generated from [`models/catalog.json`](https://github.com/jina-ai/jina-on-prem/blob/main/models/catalog.json), which is the source of truth for every field below.
+All 30 models supported by jina-on-prem, generated from [`models/catalog.json`](https://github.com/jina-ai/jina-on-prem/blob/main/models/catalog.json), which is the source of truth for every field below.
 
 **License note**: Models tagged `CC-BY-NC-4.0` need a commercial license for production use. Contact [Elastic sales](https://www.elastic.co/contact).
 
@@ -49,6 +49,12 @@ All 29 models supported by jina-on-prem, generated from [`models/catalog.json`](
 | `ReaderLM-v2` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2FReaderLM-v2) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2FReaderLM-v2) | 1.54B | ~4GB | 512K | - | text | CC-BY-NC-4.0 |
 | `reader-lm-1.5b` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-1.5b) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-1.5b) | 1.54B | ~4GB | 256K | - | text | CC-BY-NC-4.0 |
 | `reader-lm-0.5b` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-0.5b) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-0.5b) | 494M | ~2GB | 256K | - | text | CC-BY-NC-4.0 |
+
+## OCR
+
+| Model | Prebuilt | Params | VRAM | Context | Output | Modality | License |
+|---|---|---|---|---|---|---|---|
+| `jina-ocr-v1` | [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-ocr-v1) | 3.4B | ~16GB | 32K | - | multimodal | CC-BY-NC-4.0 |
 
 ## Vision-Language
 

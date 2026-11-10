@@ -147,6 +147,10 @@ def error(exc: JinaError) -> dict:
 
 def validation(errors: list) -> dict:
     first = errors[0] if errors else {}
+    if not isinstance(first, dict):
+        # vLLM's route dependencies raise the same exception with a bare
+        # message in place of pydantic's error dicts.
+        return envelope(422, str(first))
     field = " -> ".join(str(part) for part in first.get("loc", ())) or None
     return envelope(422, first.get("msg", "Invalid request"), param=field)
 

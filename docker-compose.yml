@@ -29,6 +29,11 @@ services:
       timeout: 5s
       start_period: 60s
       retries: 3
+    # A model served on vLLM (`runtime: vllm_chat` in models/catalog.json) runs
+    # its engine in a spawned process that talks over /dev/shm, which Docker
+    # sizes at 64 MB. The size is a cap, not a reservation, so every other model
+    # is unaffected.
+    shm_size: 2g
     # Uncomment for GPU runtime:
     # deploy:
     #   resources:
@@ -37,3 +42,7 @@ services:
     #         - driver: nvidia
     #           count: 1
     #           capabilities: [gpu]
+    # A model served on vLLM is not ready until it has compiled and captured
+    # CUDA graphs, which takes minutes:
+    # healthcheck:
+    #   start_period: 600s

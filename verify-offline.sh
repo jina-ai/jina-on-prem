@@ -97,9 +97,25 @@ elif endpoint == "/v1/rerank":
     if any("document" in r for r in omitted.get("results", [])):
         failures.append("return_documents=false still returned a document key")
 elif endpoint == "/v1/chat/completions":
-    body = post(endpoint, {"messages": [{"role": "user", "content":
-        "Summarise in one sentence why batching matters for LLM inference."}],
-        "max_tokens": 64})
+    content = "Summarise in one sentence why batching matters for LLM inference."
+    if health.get("multimodal"):
+        # A page-reading model is asked to read a page, which is what a
+        # text-only question would not prove. Rendered here with Pillow's
+        # built-in bitmap font, so nothing is fetched or shipped for it.
+        import base64, io
+        from PIL import Image, ImageDraw
+        page = Image.new("RGB", (640, 160), "white")
+        ImageDraw.Draw(page).text((20, 40), "Offline verification page 2048", fill="black")
+        buffer = io.BytesIO()
+        page.save(buffer, format="PNG")
+        content = [
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,"
+                + base64.b64encode(buffer.getvalue()).decode()}},
+            {"type": "text", "text": "Transcribe the provided document image into "
+                "a clean Markdown format, preserving the natural reading order."},
+        ]
+    body = post(endpoint, {"messages": [{"role": "user", "content": content}],
+                           "max_tokens": 64})
     text = (body.get("choices") or [{}])[0].get("message", {}).get("content", "")
     if body.get("object") != "chat.completion":
         failures.append(f"object={body.get('object')!r}")

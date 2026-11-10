@@ -43,6 +43,18 @@ class ModelSpec:
     vram_gb: Optional[int] = None
     gpu_dtype: Optional[str] = None
     extra_repos: Optional[tuple] = None
+    # Per-input media ceiling, bytes. Unset means the server's default; a model
+    # that reads scanned pages needs more than an embedding model's thumbnail.
+    max_media_bytes: Optional[int] = None
+    # Decoded-pixel ceiling for one image, checked from the header before any
+    # bitmap exists. Unset means Pillow's own limit.
+    max_image_pixels: Optional[int] = None
+    # Everything the vLLM family needs that differs between models: which
+    # architectures to register, the engine arguments (sampling defaults and
+    # the output ceiling among them), the serving options. Present only on
+    # ``vllm_*`` runtimes; the family is generic and this block is where the
+    # model lives.
+    vllm: Optional[dict] = None
 
 
 def _load() -> dict:
@@ -94,4 +106,7 @@ def spec_for(model_id: str) -> ModelSpec:
         vram_gb=entry.get("vram_gb"),
         gpu_dtype=entry.get("gpu_dtype"),
         extra_repos=tuple(entry["extra_repos"]) if entry.get("extra_repos") else None,
+        max_media_bytes=entry.get("max_media_bytes"),
+        max_image_pixels=entry.get("max_image_pixels"),
+        vllm=entry.get("vllm"),
     )

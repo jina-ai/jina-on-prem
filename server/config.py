@@ -21,6 +21,7 @@ class Settings:
     batching: bool
     batch_tokens: int
     batch_wait_ms: float
+    gpu_memory_fraction: float | None
 
 
 def _detect_device() -> str:
@@ -88,6 +89,15 @@ def _init() -> Settings:
         # 0 means size it against real VRAM at startup rather than guess.
         batch_tokens=int(os.environ.get("JINA_BATCH_TOKENS", "0")),
         batch_wait_ms=float(os.environ.get("JINA_BATCH_WAIT_MS", "5")),
+        # How much of the card a vLLM-served model claims at startup. Unset, the
+        # model's catalog entry decides. It is a pre-allocation, not a cap: lower
+        # it to put a second model on the same GPU. Ignored by the Transformers
+        # families.
+        gpu_memory_fraction=(
+            float(os.environ["JINA_GPU_MEMORY_FRACTION"])
+            if os.environ.get("JINA_GPU_MEMORY_FRACTION")
+            else None
+        ),
     )
 
 

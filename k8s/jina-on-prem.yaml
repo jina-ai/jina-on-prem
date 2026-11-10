@@ -81,7 +81,20 @@ spec:
           initialDelaySeconds: 90
           periodSeconds: 30
           failureThreshold: 3
-        # The image is self-contained; no volumes needed.
+        # A model served on vLLM (`runtime: vllm_chat` in models/catalog.json)
+        # runs its engine in a spawned process that talks over /dev/shm, which
+        # a pod gives only 64 MB of by default. Memory is used only as the
+        # process writes there, so every other model is unaffected. Such a model
+        # is also not ready until it has compiled and captured CUDA graphs,
+        # which takes minutes: raise both probes' initialDelaySeconds to 600.
+        volumeMounts:
+        - name: dshm
+          mountPath: /dev/shm
+      volumes:
+      - name: dshm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
 ---
 apiVersion: v1
 kind: Service

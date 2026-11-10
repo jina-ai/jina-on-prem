@@ -120,6 +120,28 @@ Whichever image you run, ask for `encoding_format: "base64"`: same numbers, and 
 
 Which image for which traffic, the measured `:gpu` / `:gpu-opt` comparison, and image sizes: [Sizing & Hardware](https://github.com/jina-ai/jina-on-prem/wiki/Sizing-And-Hardware#gpu-dynamic-batching-the-gpu-opt-images).
 
+## Generative models on vLLM
+
+Some models are served by an in-process [vLLM](https://github.com/vllm-project/vllm) engine rather than Transformers, because a decoder that writes a page of Markdown is many times faster with continuous batching and CUDA graphs than one token at a time. Which ones: every catalog entry whose `runtime` is `vllm_chat`; `jina-ocr-v1` is the first. Same API, same `:gpu` tag, same license gate; what differs:
+
+- **GPU only.** There is no `:cpu` image and `bundle --cpu-only` refuses. Ampere or newer (L4, A10, A100, H100, RTX PRO).
+- **The chat route is vLLM's own.** `/v1/chat/completions` is served by vLLM's OpenAI-compatible handler, the same code the hosted API runs, so the request fields, `stream: true` (OpenAI-style `chat.completion.chunk` events, each carrying the running `usage`), `finish_reason` values and error bodies are vLLM's. Asking for more output tokens than the model serves is refused with a 400 naming the field, not silently clamped.
+- **One page per request**, as `image_url` (http or `data:`), up to the `max_media_bytes` and `max_image_pixels` on the model's catalog entry, sized for a scan at print resolution. Images are fetched and bounded by this server before vLLM sees them. Send the instruction as a text part alongside the image, as the model card shows.
+- **It claims the GPU.** vLLM pre-allocates most of the card's memory at startup. To share a GPU with another container, set `JINA_GPU_MEMORY_FRACTION` below the default on the model's catalog entry.
+- **Cold start is minutes, not seconds**, while the engine compiles and captures CUDA graphs. The image's healthcheck start period is sized for it; give your orchestrator's probes the same.
+- **It needs shared memory.** The engine runs in a process it spawns and they talk over `/dev/shm`. Run with `--shm-size=2g` (compose: `shm_size: 2g`; Kubernetes: an `emptyDir` with `medium: Memory` mounted at `/dev/shm`).
+
+```bash
+docker run --gpus all --shm-size=2g -p 8080:8080 \
+  ghcr.io/jina-ai/jina-on-prem/jina-ocr-v1:gpu
+curl http://localhost:8080/v1/chat/completions -H 'Content-Type: application/json' -d '{
+  "messages": [{"role": "user", "content": [
+    {"type": "image_url", "image_url": {"url": "data:image/png;base64,'$(base64 -w0 page.png)'"}}
+  ]}]}'
+```
+
+The image is built on vLLM's own release image, not the distroless base the other images use: the engine's kernels are compiled at runtime and need a toolchain in the container. A scanner will report what every vLLM-based serving image carries; see the wiki's security page for what that means and what it does not.
+
 ## API at a glance
 
 The server speaks five schemas on the same port simultaneously:

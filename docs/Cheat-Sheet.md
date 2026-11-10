@@ -55,6 +55,7 @@ Full table: [Model Catalog](Model-Catalog).
 | Voyage | `POST /v1/multimodalembeddings` | `{"inputs":[{"content":[{"type":"text","text":"hi"}]}]}` (multimodal models) |
 | Reranker | `POST /v1/rerank`, `POST /v2/rerank` | `{"query":"...","documents":["...","..."],"top_n":2}` |
 | Reader / VLM | `POST /v1/chat/completions` | `{"messages":[{"role":"user","content":"hi"}]}` |
+| OCR | `POST /v1/chat/completions` | `{"messages":[{"role":"user","content":[{"type":"image_url","image_url":{"url":"data:image/png;base64,..."}},{"type":"text","text":"Transcribe the provided document image into a clean Markdown format, preserving the natural reading order."}]}],"stream":true}` |
 | Health | `GET /health` | (returns model + device + schemas) |
 
 ## Tasks (v5)
