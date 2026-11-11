@@ -9,7 +9,7 @@ A deployed jina-on-prem server exposes five API schemas on the same port. Pick w
    Cohere SDK             ──►  POST /v2/embed                ├──►  FastAPI server
    Google AI SDK          ──►  POST /v1/models/X:embedContent│         │
    reranker client        ──►  POST /v1/rerank, /v2/rerank   │         ▼
-   reader / VLM client    ──►  POST /v1/chat/completions     │   model.encode()
+   reader / VLM / OCR     ──►  POST /v1/chat/completions     │   model.encode()
    ES inference           ──►  service: openai | cohere      ┘
                                                                        │
    GET /health  (status, schemas, multimodal flag)                     ▼
@@ -31,7 +31,23 @@ A deployed jina-on-prem server exposes five API schemas on the same port. Pick w
 
 The Cohere schema is served on its v2 paths, which is what a current Cohere SDK calls.
 
-The reader and VLM models serve `POST /v1/chat/completions` instead of an embedding endpoint - they generate text. Each model's `api_endpoint` field in the catalog says which endpoint it answers on, and so does `GET /health`.
+The reader, VLM and OCR models serve `POST /v1/chat/completions` instead of an embedding endpoint - they generate text. Each model's `api_endpoint` field in the catalog says which endpoint it answers on, and so does `GET /health`.
+
+### Document OCR (`jina-ocr-v1`)
+
+One page image per request, as an `image_url` part (`http(s)` or a `data:` URL), with the instruction as a text part beside it. The answer is the page as Markdown: tables as HTML, formulas as LaTeX.
+
+```bash
+curl http://localhost:8080/v1/chat/completions -H 'Content-Type: application/json' -d '{
+  "messages": [{"role": "user", "content": [
+    {"type": "image_url", "image_url": {"url": "data:image/png;base64,'$(base64 -w0 page.png)'"}},
+    {"type": "text", "text": "Transcribe the provided document image into a clean Markdown format, preserving the natural reading order."}
+  ]}],
+  "stream": true
+}'
+```
+
+This model is served on vLLM, and its chat route is vLLM's own OpenAI-compatible handler, so the request fields, `stream: true`, `finish_reason` and error bodies are vLLM's. Two images in one request, or a `max_tokens` above what the model generates, are refused with a 400 that names the problem. A PDF is not read directly: render each page to an image first. Deployment notes (GPU only, `--shm-size`, cold start): [README, Generative models on vLLM](https://github.com/jina-ai/jina-on-prem#generative-models-on-vllm).
 
 ## Health
 

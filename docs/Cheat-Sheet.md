@@ -2,7 +2,7 @@ One-page quick reference.
 
 ## Summary
 
-> Deploy Jina AI embedding, reranker, and reader models on your own infrastructure with zero outbound network calls.
+> Deploy Jina AI embedding, reranker, reader and document OCR models on your own infrastructure with zero outbound network calls.
 
 ## The two phases
 
@@ -40,6 +40,7 @@ curl http://localhost:8080/health
 | `jina-reranker-v3.5` | top-K reranking, 131K context | 0.6B | ~3GB | yes |
 | `jina-reranker-v3` | top-K reranking, lighter host RAM on `:cpu` | 597M | ~3GB | yes |
 | `jina-clip-v2` | image + text search | 865M | ~4GB | yes |
+| `jina-ocr-v1` | page image to Markdown (render PDF pages to images first); GPU only, served on vLLM | 3.4B | an L4 or larger | yes (`:gpu` only) |
 | `jina-embeddings-v3` | in maintenance; new deployments should prefer `jina-embeddings-v5-text-small` ([Lifecycle](Product-And-Model-Lifecycle#current-lifecycle-status)) | 570M | ~3GB | yes |
 
 Full table: [Model Catalog](Model-Catalog).
@@ -70,7 +71,7 @@ Full table: [Model Catalog](Model-Catalog).
 
 | License | Models | Commercial use |
 |---|---|---|
-| CC-BY-NC-4.0 | All v5, v3, reranker-v3 / -v3.5 / -m0 / -v2-base-multilingual, clip-v2, colbert-v2, code-embeddings, ReaderLM-v2, reader-lm, vlm | needs commercial license - contact [Elastic sales](https://www.elastic.co/contact) |
+| CC-BY-NC-4.0 | All v5, v3, reranker-v3 / -v3.5 / -m0 / -v2-base-multilingual, clip-v2, colbert-v2, code-embeddings, ReaderLM-v2, reader-lm, vlm, ocr-v1 | needs commercial license - contact [Elastic sales](https://www.elastic.co/contact) |
 | Qwen Research License | v4 | needs commercial license - contact [Elastic sales](https://www.elastic.co/contact) |
 | Apache-2.0 | v2 text embeddings (`jina-embeddings-v2-base-*`), v1 embeddings and rerankers, clip-v1, colbert-v1-en | free for any use |
 
@@ -79,6 +80,7 @@ Full table: [Model Catalog](Model-Catalog).
 - Low sustained QPS → CPU is fine; the cut-over is in [Sizing & Hardware -> Runtime: GPU or CPU?](Sizing-And-Hardware#runtime-gpu-or-cpu)
 - Above that, or low-latency → L4 (24 GB VRAM, handles any single model)
 - More than one L4 can serve → multiple replicas behind an LB, or A10G/A100; plan from [Throughput math](Sizing-And-Hardware#throughput-math)
+- `jina-ocr-v1` → GPU only, an L4 or larger, run with `--shm-size=2g`; see [Sizing & Hardware -> Document OCR](Sizing-And-Hardware#document-ocr-jina-ocr-v1)
 
 ## Pre-flight checklist
 

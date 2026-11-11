@@ -807,7 +807,7 @@ def make_parser():
                         help="Show VRAM, dims, context, license, modality")
     list_p.add_argument("--json", action="store_true",
                         help="Output as JSON to stdout (machine-readable)")
-    list_p.add_argument("--type", choices=["embedding", "reranker", "reader", "colbert", "vlm"],
+    list_p.add_argument("--type", choices=["embedding", "reranker", "reader", "colbert", "vlm", "ocr"],
                         help="Filter by model type")
     list_p.add_argument("--modality", choices=["text", "multimodal", "code"],
                         help="Filter by modality")

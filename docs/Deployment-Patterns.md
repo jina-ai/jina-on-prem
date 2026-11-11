@@ -19,6 +19,8 @@ search]:::ask
 search]:::ask
     SCN --> S6[Better
 reranking]:::ask
+    SCN --> S7[Scanned documents
+to searchable text]:::ask
 
     S1 --> M1[jina-embeddings-v5-text-small
 + jina-reranker-v3.5]:::rec
@@ -31,6 +33,8 @@ text and image]:::rec
     S5 --> M5[jina-code-embeddings-1.5b]:::rec
     S6 --> M6[jina-reranker-v3.5
 131K context]:::rec
+    S7 --> M7[jina-ocr-v1
+then an embedding model]:::rec
 ```
 
 ## Scenario A - Offline semantic search in Elasticsearch
@@ -165,6 +169,22 @@ curl http://rerank-host:8080/v1/rerank \
 - Source code is on GitHub (Apache-2.0 for the CLI) and is auditable.
 
 The full set, with the network behaviour and a hardening checklist, is in [Security & Hardening](Security-And-Hardening).
+
+## Scenario H - Scanned documents into searchable text
+
+**Situation**: an archive of scanned contracts, forms or reports, as images or image-only PDFs, that has to become searchable without the pages leaving the network.
+
+**Use**: `jina-ocr-v1` to turn each page into Markdown (tables as HTML, formulas as LaTeX), then an embedding model such as `jina-embeddings-v5-text-small` to index the text.
+
+**Hardware**: an L4 or larger; the OCR model has no CPU image. Run it on its own GPU, or lower its memory share with `JINA_GPU_MEMORY_FRACTION` to put the embedding model on the same card. See [Sizing & Hardware -> Document OCR](Sizing-And-Hardware#document-ocr-jina-ocr-v1).
+
+**Deploy**: render each PDF page to an image first (the model reads one page image per request), send it to the OCR container as [API Reference -> Document OCR](API-Reference#document-ocr-jina-ocr-v1) shows, and index what comes back:
+
+```bash
+docker run --gpus all --shm-size=2g -p 8080:8080 ghcr.io/jina-ai/jina-on-prem/jina-ocr-v1:gpu
+```
+
+Send several pages concurrently rather than one after another: the engine batches the requests in flight, so throughput rises with concurrency.
 
 ## Next
 

@@ -119,11 +119,13 @@ Sizes: under 2 GB for the nano/small text models on CPU and 4-6 GB on GPU; multi
 | Base image | `cgr.dev/chainguard/wolfi-base` | `cgr.dev/chainguard/wolfi-base`, with CUDA from the PyTorch wheels |
 | Image size | weights plus a CPU-only torch | adds a few GB of CUDA runtime on top; see [Sizing & Hardware](Sizing-And-Hardware#published-image-sizes) |
 | Runs on host with GPU | yes (ignores GPU) | yes |
-| Runs on host without GPU | yes | yes, falls back to CPU |
+| Runs on host without GPU | yes | yes, falls back to CPU (except `jina-ocr-v1`, below) |
 | Inference speed | ~10x slower | full speed |
 | Build wall-clock | ~3-15 min | ~10-30 min |
 
 If unsure, build both. The runtime host decides which to load.
+
+`jina-ocr-v1` is GPU only: it is served on vLLM, so `bundle` builds it from `docker/Dockerfile.vllm` on vLLM's release image (`vllm/vllm-openai`, pinned by digest, pulled from Docker Hub), and `--cpu-only` refuses. The build machine needs to reach Docker Hub for that base, and the image is among the largest in the catalog; see [Sizing & Hardware -> Document OCR](Sizing-And-Hardware#document-ocr-jina-ocr-v1).
 
 ## Base image
 

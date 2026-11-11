@@ -74,7 +74,7 @@ FastAPI access logs + model load info + warnings. `docker logs <container>` to s
 ## Comparison with alternatives
 
 **"Why not Ollama / vLLM / LocalAI?"**
-Those are great projects for hosted-yourself LLMs. jina-on-prem is specifically for *embeddings* and *rerankers* (the search workload), wraps Jina-specific models with their custom tokenizers and adapters, and standardizes on a multi-schema API. For LLM chat, use Ollama or vLLM separately.
+Those are great projects for hosted-yourself LLMs. jina-on-prem is specifically for *embeddings*, *rerankers* and document reading (the search workload, plus `jina-ocr-v1`, which turns a page image into Markdown for it), wraps Jina-specific models with their custom tokenizers and adapters, and standardizes on a multi-schema API. For LLM chat, use Ollama or vLLM separately. `jina-ocr-v1` itself runs on vLLM inside its image, so you get vLLM's speed for OCR without running vLLM yourself.
 
 **"Why not export the model to ONNX and run with onnxruntime?"**
 You can, and for some models that's a fine path. jina-on-prem's value-add is: pinning the exact transformers/torch versions per model (custom code requires specific versions), wrapping the multi-schema API, and the bundle-and-transfer workflow with documented walkthroughs. ONNX export drops some model-specific code paths (LoRA adapters, custom rerankers) that the maintained Python implementation supports.

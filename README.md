@@ -1,6 +1,6 @@
 # jina-on-prem
 
-On-prem deployment toolkit for Jina AI models. Bundle embedding, reranker, and reader models into self-contained Docker images that run fully offline.
+On-prem deployment toolkit for Jina AI models. Bundle embedding, reranker, reader and document OCR models into self-contained Docker images that run fully offline.
 
 > **New here?** The [Quick Start wiki page](https://github.com/jina-ai/jina-on-prem/wiki/Quick-Start) gets you to your first `/v1/embeddings` response in 5 minutes using a prebuilt image. Full tutorials, troubleshooting, and the model catalog live in the [wiki](https://github.com/jina-ai/jina-on-prem/wiki).
 
@@ -79,7 +79,7 @@ Drops in via OpenAI SDK with `base_url="http://your-host:8080/v1"`.
 
 ## Models
 
-29 models supported: embeddings (v5, v4, v3, v2), rerankers, readers, ColBERT, CLIP, VLM. 28 of them have prebuilt images; every model can be bundled from source. Headline picks:
+Supported: embeddings (v5, v4, v3, v2), rerankers, readers, document OCR, ColBERT, CLIP, VLM. Almost every model has a prebuilt image, and every model can be bundled from source. Headline picks:
 
 | Model | Type | Modality | Params | VRAM | Prebuilt |
 |---|---|---|---|---|---|
@@ -91,10 +91,11 @@ Drops in via OpenAI SDK with `base_url="http://your-host:8080/v1"`.
 | `jina-clip-v2` | embedding | multimodal | 865M | ~4GB | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-clip-v2) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-clip-v2) |
 | `jina-reranker-v3.5` | reranker | text | 0.6B | ~3GB | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3.5) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3.5) |
 | `jina-reranker-v3` | reranker | text | 597M | ~3GB | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3) |
+| `jina-ocr-v1` | OCR | page image to Markdown | 3.4B | an L4 or larger | [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-ocr-v1) only, see [Generative models on vLLM](#generative-models-on-vllm) |
 
 `jina-embeddings-v3` is in maintenance: existing deployments stay supported, and new deployments should prefer `jina-embeddings-v5-text-small` (see [Product & Model Lifecycle](https://github.com/jina-ai/jina-on-prem/wiki/Product-And-Model-Lifecycle#current-lifecycle-status)).
 
-Full catalog with all 29 models, VRAM, context windows, and licenses: [Model Catalog wiki](https://github.com/jina-ai/jina-on-prem/wiki/Model-Catalog) (auto-generated from [`models/catalog.json`](models/catalog.json)).
+Full catalog with every model, VRAM, context windows, and licenses: [Model Catalog wiki](https://github.com/jina-ai/jina-on-prem/wiki/Model-Catalog) (auto-generated from [`models/catalog.json`](models/catalog.json)).
 
 > CC-BY-NC-4.0 models require a commercial license for production use. Contact [Elastic sales](https://www.elastic.co/contact).
 
@@ -102,7 +103,7 @@ Full catalog with all 29 models, VRAM, context windows, and licenses: [Model Cat
 
 The default `:gpu` server runs one forward pass at a time, so concurrent clients queue behind each other. The **`:gpu-opt`** tags add a server-side **dynamic batcher**: one GPU worker coalesces concurrent requests into length-sorted, token-budgeted batches, so clients can send one input at a time and still keep the GPU busy.
 
-Published for the 16 embedding models. Rerankers, ColBERT, reader and VLM models have `:cpu` and `:gpu` only:
+Published for the embedding models. Rerankers, ColBERT, reader and VLM models have `:cpu` and `:gpu` only, and the OCR model `:gpu` only:
 
 ```bash
 docker run --gpus all -p 8080:8080 \
@@ -124,7 +125,7 @@ Which image for which traffic, the measured `:gpu` / `:gpu-opt` comparison, and 
 
 Some models are served by an in-process [vLLM](https://github.com/vllm-project/vllm) engine rather than Transformers, because a decoder that writes a page of Markdown is many times faster with continuous batching and CUDA graphs than one token at a time. Which ones: every catalog entry whose `runtime` is `vllm_chat`; `jina-ocr-v1` is the first. Same API, same `:gpu` tag, same license gate; what differs:
 
-- **GPU only.** There is no `:cpu` image and `bundle --cpu-only` refuses. Ampere or newer (L4, A10, A100, H100, RTX PRO).
+- **GPU only.** There is no `:cpu` image and `bundle --cpu-only` refuses. Recommended: an L4 or larger.
 - **The chat route is vLLM's own.** `/v1/chat/completions` is served by vLLM's OpenAI-compatible handler, the same code the hosted API runs, so the request fields, `stream: true` (OpenAI-style `chat.completion.chunk` events, each carrying the running `usage`), `finish_reason` values and error bodies are vLLM's. Asking for more output tokens than the model serves is refused with a 400 naming the field, not silently clamped.
 - **One page per request**, as `image_url` (http or `data:`), up to the `max_media_bytes` and `max_image_pixels` on the model's catalog entry, sized for a scan at print resolution. Images are fetched and bounded by this server before vLLM sees them. Send the instruction as a text part alongside the image, as the model card shows.
 - **It claims the GPU.** vLLM pre-allocates most of the card's memory at startup. To share a GPU with another container, set `JINA_GPU_MEMORY_FRACTION` below the default on the model's catalog entry.
@@ -141,6 +142,8 @@ curl http://localhost:8080/v1/chat/completions -H 'Content-Type: application/jso
 ```
 
 The image is built on vLLM's own release image, not the distroless base the other images use: the engine's kernels are compiled at runtime and need a toolchain in the container. A scanner will report what every vLLM-based serving image carries; see the wiki's security page for what that means and what it does not.
+
+`jina-ocr-v1` throughput per GPU and accuracy on olmOCR-Bench, the OCR benchmark its model card reports on, in line with the model card: [Sizing & Hardware](https://github.com/jina-ai/jina-on-prem/wiki/Sizing-And-Hardware#measured-on-olmocr-bench).
 
 ## API at a glance
 
@@ -167,7 +170,7 @@ curl http://localhost:8080/v1/rerank \
   -H 'Content-Type: application/json' \
   -d '{"query": "best embedding model", "documents": ["..."], "top_n": 2}'
 
-# Reader / VLM models generate text instead of vectors
+# Reader / VLM models generate text instead of vectors; for OCR, send a page image (see Generative models on vLLM above)
 curl http://localhost:8080/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{"messages": [{"role": "user", "content": "hi"}]}'
@@ -195,11 +198,11 @@ curl -s http://localhost:8080/health   # shows license status; every GET, /healt
 
 - **Zero-dep CLI**: `jina-on-prem.py` uses Python stdlib only
 - **Weights baked in**: multi-stage Docker build downloads weights at bundle time; `HF_HUB_OFFLINE=1` + `TRANSFORMERS_OFFLINE=1` enforced at runtime
-- **No connection of its own**: the server opens nothing outbound on its own initiative. It will fetch an `http(s)` image or video URL when a *request* contains one - reachability is your network's decision, and `--network none` still serves every model. Only `http`/`https` and inline `data:` URLs are read, capped at 10 MB with an 8s budget
-- **Wolfi images**: `Dockerfile.gpu` (CUDA from the PyTorch wheels, FP16) and `Dockerfile.cpu`. The prebuilt images are distroless, with no shell or package manager, and run as a non-root user
-- **Per-model pinned deps**: `catalog.json` `deps` field drives exact versions per model
+- **No connection of its own**: the server opens nothing outbound on its own initiative. It will fetch an `http(s)` image or video URL when a *request* contains one - reachability is your network's decision, and `--network none` still serves every model. Only `http`/`https` and inline `data:` URLs are read, capped at 10 MB with an 8s budget, unless the model's catalog entry sets its own size cap (the OCR model allows a scanned page)
+- **Wolfi images**: `Dockerfile.gpu` (CUDA from the PyTorch wheels, FP16) and `Dockerfile.cpu`. The prebuilt images are distroless, with no shell or package manager, and run as a non-root user. Models served on vLLM are the exception: `Dockerfile.vllm`, on vLLM's own release image (see above)
+- **Per-model pinned deps**: `catalog.json` `deps` field drives exact versions per model; a vLLM-served model takes vLLM's pins from its Dockerfile instead
 - **Multi-schema API**: Jina, OpenAI, Voyage AI, Cohere, Gemini - all active simultaneously
-- **GPU auto-detect**: falls back to CPU if no CUDA available
+- **GPU auto-detect**: falls back to CPU if no CUDA available (not for a vLLM-served model, which needs a GPU)
 - **Matryoshka**: pass `dimensions` to truncate embeddings to any supported size
 
 ### Serve without Docker
@@ -221,7 +224,10 @@ jina-on-prem/
 - docker/
   - Dockerfile.gpu         # GPU image (Wolfi, CUDA from PyTorch wheels, FP16)
   - Dockerfile.cpu         # CPU image (Wolfi)
+  - Dockerfile.vllm        # GPU image for models served on vLLM (vLLM's release image)
   - download_model.py      # Model download + patch script (build stage)
+  - download_vllm_model.py # the same for a vLLM-served model
+  - vllm-plugin/           # registers the model's architecture with vLLM
   - verify_staging.py      # build gate: remote-code files staged before runtime
 - server/
   - app.py                 # FastAPI app: mounts the adapters, license gate, /health
@@ -248,7 +254,7 @@ jina-on-prem/
 
 - [Quick Start](https://github.com/jina-ai/jina-on-prem/wiki/Quick-Start) - 5-minute walkthrough with a prebuilt image
 - [Bundling Guide](https://github.com/jina-ai/jina-on-prem/wiki/Bundling-Guide) - build your own from a connected machine, GCP L4 walkthrough
-- [Model Catalog](https://github.com/jina-ai/jina-on-prem/wiki/Model-Catalog) - all 29 models with full metadata
+- [Model Catalog](https://github.com/jina-ai/jina-on-prem/wiki/Model-Catalog) - every model with full metadata
 - [API Reference](https://github.com/jina-ai/jina-on-prem/wiki/API-Reference) - five schemas, multimodal inputs, tasks, ES integration
 - [Elasticsearch Integration](https://github.com/jina-ai/jina-on-prem/wiki/Elasticsearch-Integration) - inference endpoints for embeddings and rerank
 - [Sizing & Hardware](https://github.com/jina-ai/jina-on-prem/wiki/Sizing-And-Hardware) - capacity planning and published image sizes

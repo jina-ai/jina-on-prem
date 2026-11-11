@@ -17,7 +17,7 @@ or move to bigger GPU]
 |---|---|---|
 | Base | Wolfi, see [Bundling Guide -> Base image](Bundling-Guide#base-image) | Wolfi, with CUDA 12.6 from the PyTorch wheels |
 | Image size | under 2 GB for the v5 text models and the v3 / v3.5 rerankers; see [Published image sizes](#published-image-sizes) | the CPU image plus a few GB of CUDA runtime; 4-6 GB for the same models |
-| Needs GPU on host | no | for GPU inference, with NVIDIA driver 525+; without one it falls back to CPU |
+| Needs GPU on host | no | for GPU inference, with NVIDIA driver 525+; without one it falls back to CPU (not `jina-ocr-v1`, which needs a GPU; see [Document OCR](#document-ocr-jina-ocr-v1)) |
 | Latency, single request | 200-2000 ms | 10-200 ms |
 | Throughput, batched | ~5-20 docs/s | 100-1000 docs/s |
 | Cost on GCP (1 month, on-demand) | ~$50 (e2-standard-4) | ~$500 (g2-standard-4 + L4) |
@@ -37,10 +37,34 @@ or move to bigger GPU]
 | jina-clip-v2 | 4 GB | L4 | text + image |
 | jina-code-embeddings-1.5b | 4 GB | L4 | |
 | ReaderLM-v2 | 4 GB | L4 | 512K context, plan for bigger batches |
+| jina-ocr-v1 | - | L4 or larger | GPU only; see [Document OCR](#document-ocr-jina-ocr-v1) |
 
 Full per-model VRAM in the [Model Catalog](Model-Catalog).
 
-> **L4 is the workhorse**. 24 GB, sane price, available in most regions, and every model in the catalog fits on one, `jina-embeddings-v4` included. Default to it unless A100 latency is required or L4 is unavailable in the target region (see [Troubleshooting -> L4 stockout](Troubleshooting#l4-stockout)).
+> **L4 is the workhorse**. 24 GB, sane price, available in most regions, and every model in the catalog fits on one, `jina-embeddings-v4` included, and it is the smallest card we recommend for `jina-ocr-v1`. Default to it unless A100 latency is required or L4 is unavailable in the target region (see [Troubleshooting -> L4 stockout](Troubleshooting#l4-stockout)).
+
+## Document OCR (`jina-ocr-v1`)
+
+The OCR model is served on an in-process vLLM engine, which sizes differently from the other models:
+
+- **GPU only; an L4 or larger.** There is no `:cpu` image. Its CUDA is vLLM's, newer than the other GPU images', so check the driver as [Troubleshooting -> CUDA mismatch](Troubleshooting#cuda-mismatch) shows.
+- **It takes most of the card.** vLLM pre-allocates a fixed share of GPU memory at startup (the `gpu_memory_utilization` on the model's catalog entry) and uses it for concurrent requests. To put a second container on the same GPU, lower it with `JINA_GPU_MEMORY_FRACTION`.
+- **Cold start is minutes.** The engine compiles and captures CUDA graphs before `/health` reports ready. Size your orchestrator's start-up probes for it.
+- **It needs shared memory.** Run with `--shm-size=2g`; the shipped compose file and Kubernetes manifest already do.
+
+### Measured on olmOCR-Bench
+
+Throughput and accuracy are measured on [olmOCR-Bench](https://huggingface.co/datasets/allenai/olmOCR-bench), the public benchmark the [model card](https://huggingface.co/jinaai/jina-ocr-v1) reports on, under the conditions the model card states: all 1,403 pages, 32 requests in flight, and the model card's benchmark instruction. Each page is rendered at 1288 pixels on its longest side and scored with the benchmark's own scorer, against the published `:gpu` image.
+
+| GPU | Pages per second | olmOCR-Bench overall |
+|---|---|---|
+| L4 | 0.68 | 82.5 |
+| RTX PRO 6000 | 3.45 | 82.2 |
+| A100 40 GB, from the model card | 2.57 | 83.4 |
+
+The on-prem image lines up with the model card. It writes the same amount per page (about 1,075 output tokens, against the model card's 1,085), and its overall score is within about one point of the model card's, which is the benchmark's own margin of error. What changes from card to card is speed, not output.
+
+A page is generated token by token, so time per page follows the length of the page's text, not the size of the image. Concurrent requests share the GPU through continuous batching, so throughput rises with concurrency while each page takes longer. The image is among the largest in the catalog, because it carries vLLM's own CUDA stack.
 
 ## Reranker host memory
 
@@ -91,7 +115,7 @@ Exact sizes change with every release, because the base image and the wheels do,
 
 `:gpu-opt` is the `:gpu` image with the batcher enabled, byte for byte the same size.
 
-A GPU image is the CPU image plus the CUDA runtime, a fixed few GB on every one, so picking a smaller model saves far less on GPU than on CPU. `jina-clip-v2` and `ReaderLM-v2` ship much larger weights than anything else in the catalog, which is why they are the outliers on both runtimes.
+A GPU image is the CPU image plus the CUDA runtime, a fixed few GB on every one, so picking a smaller model saves far less on GPU than on CPU. `jina-clip-v2` and `ReaderLM-v2` ship much larger weights than anything else in the catalog, which is why they are the outliers on both runtimes. `jina-ocr-v1` has a `:gpu` image only, in the same class, because it carries vLLM's own CUDA stack.
 
 ## Ask for `base64` embeddings
 
@@ -150,7 +174,7 @@ For higher throughput:
 
 ## GPU dynamic batching: the `:gpu-opt` images
 
-A `:gpu` container runs one forward pass at a time, so if your clients each send one input and there are many of them, they queue. The `:gpu-opt` tag is the same image with a server-side batcher enabled: one GPU worker collects whatever requests are in flight, sorts them by length, packs them into a token-budgeted batch and runs them together. Published for the 16 embedding models; rerankers, ColBERT, reader and VLM images come as `:cpu` and `:gpu` only.
+A `:gpu` container runs one forward pass at a time, so if your clients each send one input and there are many of them, they queue. The `:gpu-opt` tag is the same image with a server-side batcher enabled: one GPU worker collects whatever requests are in flight, sorts them by length, packs them into a token-budgeted batch and runs them together. Published for the 16 embedding models; rerankers, ColBERT, reader and VLM images come as `:cpu` and `:gpu` only, and `jina-ocr-v1` as `:gpu` only.
 
 **Which one to run**, from measuring both on the same GPU across all 16 models:
 

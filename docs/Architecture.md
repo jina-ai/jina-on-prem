@@ -81,7 +81,7 @@ Critical detail: **the model's own `requirements.txt`** (shipped in some HF repo
    Cohere SDK             ──►  POST /v2/embed                ├──►  FastAPI server
    Google AI SDK          ──►  POST /v1/models/X:embedContent│         │
    reranker client        ──►  POST /v1/rerank, /v2/rerank   │         ▼
-   reader / VLM client    ──►  POST /v1/chat/completions     │   model.encode()
+   reader / VLM / OCR     ──►  POST /v1/chat/completions     │   model.encode()
    ES inference           ──►  service: openai | cohere      ┘
                                                                        │
    GET /health  (status, schemas, multimodal flag)                     ▼
@@ -176,10 +176,10 @@ jina-on-prem/
 
 ## What's intentionally NOT in scope
 
-- **LLM chat / generation** (with a few exceptions like ReaderLM and jina-vlm). Use Ollama, vLLM, or LocalAI for chat models.
+- **LLM chat / generation** (with a few exceptions: ReaderLM, jina-vlm, and `jina-ocr-v1`, which reads a page image into Markdown). Use Ollama, vLLM, or LocalAI for chat models.
 - **Distributed inference** across multiple GPUs. Each container is a single GPU. For more throughput, run more containers.
 - **Fine-tuning**. Bundles serve as-is.
-- **Streaming responses**. Embeddings and reranking are batch operations.
+- **Streaming responses**, except on a model served on vLLM such as `jina-ocr-v1`, whose chat route is vLLM's own and streams. Embeddings and reranking are batch operations.
 - **Auth / RBAC** at the API layer. Add this at your load balancer / API gateway.
 
 ## Next

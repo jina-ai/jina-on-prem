@@ -121,7 +121,7 @@ Bundling Guide]
 - [Deployment Patterns](Deployment-Patterns) - end-to-end deployment patterns
 - [API Reference](API-Reference) - all five schemas, multimodal
 - [Elasticsearch Integration](Elasticsearch-Integration) - inference endpoints, `semantic_text`, reranking, several replicas behind one URL
-- [Picking a Model](Picking-A-Model) - decision tree for the other 28 models
+- [Picking a Model](Picking-A-Model) - decision tree for the other models, including document OCR
 - [Bundling Guide](Bundling-Guide) - build your own bundle for models not in the prebuilt list
 - [Cheat Sheet](Cheat-Sheet) - every command, endpoint and env var on one page
 

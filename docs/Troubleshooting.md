@@ -120,6 +120,8 @@ nvidia-smi   # check the Driver Version line, NOT the CUDA version line
 
 If `<525`, either update the driver or use the CPU image (`:cpu` tag) which has no CUDA dependency.
 
+`jina-ocr-v1` is the exception: it is built on vLLM's image, whose CUDA is newer (read it from the same label), and it has no `:cpu` image to fall back to, so on an older driver, update the driver.
+
 ## Out of memory on GPU
 
 **Symptom**: `CUDA out of memory. Tried to allocate XX MiB`.
@@ -127,6 +129,14 @@ If `<525`, either update the driver or use the CPU image (`:cpu` tag) which has 
 **Cause**: model is too big for the GPU's VRAM, or another container is already using it.
 
 **Fix**: check VRAM with `nvidia-smi`. The [Model Catalog](Model-Catalog) lists per-model VRAM. If you have 24 GB and the model says ~8 GB, you should fit two replicas but not four. Reduce batch size at the client (smaller `input` arrays) or pick a smaller model. See [Sizing & Hardware](Sizing-And-Hardware).
+
+## OCR model (`jina-ocr-v1`) slow to start, or out of GPU memory
+
+`jina-ocr-v1` is served on an in-process vLLM engine, which starts and uses the GPU differently from the other images. Its requirements are in [Sizing & Hardware -> Document OCR](Sizing-And-Hardware#document-ocr-jina-ocr-v1).
+
+**Not ready for minutes after start.** Expected: the engine compiles and captures CUDA graphs before `/health` reports ready. The image's healthcheck allows for it; give Kubernetes probes or any other orchestrator check the same start period, or they kill the container before it is ready.
+
+**Out of GPU memory at start-up next to another container.** vLLM pre-allocates a fixed share of the card at startup, whether or not traffic needs it. Start it first, or set `JINA_GPU_MEMORY_FRACTION` (for example `0.5`) so it leaves room for the other model.
 
 ## Transformers version pins
 

@@ -29,6 +29,10 @@ flowchart TD
     A --> F{HTML/document cleanup?}
     F -- yes --> RD1[ReaderLM-v2
 1.54B, 512K context]
+
+    A --> G{Scanned pages to text?}
+    G -- yes --> OCR1[jina-ocr-v1
+3.4B, GPU only, L4 or larger]
 ```
 
 ## Quick reference by use case
@@ -45,6 +49,7 @@ flowchart TD
 | Reranking on a memory-tight host | `jina-reranker-v3` | lighter host-RAM profile on the `:cpu` image - see [Sizing](Sizing-And-Hardware#reranker-host-memory) |
 | Cheap fast reranking, English only | `jina-reranker-v1-turbo-en` | 37.8M params, CPU OK |
 | HTML to clean markdown | `ReaderLM-v2` | 512K context, document focused |
+| Page image to Markdown (scans; render PDF pages to images first) | `jina-ocr-v1` | one page image in, Markdown out (tables as HTML, formulas as LaTeX); GPU only, served on vLLM |
 | Legacy English embeddings | `jina-embeddings-v2-base-en` | Apache-2.0, no commercial license needed |
 
 ## Trade-offs
@@ -74,12 +79,12 @@ reranker-v3.5]
 
 - Embedding model for indexing and first-pass retrieval
 - Reranker for high-precision top-K
-- Optional ReaderLM if input is messy HTML/PDF
+- Optional ReaderLM if input is messy HTML, or `jina-ocr-v1` to turn scanned pages and PDF pages into Markdown before indexing
 
 Both models can run side-by-side in two containers, OR you can deploy two replicas of each behind a load balancer if QPS demands it. See [Sizing & Hardware](Sizing-And-Hardware) for capacity planning.
 
 ## Next
 
 - [Sizing & Hardware](Sizing-And-Hardware) - how much GPU/RAM/disk
-- [Model Catalog](Model-Catalog) - full specs for all 29
+- [Model Catalog](Model-Catalog) - full specs for every model
 - [Deployment Patterns](Deployment-Patterns) - deployment examples by use case

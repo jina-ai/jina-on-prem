@@ -1,4 +1,4 @@
-**Run Jina AI's embedding, reranker and reader models on your own infrastructure, with no outbound network calls.**
+**Run Jina AI's embedding, reranker, reader and document OCR models on your own infrastructure, with no outbound network calls.**
 
 ![bundle flow](images/pixel-bundle-flow.png)
 
@@ -19,7 +19,7 @@ For first-time deployments, start with **[Why On-Prem](Why-On-Prem)**, then **[Q
         │                                          │
         ▼                                          ▼
   download weights                          serve embeddings,
-  + deps from HF Hub                        reranking, readers
+  + deps from HF Hub                        reranking, readers, OCR
   docker build                              zero outbound calls
 ```
 
@@ -29,10 +29,10 @@ That's the whole product. The connected machine has internet to fetch model weig
 
 ## What's supported
 
-- **29 models**: Jina embeddings (v5, v4, v3, v2), rerankers, ColBERT, CLIP, ReaderLM, VLM. See [Model Catalog](Model-Catalog).
+- **Models**: Jina embeddings (v5, v4, v3, v2), rerankers, ColBERT, CLIP, ReaderLM, VLM, and `jina-ocr-v1` for document OCR (a page image in, Markdown out). See [Model Catalog](Model-Catalog).
 - **5 API schemas simultaneously**: Jina, OpenAI, Cohere, Google Gemini, Voyage AI - drop-in for any client.
 - **Multimodal**: text + image + audio + video on omni/clip/v4 models.
-- **GPU and CPU**: same model can be packaged either way.
+- **GPU and CPU**: same model can be packaged either way, except the OCR model, which is served on vLLM and is GPU only.
 - **Elasticsearch inference service**: works out of the box as a `service: openai` endpoint for `text_embedding` and a `service: cohere` endpoint for `rerank`. See [Elasticsearch Integration](Elasticsearch-Integration).
 
 ## Pick your starting point

@@ -8,10 +8,13 @@ flowchart TB
     Q{Workload?} --> E[Embeddings or reranking]
     Q --> V[Vision-language reading
 with jina-vlm]
+    Q --> D[Document OCR
+with jina-ocr-v1]
     Q --> C[General LLM chat / generation]
 
     E --> Air[Use jina-on-prem]:::use
     V --> Air
+    D --> Air
     C --> O[Use Ollama or vLLM]:::skip
 
     Air --> N{Network?}
@@ -25,7 +28,7 @@ with jina-vlm]
 
 | | Ollama | jina-on-prem |
 |---|---|---|
-| Workload | LLM chat / generation | embeddings, reranking, readers |
+| Workload | LLM chat / generation | embeddings, reranking, readers, document OCR |
 | Model format | GGUF (llama.cpp) | full PyTorch / SentenceTransformers |
 | Quantization story | aggressive (Q4_K_M is default) | bundle ships original precision |
 | Out-of-the-box embeddings | yes, general-purpose models | yes, Jina v5/v4/v3 |
@@ -42,14 +45,14 @@ with jina-vlm]
 
 | | vLLM | jina-on-prem |
 |---|---|---|
-| Workload | LLM chat at scale | embeddings, reranking |
+| Workload | LLM chat at scale | embeddings, reranking, document OCR |
 | Throughput optimization | PagedAttention, continuous batching | batched SentenceTransformer.encode |
 | Multi-GPU sharding | tensor parallelism, pipeline parallelism | one model per container |
 | OpenAI compat | yes (chat completions) | yes (embeddings) |
 | Air-gap story | works offline if you preload, no toolchain | full bundle-and-transfer toolchain |
 | Multimodal | growing (image-text models) | yes (clip-v2, v4, omni, vlm) |
 
-**Different workloads.** vLLM is for chat at high QPS. jina-on-prem is for the search side of RAG.
+**Different workloads.** vLLM is for chat at high QPS. jina-on-prem is for the search side of RAG. The one place they meet is `jina-ocr-v1`: jina-on-prem serves it on an in-process vLLM engine, behind the same port, license gate and air-gap bundle as every other model, so you do not run vLLM yourself to get it.
 
 ## jina-on-prem vs ONNX export
 
@@ -90,7 +93,7 @@ You could build your own Docker image with HF transformers and the model weights
 - **Pinned deps per model**, exact rather than ranged, and readable straight out of `models/catalog.json`
 - **Multi-schema API** (Jina + OpenAI + Cohere + Gemini + Voyage) - the adapters in `server/adapters/`, error envelopes included, that you don't have to write
 - **Patched custom code** for offline use (delete model repo requirements.txt, monkeypatch `trust_remote_code`)
-- **Tested workflow** for 29 models including the gnarly ones (omni multimodal, Qwen3-based rerankers, ColBERT, ReaderLM, VLM)
+- **Tested workflow** for every catalog model including the gnarly ones (omni multimodal, Qwen3-based rerankers, ColBERT, ReaderLM, VLM, OCR on vLLM)
 - **Maintained**: when upstream changes break a model, the catalog is updated and a new bundle is shipped
 
 DIY is a valid path if you're customizing heavily. jina-on-prem is the curated default.
@@ -101,7 +104,7 @@ DIY is a valid path if you're customizing heavily. jina-on-prem is the curated d
 flowchart TD
     A[What does the deployment need?]
     A --> B{Workload}
-    B -- Embeddings or reranking --> C{Internet OK?}
+    B -- Embeddings, reranking or OCR --> C{Internet OK?}
     B -- LLM chat --> D[Ollama or vLLM]
     C -- yes --> E[api.jina.ai
 hosted]

@@ -58,9 +58,11 @@ Short definitions for terms used across the wiki.
 
 **Matryoshka**: embeddings designed so any prefix is also a valid embedding. Pass `dimensions: 128` to a 1024-dim model to get a smaller vector with no quality cliff. Named after Russian nesting dolls.
 
-**Multimodal**: handles multiple input types (text + image + audio + video). v5-omni, v4, clip-v2, vlm are multimodal. Other models are text-only.
+**Multimodal**: handles multiple input types (text + image + audio + video). v5-omni, v4, clip-v2, vlm are multimodal, and so is ocr-v1, which takes a page image. Other models are text-only.
 
 ## O
+
+**OCR**: optical character recognition, reading the text of a scanned or photographed page. jina-on-prem has `jina-ocr-v1`, which turns one page image into Markdown (tables as HTML, formulas as LaTeX). It is served on vLLM and is GPU only.
 
 **Omni**: Jina's prefix for multimodal v5 models (`v5-omni-nano`, `v5-omni-small`). Accept any combination of text, image, audio, video.
 
@@ -93,6 +95,8 @@ Short definitions for terms used across the wiki.
 **v5 / v4 / v3 / v2 / v1**: model generations. v5 (2026) is the latest with multimodal omni variants. v3 (2024) is in maintenance; new deployments should prefer v5. v4 is Legacy. v2 text embeddings and the v1 models are Apache-2.0 licensed (free for commercial use).
 
 **Voyage AI**: a vendor whose API jina-on-prem is compatible with. Both `/v1/embeddings` (with `input_type` / `output_dimension`) and `/v1/multimodalembeddings` work.
+
+**vLLM**: an open-source inference engine for generative models. `jina-ocr-v1` runs on an in-process vLLM engine inside its image, behind the same API as every other model; you never run vLLM yourself. Not to be confused with VLM, below.
 
 **VLM**: Vision-Language Model. Like a chat LLM but accepts images. jina-on-prem has `jina-vlm` (2.4B params).
 

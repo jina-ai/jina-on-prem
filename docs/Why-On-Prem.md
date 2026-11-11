@@ -1,6 +1,6 @@
 ![perimeter](images/pixel-airgap-perimeter.png)
 
-jina-on-prem runs Jina's embedding, reranking and reader models on your own infrastructure, as a Docker image with the weights baked in. The only thing it ever reaches for is a media URL you put in a request, so it works whether your host has restricted egress, no egress, or a full air gap.
+jina-on-prem runs Jina's embedding, reranking, reader and document OCR models on your own infrastructure, as a Docker image with the weights baked in. The only thing it ever reaches for is a media URL you put in a request, so it works whether your host has restricted egress, no egress, or a full air gap.
 
 Those are three different situations, and only the last one is what the industry calls an air gap. The product is built for the strictest of them, which is why it also suits the other two: an image that needs no network cannot be broken by a network policy you have not told us about.
 
