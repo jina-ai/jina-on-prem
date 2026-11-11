@@ -106,7 +106,7 @@ Only the key goes to stdout; everything else goes to stderr, so `KEY=$(python ji
 |---|---|---|
 | `--sub` | Who the key is issued to, shown in `/health` and logs | required |
 | `--days` | Validity window in days | 30 |
-| `--category` | Restrict the key to one license category: `text`, `multimodal`, `reranker`, `reader`. Covers every model the image's catalog assigns to it, including ones added later. | unset |
+| `--category` | Restrict the key to one license category: `text`, `multimodal`, `reranker`, `reader`. Covers every model the image's catalog assigns to it, including ones added later; the [Model Catalog](Model-Catalog) lists each model's category. | unset |
 | `--model` | Restrict the key to one exact model id. Mutually exclusive with `--category`. | `*` (any) |
 | `--secret` | Sign with a custom secret, matching the server's `JINA_LICENSE_SECRET` | public default |
 | `--json` | Emit key and claims as JSON | off |

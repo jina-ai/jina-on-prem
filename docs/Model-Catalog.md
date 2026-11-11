@@ -1,66 +1,66 @@
 All 30 models supported by jina-on-prem, generated from [`models/catalog.json`](https://github.com/jina-ai/jina-on-prem/blob/main/models/catalog.json), which is the source of truth for every field below.
 
-**License note**: Models tagged `CC-BY-NC-4.0` need a commercial license for production use. Contact [Elastic sales](https://www.elastic.co/contact).
+**License note**: Models tagged `CC-BY-NC-4.0` need a commercial license for production use. Contact [Elastic sales](https://www.elastic.co/contact). **License category** is the `category` a license key has to name to cover the model (see [Licensing](Licensing)); it groups models by how they are sold, so it can differ from the section a model is listed under.
 
 ## Embeddings
 
-| Model | Prebuilt | Params | VRAM | Context | Output | Modality | License |
-|---|---|---|---|---|---|---|---|
-| `jina-embeddings-v5-omni-small` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v5-omni-small) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v5-omni-small) | 1.74B | ~8GB | 32K | 1024 (matryoshka: 32-1024) | multimodal | CC-BY-NC-4.0 |
-| `jina-embeddings-v5-omni-nano` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v5-omni-nano) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v5-omni-nano) | 1.04B | ~5GB | 8K | 768 (matryoshka: 32-768) | multimodal | CC-BY-NC-4.0 |
-| `jina-embeddings-v5-text-small` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v5-text-small) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v5-text-small) | 677M | ~3GB | 32K | 1024 (matryoshka: 32-1024) | text | CC-BY-NC-4.0 |
-| `jina-embeddings-v5-text-nano` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v5-text-nano) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v5-text-nano) | 239M | ~2GB | 8K | 768 (matryoshka: 32-768) | text | CC-BY-NC-4.0 |
-| `jina-code-embeddings-1.5b` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-code-embeddings-1.5b) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-code-embeddings-1.5b) | 1.5B | ~4GB | 32K | 1536 (matryoshka: 128-1536) | code | CC-BY-NC-4.0 |
-| `jina-code-embeddings-0.5b` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-code-embeddings-0.5b) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-code-embeddings-0.5b) | 494M | ~2GB | 32K | 896 (matryoshka: 64-896) | code | CC-BY-NC-4.0 |
-| `jina-embeddings-v4` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v4) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v4) | 3.8B | ~10GB | 32K | 2048 (matryoshka: 128-2048) | multimodal | Qwen Research License |
-| `jina-clip-v2` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-clip-v2) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-clip-v2) | 865M | ~4GB | 8K | 1024 (matryoshka: 64-1024) | multimodal | CC-BY-NC-4.0 |
-| `jina-embeddings-v3` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v3) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v3) | 570M | ~3GB | 8K | 1024 (matryoshka: 32-1024) | text | CC-BY-NC-4.0 |
-| `jina-clip-v1` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-clip-v1) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-clip-v1) | 223M | ~1GB | 8K | 768 | multimodal | Apache-2.0 |
-| `jina-embeddings-v2-base-es` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-es) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-es) | 161M | ~1GB | 8K | 768 | text | Apache-2.0 |
-| `jina-embeddings-v2-base-code` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-code) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-code) | 137M | ~1GB | 8K | 768 | code | Apache-2.0 |
-| `jina-embeddings-v2-base-de` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-de) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-de) | 161M | ~1GB | 8K | 768 | text | Apache-2.0 |
-| `jina-embeddings-v2-base-zh` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-zh) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-zh) | 161M | ~1GB | 8K | 768 | text | Apache-2.0 |
-| `jina-embeddings-v2-base-en` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-en) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-en) | 137M | ~1GB | 8K | 768 | text | Apache-2.0 |
-| `jina-embedding-b-en-v1` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embedding-b-en-v1) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embedding-b-en-v1) | 110M | ~1GB | 512 | 768 | text | Apache-2.0 |
+| Model | Prebuilt | Params | VRAM | Context | Output | Modality | License | License category |
+|---|---|---|---|---|---|---|---|---|
+| `jina-embeddings-v5-omni-small` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v5-omni-small) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v5-omni-small) | 1.74B | ~8GB | 32K | 1024 (matryoshka: 32-1024) | multimodal | CC-BY-NC-4.0 | `multimodal` |
+| `jina-embeddings-v5-omni-nano` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v5-omni-nano) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v5-omni-nano) | 1.04B | ~5GB | 8K | 768 (matryoshka: 32-768) | multimodal | CC-BY-NC-4.0 | `multimodal` |
+| `jina-embeddings-v5-text-small` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v5-text-small) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v5-text-small) | 677M | ~3GB | 32K | 1024 (matryoshka: 32-1024) | text | CC-BY-NC-4.0 | `text` |
+| `jina-embeddings-v5-text-nano` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v5-text-nano) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v5-text-nano) | 239M | ~2GB | 8K | 768 (matryoshka: 32-768) | text | CC-BY-NC-4.0 | `text` |
+| `jina-code-embeddings-1.5b` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-code-embeddings-1.5b) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-code-embeddings-1.5b) | 1.5B | ~4GB | 32K | 1536 (matryoshka: 128-1536) | code | CC-BY-NC-4.0 | `text` |
+| `jina-code-embeddings-0.5b` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-code-embeddings-0.5b) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-code-embeddings-0.5b) | 494M | ~2GB | 32K | 896 (matryoshka: 64-896) | code | CC-BY-NC-4.0 | `text` |
+| `jina-embeddings-v4` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v4) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v4) | 3.8B | ~10GB | 32K | 2048 (matryoshka: 128-2048) | multimodal | Qwen Research License | `multimodal` |
+| `jina-clip-v2` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-clip-v2) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-clip-v2) | 865M | ~4GB | 8K | 1024 (matryoshka: 64-1024) | multimodal | CC-BY-NC-4.0 | `multimodal` |
+| `jina-embeddings-v3` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v3) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v3) | 570M | ~3GB | 8K | 1024 (matryoshka: 32-1024) | text | CC-BY-NC-4.0 | `text` |
+| `jina-clip-v1` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-clip-v1) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-clip-v1) | 223M | ~1GB | 8K | 768 | multimodal | Apache-2.0 | `multimodal` |
+| `jina-embeddings-v2-base-es` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-es) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-es) | 161M | ~1GB | 8K | 768 | text | Apache-2.0 | `text` |
+| `jina-embeddings-v2-base-code` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-code) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-code) | 137M | ~1GB | 8K | 768 | code | Apache-2.0 | `text` |
+| `jina-embeddings-v2-base-de` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-de) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-de) | 161M | ~1GB | 8K | 768 | text | Apache-2.0 | `text` |
+| `jina-embeddings-v2-base-zh` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-zh) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-zh) | 161M | ~1GB | 8K | 768 | text | Apache-2.0 | `text` |
+| `jina-embeddings-v2-base-en` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-en) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embeddings-v2-base-en) | 137M | ~1GB | 8K | 768 | text | Apache-2.0 | `text` |
+| `jina-embedding-b-en-v1` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embedding-b-en-v1) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-embedding-b-en-v1) | 110M | ~1GB | 512 | 768 | text | Apache-2.0 | `text` |
 
 ## Rerankers
 
-| Model | Prebuilt | Params | VRAM | Context | Output | Modality | License |
-|---|---|---|---|---|---|---|---|
-| `jina-reranker-v3.5` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3.5) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3.5) | 0.6B | ~3GB | 131K | - | text | CC-BY-NC-4.0 |
-| `jina-reranker-v3` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3) | 597M | ~3GB | 131K | - | text | CC-BY-NC-4.0 |
-| `jina-reranker-m0` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-m0) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-m0) | 2.4B | ~6GB | 10K | - | multimodal | CC-BY-NC-4.0 |
-| `jina-reranker-v2-base-multilingual` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v2-base-multilingual) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v2-base-multilingual) | 278M | ~1GB | 1K | - | text | CC-BY-NC-4.0 |
-| `jina-reranker-v1-turbo-en` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v1-turbo-en) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v1-turbo-en) | 37.8M | ~1GB | 8K | - | text | Apache-2.0 |
-| `jina-reranker-v1-tiny-en` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v1-tiny-en) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v1-tiny-en) | 33M | ~1GB | 8K | - | text | Apache-2.0 |
-| `jina-reranker-v1-base-en` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v1-base-en) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v1-base-en) | 137M | ~1GB | 8K | - | text | Apache-2.0 |
+| Model | Prebuilt | Params | VRAM | Context | Output | Modality | License | License category |
+|---|---|---|---|---|---|---|---|---|
+| `jina-reranker-v3.5` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3.5) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3.5) | 0.6B | ~3GB | 131K | - | text | CC-BY-NC-4.0 | `reranker` |
+| `jina-reranker-v3` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v3) | 597M | ~3GB | 131K | - | text | CC-BY-NC-4.0 | `reranker` |
+| `jina-reranker-m0` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-m0) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-m0) | 2.4B | ~6GB | 10K | - | multimodal | CC-BY-NC-4.0 | `reranker` |
+| `jina-reranker-v2-base-multilingual` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v2-base-multilingual) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v2-base-multilingual) | 278M | ~1GB | 1K | - | text | CC-BY-NC-4.0 | `reranker` |
+| `jina-reranker-v1-turbo-en` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v1-turbo-en) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v1-turbo-en) | 37.8M | ~1GB | 8K | - | text | Apache-2.0 | `reranker` |
+| `jina-reranker-v1-tiny-en` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v1-tiny-en) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v1-tiny-en) | 33M | ~1GB | 8K | - | text | Apache-2.0 | `reranker` |
+| `jina-reranker-v1-base-en` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v1-base-en) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-reranker-v1-base-en) | 137M | ~1GB | 8K | - | text | Apache-2.0 | `reranker` |
 
 ## ColBERT
 
-| Model | Prebuilt | Params | VRAM | Context | Output | Modality | License |
-|---|---|---|---|---|---|---|---|
-| `jina-colbert-v2` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-colbert-v2) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-colbert-v2) | 560M | ~3GB | 8K | 128 (matryoshka: 64-128) | text | CC-BY-NC-4.0 |
-| `jina-colbert-v1-en` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-colbert-v1-en) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-colbert-v1-en) | 137M | ~1GB | 8K | 128 | text | Apache-2.0 |
+| Model | Prebuilt | Params | VRAM | Context | Output | Modality | License | License category |
+|---|---|---|---|---|---|---|---|---|
+| `jina-colbert-v2` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-colbert-v2) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-colbert-v2) | 560M | ~3GB | 8K | 128 (matryoshka: 64-128) | text | CC-BY-NC-4.0 | `reranker` |
+| `jina-colbert-v1-en` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-colbert-v1-en) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-colbert-v1-en) | 137M | ~1GB | 8K | 128 | text | Apache-2.0 | `reranker` |
 
 ## Readers
 
-| Model | Prebuilt | Params | VRAM | Context | Output | Modality | License |
-|---|---|---|---|---|---|---|---|
-| `ReaderLM-v2` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2FReaderLM-v2) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2FReaderLM-v2) | 1.54B | ~4GB | 512K | - | text | CC-BY-NC-4.0 |
-| `reader-lm-1.5b` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-1.5b) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-1.5b) | 1.54B | ~4GB | 256K | - | text | CC-BY-NC-4.0 |
-| `reader-lm-0.5b` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-0.5b) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-0.5b) | 494M | ~2GB | 256K | - | text | CC-BY-NC-4.0 |
+| Model | Prebuilt | Params | VRAM | Context | Output | Modality | License | License category |
+|---|---|---|---|---|---|---|---|---|
+| `ReaderLM-v2` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2FReaderLM-v2) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2FReaderLM-v2) | 1.54B | ~4GB | 512K | - | text | CC-BY-NC-4.0 | `reader` |
+| `reader-lm-1.5b` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-1.5b) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-1.5b) | 1.54B | ~4GB | 256K | - | text | CC-BY-NC-4.0 | `reader` |
+| `reader-lm-0.5b` | [cpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-0.5b) / [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Freader-lm-0.5b) | 494M | ~2GB | 256K | - | text | CC-BY-NC-4.0 | `reader` |
 
 ## OCR
 
-| Model | Prebuilt | Params | VRAM | Context | Output | Modality | License |
-|---|---|---|---|---|---|---|---|
-| `jina-ocr-v1` | [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-ocr-v1) | 3.4B | ~24GB | 32K | - | multimodal | CC-BY-NC-4.0 |
+| Model | Prebuilt | Params | VRAM | Context | Output | Modality | License | License category |
+|---|---|---|---|---|---|---|---|---|
+| `jina-ocr-v1` | [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-ocr-v1) | 3.4B | ~24GB | 32K | - | multimodal | CC-BY-NC-4.0 | `reader` |
 
 ## Vision-Language
 
-| Model | Prebuilt | Params | VRAM | Context | Output | Modality | License |
-|---|---|---|---|---|---|---|---|
-| `jina-vlm` | - | 2.4B | ~6GB | 32K | - | multimodal | CC-BY-NC-4.0 |
+| Model | Prebuilt | Params | VRAM | Context | Output | Modality | License | License category |
+|---|---|---|---|---|---|---|---|---|
+| `jina-vlm` | - | 2.4B | ~6GB | 32K | - | multimodal | CC-BY-NC-4.0 | `multimodal` |
 
 ## Picking a model
 
