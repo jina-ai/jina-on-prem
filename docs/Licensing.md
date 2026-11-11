@@ -1,7 +1,7 @@
 Two different things are called a "license" here, and keeping them apart avoids most of the confusion:
 
 - **The commercial license** is the contract that grants the right to run a CC-BY-NC-4.0 model in production. It comes from [Elastic sales](https://www.elastic.co/contact), and it is what actually governs your usage.
-- **The license key** on this page is an optional technical convenience: a small, offline, expiring token you can pass to a deployment so that ops and audit can see "this instance carries an entitlement that expires on date X".
+- **The license key** on this page is an optional technical convenience: a small, offline, expiring token you can pass to a deployment so that it declares "this instance carries an entitlement that expires on date X", visible in `/health`. It is not proof of purchase on its own.
 
 The rest of this page is about the second one. Nothing here changes the first.
 
@@ -27,7 +27,7 @@ The rest of this page is about the second one. Nothing here changes the first.
 - **Fully offline**: the server checks it locally with an HMAC signature comparison. No license server, no internet, no phone-home. That is what makes it usable in a disconnected network.
 - **Runtime-injected**: you pass it with `-e JINA_LICENSE_KEY=...` at `docker run`. Issuing or renewing a key never rebuilds the image.
 
-You mint your own keys with the CLI in this repo, so nothing about the key requires contacting us.
+There are two ways to get one. Enterprise customers receive a key from Elastic, tied to their purchase. Anyone can also mint a key with the `keygen` command in this repo, for example for a trial or for internal tracking. Both validate the same way.
 
 What it is not: it is not DRM, not a kill switch, and not the thing that grants usage rights. Those distinctions matter for a security review and are spelled out in [What it can and cannot do](#what-it-can-and-cannot-do).
 
@@ -59,7 +59,7 @@ or within grace?}
 cannot lock you out]
 ```
 
-A production deployment can run in the default mode with no key at all, indefinitely, and nothing breaks. The key is there so that when an auditor asks to see an entitlement with an expiry, you can point at `/health`.
+A production deployment can run in the default mode with no key at all, indefinitely, and nothing breaks. The key is there so that a deployment declares an entitlement with an expiry, visible in `/health`.
 
 ## The three modes
 
@@ -75,7 +75,7 @@ Even in `enforce` there is a **grace window** (default 14 days, `JINA_LICENSE_GR
 
 ## Issue and deploy a key
 
-**1. Mint a key.** Any machine with this repo; no Docker and no network needed:
+**1. Get a key.** If Elastic issued you one, skip to step 2. Otherwise mint one on any machine with this repo; no Docker and no network needed:
 
 ```bash
 python jina-on-prem.py keygen --sub "acme-corp" --days 90
@@ -142,7 +142,7 @@ curl -s http://localhost:8080/health | python3 -m json.tool
 }
 ```
 
-That `license` block is what you show an auditor: a concrete, expiring, machine-checkable entitlement, produced entirely offline.
+That `license` block is what this deployment declares about its entitlement, produced entirely offline. It is not proof of purchase on its own: anyone with the image can mint a key that validates.
 
 The top-level `model` and `category` say what this image *is*: the model it runs, and the license category that model is sold under. The `license` block says what your key *covers*, so a key scoped with `--category` shows a `category` there instead of a `model`. Reading the two together answers "is this deployment inside what we bought?" without decoding anything, and if the two categories disagree the key does not cover this image, with `reason` saying `model_not_licensed`.
 
@@ -158,7 +158,7 @@ Every field the `license` block can carry:
 | `fail_open` | always | `true` unless the mode is `enforce` |
 | `licensed_to` | the key decodes | The `--sub` the key was issued to |
 | `category` or `model` | the key decodes | What the key covers: `category` for a category-scoped key, otherwise `model`, which is `*` for an unscoped one |
-| `order_product_id` | the key names a purchase | The purchase the key was issued against |
+| `order_product_id` | the key names a purchase | The purchase the key was issued against, on a key from Elastic |
 | `expires` | the key decodes | Expiry, UTC |
 | `days_left` | the key decodes | Days until expiry, recomputed on every call. It goes negative once the key has expired. |
 | `grace_days` | `enforce` mode | The grace window an expired key gets |
@@ -220,10 +220,10 @@ sequenceDiagram
     Ops->>CLI: keygen --sub acme-corp --days 90
     CLI-->>Ops: new JINA-... key
     Ops->>C: restart with new -e JINA_LICENSE_KEY
-    Note over C: same image, new key, ~2s restart
+    Note over C: same image, new key, a container restart
 ```
 
-1. `python jina-on-prem.py keygen --sub "acme-corp" --days 90`
+1. Get a new key: request a renewed one from Elastic, or for a self-minted key run `python jina-on-prem.py keygen --sub "acme-corp" --days 90`.
 2. Restart the container with the new `JINA_LICENSE_KEY`.
 
 No `docker build`, no re-transfer of the multi-GB bundle, and no downtime beyond a container restart, or none at all with the blue/green pattern in [Versioning & Updates](Versioning-And-Updates).
@@ -248,10 +248,9 @@ No `docker build`, no re-transfer of the multi-GB bundle, and no downtime beyond
 
 The mechanism, stated plainly, because a reviewer will ask:
 
-- **The key is a signed token with an embedded expiry.** The payload is a small JSON object, base64url-encoded, followed by an **HMAC-SHA256** signature. Structurally the same as a signed JWT with an `exp` claim, which is the standard way to validate a license offline. The claims are `sub`, `iat`, `exp`, `v`, exactly one scope claim (`category` or `model`), and `order_product_id` on a key issued against a purchase.
+- **The key is a signed token with an embedded expiry.** The payload is a small JSON object, base64url-encoded, followed by an **HMAC-SHA256** signature. Similar in spirit to a signed JWT with an `exp` claim, except that the HMAC covers the decoded JSON bytes rather than the encoded string. The claims are `sub`, `iat`, `exp`, `v`, exactly one scope claim (`category` or `model`), and `order_product_id` on a key issued against a purchase.
 - **Validation is a local comparison.** The server recomputes the HMAC with its secret, compares in constant time, then checks `exp` against the system clock and, if present, the scope. There is no network call on any path.
 - **It is not tamper-proof, and should not be described as such.** The signing secret ships inside the image, so anyone with the image can mint a key or set `JINA_LICENSE_MODE=off`. This is a compliance and visibility feature, not an access control. Representing it as tamper-resistant in a questionnaire would be inaccurate.
-- **Why not TOTP or an authenticator app?** TOTP generates rotating 30-second codes for interactive 2FA against a live verifier. There is no interactive login and no live verifier inside a disconnected deployment, so it is the wrong shape for a durable multi-month window. A signed token with an `exp` is the right one.
 - **Fail-open is enforced in one place.** A single `decide()` function is the only authority on whether to serve. In `warn` and `off` it always allows; in `enforce` an expired key is allowed through the grace window. Validation is wrapped so that an unexpected error also fails open. No code path lets a default-configured server refuse a request because of the key.
 
 ## Environment variables
@@ -262,7 +261,7 @@ The mechanism, stated plainly, because a reviewer will ask:
 | `JINA_LICENSE_MODE` | `warn` | `warn` (fail-open, default), `enforce`, or `off`. |
 | `JINA_LICENSE_GRACE_DAYS` | `14` | In `enforce` only: days an expired key still works. `0` for a hard cutoff. |
 | `JINA_LICENSE_SECRET` | public constant | HMAC signing secret. Set it with `--build-arg LICENSE_SECRET=...` at bundle time and sign with a matching `keygen --secret`. Changing it later invalidates every key already signed with the old value, so it is a coordinated change across your images and keys rather than routine maintenance. |
-| `JINA_LICENSE_ENFORCE` | (unset) | Older equivalent: `0` means `off`, `1` means `enforce`. Superseded by `JINA_LICENSE_MODE`. |
+| `JINA_LICENSE_ENFORCE` | (unset) | Alias, read only when `JINA_LICENSE_MODE` is unset: `0` means `off`, `1` means `enforce`. Prefer `JINA_LICENSE_MODE`. |
 
 ## FAQ
 

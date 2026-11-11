@@ -19,10 +19,10 @@ How the pieces fit together, for engineers integrating or debugging jina-on-prem
   │  │   stage 2 (downloader): on the builder, download weights     │
   │  │                          from HF Hub, patch model code,      │
   │  │                          delete model repo requirements.txt  │
-  │  │   stage 3 (runtime):    COPY only, no RUN, distroless        │
-  │  │                          on the official base: venv from 1,  │
-  │  │                          weights from 2, server/,            │
-  │  │                          HF_HUB_OFFLINE=1                    │
+  │  │   stage 3 (runtime):    COPY only, no RUN, on Wolfi          │
+  │  │                          (distroless in prebuilt images):    │
+  │  │                          venv from 1, weights from 2,        │
+  │  │                          server/, HF_HUB_OFFLINE=1           │
   │  ▼                                                              │
   │  docker save | gzip > MODEL.tar.gz                              │
   └──────────────────────────────┬──────────────────────────────────┘
@@ -145,7 +145,10 @@ jina-on-prem/
 - docker/
   - Dockerfile.cpu           three stages: builder, downloader, COPY-only runtime
   - Dockerfile.gpu           the same, with CUDA from the PyTorch cu126 wheels
+  - Dockerfile.vllm          GPU image for a model served on vLLM, on vLLM's release image
   - download_model.py        runs in the downloader stage, downloads + patches
+  - download_vllm_model.py   the same for a vLLM-served model
+  - vllm-plugin/             registers the model's architecture with vLLM
   - verify_staging.py        build gate: trust_remote_code files already staged
 - server/
   - app.py                   FastAPI app: mounts the adapters, license gate, /health
@@ -156,6 +159,8 @@ jina-on-prem/
   - tasks.py                 task vocabularies, ours and the other vendors'
   - license.py               offline license key check
   - telemetry.py             /health throughput block and X-Jina-* headers
+  - vllm_serving.py          mounts vLLM's own chat route for a vLLM-served model
+  - vllm_plugin.py           registers a checkpoint's own model classes with vLLM
   - (other modules)          config, catalog lookup, media decoding, serialization, errors
   - requirements.txt         deps for `serve` mode; images pin their own in the Dockerfiles
 - k8s/

@@ -26,7 +26,7 @@ A jina-on-prem bundle freezes everything that influences inference output:
 - **Server code** (`server/`) at the commit you built from
 - **Base image**, Wolfi, pinned by digest in the Dockerfiles (see [Bundling Guide -> Base image](Bundling-Guide#base-image))
 
-This means: **same bundle = byte-identical embeddings forever**. You can verify by hashing the response on two replicas after a host rebuild.
+This means: **the same bundle on the same hardware gives the same output.** Expect tiny floating-point differences across GPU types, between `:gpu` and `:gpu-opt`, and with batch composition.
 
 ## When to rebundle
 
@@ -65,8 +65,7 @@ Concrete steps for a single host with two containers:
 # new: jina-MODEL-v2 (just loaded), spin up on port 8081 / jina-green
 docker load < jina-MODEL-v2-cpu.tar.gz
 docker run -d --name jina-green -p 8081:8080 jina/jina-MODEL-v2:cpu
-sleep 60   # wait for /health
-curl http://localhost:8081/health
+until curl -sf http://localhost:8081/health; do sleep 5; done   # 503 until the model is loaded
 # Repoint upstream / load balancer to 8081 (or swap the published port via nginx)
 # Drain old:
 docker stop jina-blue
@@ -77,7 +76,7 @@ For Kubernetes, use a normal `Deployment` rollout (`kubectl -n jina-on-prem set 
 
 ## Embedding determinism across versions
 
-**Same bundle, same input -> bit-identical output.**
+**Same bundle, same hardware, same input -> same output.** Expect tiny floating-point differences across GPU types, between `:gpu` and `:gpu-opt`, and with batch composition.
 
 **Different bundle versions: not guaranteed.** Even minor transformers bumps can change rounding behavior. Before swapping the bundle in production:
 
@@ -122,10 +121,6 @@ If you're maintaining a fork or pinning custom deps:
 **Pin exact versions** for:
 - transformers, torch, sentence-transformers (these affect output)
 - Any package the model's custom code imports
-
-**Float to >= ranges** for:
-- huggingface_hub (rarely affects model behavior at runtime)
-- accelerate, einops (utility libs, low risk)
 
 When in doubt, pin. Easier to relax later than to debug a regression in production.
 

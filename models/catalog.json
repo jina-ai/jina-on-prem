@@ -321,7 +321,7 @@
       "language": "multilingual",
       "license": "CC-BY-NC-4.0",
       "release": "2026-09-14",
-      "vram_gb": 16,
+      "vram_gb": 24,
       "gpu_dtype": "bfloat16",
       "description": "Document OCR: one page image in, Markdown out (tables as HTML, formulas as LaTeX). 3.4B-parameter MoE, ~570M active, 32K context. GPU only, served on vLLM.",
       "tasks": [

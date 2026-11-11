@@ -51,4 +51,4 @@ That's the whole product. The connected machine has internet to fetch model weig
 
 ## License note
 
-Most Jina v5/v4/v3 models are **CC-BY-NC-4.0**: commercial use needs a license. Contact [Elastic sales](https://www.elastic.co/contact). v2 and v1 models are Apache-2.0 and free for any use. Per-model license is in the [Model Catalog](Model-Catalog).
+v5 and v3 models are **CC-BY-NC-4.0** and v4 is under the Qwen Research License: commercial use of any of them needs a license. Contact [Elastic sales](https://www.elastic.co/contact). The v2 text embeddings, `jina-clip-v1`, `jina-colbert-v1-en` and the v1 embedding and reranker models are Apache-2.0 and free for any use. The License column of the [Model Catalog](Model-Catalog) is authoritative.

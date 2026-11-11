@@ -18,11 +18,12 @@ or move to bigger GPU]
 | Base | Wolfi, see [Bundling Guide -> Base image](Bundling-Guide#base-image) | Wolfi, with CUDA 12.6 from the PyTorch wheels |
 | Image size | under 2 GB for the v5 text models and the v3 / v3.5 rerankers; see [Published image sizes](#published-image-sizes) | the CPU image plus a few GB of CUDA runtime; 4-6 GB for the same models |
 | Needs GPU on host | no | for GPU inference, with NVIDIA driver 525+; without one it falls back to CPU (not `jina-ocr-v1`, which needs a GPU; see [Document OCR](#document-ocr-jina-ocr-v1)) |
-| Latency, single request | 200-2000 ms | 10-200 ms |
-| Throughput, batched | ~5-20 docs/s | 100-1000 docs/s |
-| Cost on GCP (1 month, on-demand) | ~$50 (e2-standard-4) | ~$500 (g2-standard-4 + L4) |
+| Latency, single request (rough estimate) | 200-2000 ms | 10-200 ms |
+| Throughput, batched (rough estimate) | ~5-20 docs/s | 100-1000 docs/s |
 
-**Rule of thumb**: < 10 QPS sustained -> CPU is fine and a lot cheaper. > 10 QPS or latency-sensitive interactive use -> GPU.
+The latency and throughput rows are rough estimates that vary with model, input length and hardware; measure on your own.
+
+**Rule of thumb** (a rough guide, not a measurement): < 10 QPS sustained -> CPU is fine and a lot cheaper. > 10 QPS or latency-sensitive interactive use -> GPU.
 
 ## Per-model VRAM and recommended GPU
 
@@ -37,17 +38,17 @@ or move to bigger GPU]
 | jina-clip-v2 | 4 GB | L4 | text + image |
 | jina-code-embeddings-1.5b | 4 GB | L4 | |
 | ReaderLM-v2 | 4 GB | L4 | 512K context, plan for bigger batches |
-| jina-ocr-v1 | - | L4 or larger | GPU only; see [Document OCR](#document-ocr-jina-ocr-v1) |
+| jina-ocr-v1 | 24 GB | L4 | GPU only; see [Document OCR](#document-ocr-jina-ocr-v1) |
 
-Full per-model VRAM in the [Model Catalog](Model-Catalog).
+Min VRAM is what the model itself needs; any GPU with at least that much runs it. Recommended GPU is a common, cost-effective card, not a minimum. Full per-model VRAM in the [Model Catalog](Model-Catalog).
 
-> **L4 is the workhorse**. 24 GB, sane price, available in most regions, and every model in the catalog fits on one, `jina-embeddings-v4` included, and it is the smallest card we recommend for `jina-ocr-v1`. Default to it unless A100 latency is required or L4 is unavailable in the target region (see [Troubleshooting -> L4 stockout](Troubleshooting#l4-stockout)).
+> **An L4 (24 GB) is a cost-effective default.** Every model in the catalog fits on one, `jina-embeddings-v4` included, and 24 GB is the minimum `jina-ocr-v1` is tested on. An A10G or an A100 works as well where your cloud offers those instead; pick an A100 when you need lower latency.
 
 ## Document OCR (`jina-ocr-v1`)
 
 The OCR model is served on an in-process vLLM engine, which sizes differently from the other models:
 
-- **GPU only; an L4 or larger.** There is no `:cpu` image. Its CUDA is vLLM's, newer than the other GPU images', so check the driver as [Troubleshooting -> CUDA mismatch](Troubleshooting#cuda-mismatch) shows.
+- **GPU only, 24 GB or more**, such as an L4. There is no `:cpu` image. Its CUDA is vLLM's, newer than the other GPU images', so check the driver as [Troubleshooting -> CUDA mismatch](Troubleshooting#cuda-mismatch) shows.
 - **It takes most of the card.** vLLM pre-allocates a fixed share of GPU memory at startup (the `gpu_memory_utilization` on the model's catalog entry) and uses it for concurrent requests. To put a second container on the same GPU, lower it with `JINA_GPU_MEMORY_FRACTION`.
 - **Cold start is minutes.** The engine compiles and captures CUDA graphs before `/health` reports ready. Size your orchestrator's start-up probes for it.
 - **It needs shared memory.** Run with `--shm-size=2g`; the shipped compose file and Kubernetes manifest already do.
@@ -70,9 +71,9 @@ A page is generated token by token, so time per page follows the length of the p
 
 The listwise rerankers (`jina-reranker-v3`, `jina-reranker-v3.5`) score a block of documents in one forward pass instead of one document at a time, so the memory a single request needs grows with the **square** of the tokens in that request, not linearly with the document count. Size the host from the largest request you intend to send, not from the average.
 
-On GPU this is not a practical constraint at L4 size: the full 16-document mixed corpus below (~29K tokens, longest document 90,000 characters) completes in 8.4 s using 8.7 GB of the L4's usable 23 GB.
+On GPU this is not a practical constraint at L4 size: one request of 16 documents of mixed length, about 29K tokens in total with the longest document at 90,000 characters, completes in 8.4 s using 8.7 GB of the L4's usable 23 GB.
 
-On the `:cpu` image, host RAM is the binding constraint. Measured with `jina-reranker-v3.5:cpu` on a `g2-standard-8` (8 vCPU, 31 GB RAM), uniform 2000-character English documents, one request at a time:
+On the `:cpu` image, host RAM is the binding constraint. Measured with `jina-reranker-v3.5:cpu` on an 8 vCPU, 31 GB RAM host, uniform 2000-character English documents, one request at a time:
 
 | Documents per request | Total characters | Result |
 |---|---|---|
@@ -81,7 +82,7 @@ On the `:cpu` image, host RAM is the binding constraint. Measured with `jina-rer
 | 16 | 32,000 | 108 s |
 | 24 | 48,000 | exceeds 31 GB; the host OOM-kills the container (exit 137) |
 
-Two ways to stay inside a RAM budget: cap documents per request at the client and page through the candidate list, or give the host more RAM. On the same 31 GB host, `jina-reranker-v3:cpu` completed the mixed corpus that `jina-reranker-v3.5:cpu` could not, so it is the safer pick where RAM is fixed and small.
+Two ways to stay inside a RAM budget: cap documents per request at the client and page through the candidate list, or give the host more RAM. On the same 31 GB host, `jina-reranker-v3:cpu` completed the mixed-length request above, which `jina-reranker-v3.5:cpu` could not, so it is the safer pick where RAM is fixed and small.
 
 These are the model's own batching defaults, not a jina-on-prem setting - there is no knob in the container to change them.
 
@@ -170,21 +171,21 @@ For higher throughput:
 2. **Batch at the client.** Send 32-256 inputs per request, not one at a time.
 3. **Use matryoshka** to truncate output dims at query time if the index dim doesn't need to be full size.
 4. **Multiple replicas.** A 4-vCPU + 1xL4 host can run one container. Two hosts -> 2x. Load balance with anything (nginx, HAProxy, ALB); [Elasticsearch Integration](Elasticsearch-Integration#more-than-one-replica) has a ready compose file with nginx in front.
-5. **Bigger GPU.** A10G is ~2x L4, A100 ~4x for these models.
+5. **Bigger GPU.** Measure the gain on your own traffic before sizing for it.
 
 ## GPU dynamic batching: the `:gpu-opt` images
 
-A `:gpu` container runs one forward pass at a time, so if your clients each send one input and there are many of them, they queue. The `:gpu-opt` tag is the same image with a server-side batcher enabled: one GPU worker collects whatever requests are in flight, sorts them by length, packs them into a token-budgeted batch and runs them together. Published for the 16 embedding models; rerankers, ColBERT, reader and VLM images come as `:cpu` and `:gpu` only, and `jina-ocr-v1` as `:gpu` only.
+A `:gpu` container runs one forward pass at a time, so if your clients each send one input and there are many of them, they queue. The `:gpu-opt` tag is the same image with a server-side batcher enabled: one GPU worker collects whatever requests are in flight, sorts them by length, packs them into a token-budgeted batch and runs them together. Published for every embedding model; rerankers, ColBERT, reader and VLM images come as `:cpu` and `:gpu` only, and `jina-ocr-v1` as `:gpu` only.
 
-**Which one to run**, from measuring both on the same GPU across all 16 models:
+**Which one to run**, from measuring both on the same GPU across every embedding model:
 
 | Your traffic | Choose | Why |
 |---|---|---|
 | Many clients, one or a few inputs per request | `:gpu-opt` | The batcher does the batching your clients are not doing. Latency improves too, because a request waits behind a batch instead of behind a queue. |
-| Few clients, 32-256 inputs per request | `:gpu` | No gain to collect: the client already batches. Across the 16 models the median difference at these shapes was 0.98x at 8x32 and 0.93x at 4x128, and the worst case was 0.58x. |
+| Few clients, 32-256 inputs per request | `:gpu` | No gain to collect: the client already batches. Across the embedding models the median difference at these shapes was 0.98x at 8x32 and 0.93x at 4x128, and the worst case was 0.58x. |
 | Mixed, or you are not sure | `:gpu-opt` | It is never much worse on bulk traffic and much better on concurrent traffic. Check against your own shape. |
 
-We are not publishing a throughput multiplier for the concurrent case. The gains we measure there are large, but at high concurrency with single-input requests our load generator becomes the limiting factor rather than the server, so the number would describe our test harness as much as the product. Measure it on your own traffic shape.
+Gains on concurrent single-input traffic are large; measure them on your own traffic shape.
 
 **The two images return the same vectors.** Same corpus, same GPU, one image after the other:
 
@@ -201,11 +202,11 @@ We are not publishing a throughput multiplier for the concurrent case. The gains
 | `jina-code-embeddings-1.5b` | 0.99999738 | 7.4e-04 |
 | `jina-embeddings-v2-base-zh` | 0.99989038 | 1.6e-03 |
 
-Eight of the sixteen are identical to the last bit. The rest differ only where a different batch composition changes floating-point summation order, which is normal for any batching inference server and is far below the scale that affects retrieval ranking.
+Half are identical to the last bit. The rest differ only where a different batch composition changes floating-point summation order, which is normal for any batching inference server and is far below the scale that affects retrieval ranking.
 
 To check this on your own hardware, embed the same inputs against both images and compare. No special tooling is needed, since both accept the identical request.
 
-Tuning, if the defaults do not fit: `JINA_BATCH_TOKENS` (token budget per batch), `JINA_BATCH_WAIT_MS` (how long the worker waits for more requests before running), `JINA_DTYPE`. The defaults are set for an L4.
+Tuning, if the defaults do not fit: `JINA_BATCH_TOKENS` (token budget per batch), `JINA_BATCH_WAIT_MS` (how long the worker waits for more requests before running), `JINA_DTYPE`. By default the token budget is measured from the GPU at startup.
 
 ## Deployment topologies
 
@@ -244,15 +245,17 @@ Three patterns:
 ```
 
 - **Single host** is fine for POC, dev, internal tools. No redundancy.
-- **Active-active** with two hosts behind any L4 load balancer. Models are stateless so any request can go to any replica. Use this for production. Maintain spare image tarballs on disk so you can rebuild a host without rebundling.
+- **Active-active** with two hosts behind any layer-4 (TCP) load balancer. Models are stateless so any request can go to any replica. Use this for production. Maintain spare image tarballs on disk so you can rebuild a host without rebundling.
 - **Kubernetes** if you already run it. Each pod is `docker run` with a `Service` and `Deployment`. Persistent volume not needed (model is in the image). NodeSelector for GPU nodes if you mix GPU and CPU.
 
 A ready-to-apply manifest with Namespace + Deployment + Service + HPA + Ingress lives at [`k8s/jina-on-prem.yaml`](https://github.com/jina-ai/jina-on-prem/blob/main/k8s/jina-on-prem.yaml):
 
 ```bash
-# Load the image on every node (no internal registry needed):
+# Load the image on every node (no internal registry needed).
+# Nodes running containerd (most current Kubernetes) import into its k8s.io namespace;
+# on a node that runs Docker as its runtime, use "docker load" instead.
 for n in node-1 node-2 node-3; do
-  docker save jina/jina-embeddings-v5-text-small:gpu | ssh $n "docker load"
+  docker save jina/jina-embeddings-v5-text-small:gpu | ssh $n "sudo ctr -n k8s.io images import -"
 done
 
 kubectl apply -f k8s/jina-on-prem.yaml
@@ -276,13 +279,11 @@ To run two models (embed + rerank), copy the Deployment+Service blocks with diff
 Before deploying or transferring a bundle:
 
 - [ ] Host with Docker 24+ installed
-- [ ] (GPU) NVIDIA driver >= 525, CUDA Container Toolkit installed (`nvidia-smi` works in container)
+- [ ] (GPU) NVIDIA driver >= 525 (newer for `jina-ocr-v1`, see [Document OCR](#document-ocr-jina-ocr-v1)), CUDA Container Toolkit installed (`nvidia-smi` works in container)
 - [ ] Disk: 2-3x the bundle size free
 - [ ] Port 8080 (or chosen port) free
 - [ ] Network plan: how does the calling app reach this host? localhost / LAN IP / internal DNS?
 - [ ] (Optional) Load balancer in front if multi-replica, see [Elasticsearch Integration](Elasticsearch-Integration#more-than-one-replica)
-
-If this is not already configured, `scripts/bootstrap-gcp.sh` is a template; adapt it for your cloud or on-prem environment.
 
 ## Next
 

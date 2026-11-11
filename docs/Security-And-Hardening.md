@@ -51,7 +51,7 @@ What constrains it:
 
 - **A text-only model can still fetch.** The URL is read while the request is parsed, and the Jina and Gemini schemas parse media before checking whether the model accepts it, while the OpenAI chat route checks first. A text-only model can therefore fetch a URL and then reject the request with a 400. The limits below apply on every model, and the network policy below decides whether the fetch can reach anything.
 - **Only `http` and `https`.** A `file:`, `gs:`, `s3:` or any other scheme is rejected with a 400, and a redirect to one of them is rejected too, because the redirect handler re-checks the scheme rather than trusting the first URL.
-- **10 MB per input, a fetch timeout and a redirect limit**, the constants at the top of `server/media.py`. A large or slow URL fails the request instead of holding the worker.
+- **10 MB per input, unless the model's catalog entry sets `max_media_bytes`, plus a fetch timeout and a redirect limit**, the constants at the top of `server/media.py`. A large or slow URL fails the request instead of holding the worker.
 - **Your network decides whether it resolves.** With `--network none`, or with an egress policy, the fetch simply fails and the request returns an error.
 
 If you want the capability without the fetch, send media inline, as base64 or a `data:` URL. Inline media never touches the network.
@@ -80,7 +80,7 @@ docker run --read-only \
   -p 127.0.0.1:8080:8080 jina/MODEL:cpu
 ```
 
-`--user` still works if your policy assigns its own uid, for example `--user 65534:65534`, and `--read-only` works with `/tmp` given as a tmpfs for Python's own scratch use. The image owns `/model_cache` as uid 65532 because the server would otherwise write `trust_remote_code` modules there on first load; a different uid or a read-only filesystem works only because the build gate refuses to finish an image until those modules are already staged, which makes that write unnecessary.
+`--user` still works if your policy assigns its own uid, for example `--user 65534:65534`, and `--read-only` works with `/tmp` given as a tmpfs for Python's own scratch use. The image owns `/model_cache` as uid 65532 because the server would otherwise write `trust_remote_code` modules there on first load; a different uid or a read-only filesystem works because those modules are already in the image, so nothing is written there.
 
 In Kubernetes the equivalent is a `securityContext` with `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false` and dropped capabilities; `runAsNonRoot: true` passes as it is, because the image names its user by number. The shipped [`k8s/jina-on-prem.yaml`](https://github.com/jina-ai/jina-on-prem/blob/main/k8s/jina-on-prem.yaml) carries no `securityContext`, so add one to the container, alongside `ports`, with a `/tmp` volume for the read-only root:
 

@@ -20,7 +20,7 @@ unexpected shape
 empty result]
 ```
 
-Jump to a section: [Docker / install](#docker-permission-denied) - [L4 stockout](#l4-stockout) - [CUDA mismatch](#cuda-mismatch) - [OOM](#out-of-memory-on-gpu) - [Transformers version pins](#transformers-version-pins) - [GHCR auth](#prebuilt-pull-unauthorized) - [Wrong endpoint](#wrong-endpoint-returns-400) - [License 403](#403-with-type-license_error) - [Verifying the air gap](#verifying-the-air-gap) - [Disk full](#disk-full-during-multi-model-build) - [Base image pull](#bundle-build-fails-pulling-the-base-image) - [Reranker NaN](#empty--nan-embeddings-on-qwen3-reranker)
+Jump to a section: [Docker / install](#docker-permission-denied) - [CUDA mismatch](#cuda-mismatch) - [OOM](#out-of-memory-on-gpu) - [Transformers version pins](#transformers-version-pins) - [GHCR auth](#prebuilt-pull-unauthorized) - [Wrong endpoint](#wrong-endpoint-returns-400) - [License 403](#403-with-type-license_error) - [Verifying the air gap](#verifying-the-air-gap) - [Disk full](#disk-full-during-multi-model-build) - [Base image pull](#bundle-build-fails-pulling-the-base-image)
 
 ## Docker permission denied
 
@@ -47,21 +47,6 @@ sg docker -c 'docker ps'        # apply group in current session
 # OR prefix one-off commands with sudo:
 sudo docker ps
 ```
-
-## L4 stockout
-
-**Symptom** (from `gcloud compute instances create`):
-
-```
-The zone 'projects/PROJECT/zones/ZONE' does not have enough resources to fulfill the request.
-'NULL:0/NULL:0/NULL:0 (state:STOCKOUT, sub-state:STOCKOUT, resource type:compute)'
-```
-
-**Cause**: L4 GPUs are heavily oversubscribed, and several US zones are commonly out at the same time.
-
-**Fix**: retry in another zone, or fall back to another GPU type with quota in a zone you can get. [`scripts/bootstrap-gcp.sh`](https://github.com/jina-ai/jina-on-prem/blob/main/scripts/bootstrap-gcp.sh) takes the zone as its second argument and `GPU_TYPE` from the environment, so a retry is a rerun with either changed.
-
-No GPU is needed to build an image, including a GPU image, so a CPU-only instance avoids this entirely.
 
 ## Prebuilt pull unauthorized
 
@@ -104,7 +89,7 @@ Emulated output is correct but the throughput is a fraction of native, so treat 
 
 ## CUDA mismatch
 
-**Symptom**: GPU container exits immediately with `CUDA error: no kernel image is available for execution on the device` or `forward compatibility was attempted on non supported HW`.
+**Symptom**: GPU container exits immediately with `forward compatibility was attempted on non supported HW`.
 
 **Cause**: host's NVIDIA driver is older than the CUDA the image carries. The GPU image ships CUDA 12.6, which runs on driver `>=525.60` through CUDA's minor-version compatibility. The image states its CUDA version in a label:
 
@@ -150,29 +135,11 @@ If `<525`, either update the driver or use the CPU image (`:cpu` tag) which has 
 python jina-on-prem.py list --json | jq -r '.[] | "\(.id)\t\(.deps.transformers)"'
 ```
 
-The pins span six transformers versions across the catalog and are exact on purpose: each model needs a config class or attention implementation from one specific release, and several of them fail on both older and newer ones. Two models pin `==4.57.0`, which is yanked on PyPI; an exact pin still installs a yanked release, which is why they pin the version rather than a range.
+The pins are exact and differ per model, on purpose: each model needs a config class or attention implementation from one specific release, and several of them fail on both older and newer ones. Some pin `==4.57.0`, which is yanked on PyPI; an exact pin still installs a yanked release, which is why they pin the version rather than a range.
+
+Outside Docker, keep `jina-reranker-v3.5` on its catalog pin, `==4.57.1`: on transformers 4.57.3 it calls Hugging Face while loading its tokenizer and fails offline with `OfflineModeIsEnabled`.
 
 > The bundle phase deletes each model repo's own `requirements.txt` after download. This prevents runtime auto-upgrade by `trust_remote_code` paths that would otherwise call `pip install -r requirements.txt`.
-
-## `OfflineModeIsEnabled` on a reranker
-
-**Symptom**: `jina-reranker-v3.5` raises `huggingface_hub.errors.OfflineModeIsEnabled: Cannot reach https://huggingface.co/api/models/jinaai/jina-reranker-v3.5` while serving a rerank request, even though the container never needs the network.
-
-**Cause**: transformers 4.57.3 sniffs base-mistral tokenizers by calling `huggingface_hub.model_info()` whenever a tokenizer is loaded by repo id instead of by path. The reranker's own `rerank()` re-loads its tokenizer by name, so the probe fires; in an air-gapped container it cannot complete.
-
-**Fix**: none needed with the official images - the reranker pins `transformers==4.57.1`, which does not carry the probe. You reach this error by installing 4.57.3 yourself and running `serve` outside Docker; pin `==4.57.1` there too.
-
-Only 4.57.3 is affected. Verified on `jina-reranker-v3.5`, loading by repo id with `HF_HUB_OFFLINE=1`:
-
-| transformers | Without the bypass |
-|---|---|
-| 4.56.2 | works |
-| 4.57.0 | works, but the release is yanked on PyPI |
-| 4.57.1 | works |
-| 4.57.2 | fails differently - `FileNotFoundError` from `os.listdir(<repo id>)` |
-| 4.57.3 | fails - `OfflineModeIsEnabled` |
-
-All working versions produce identical scores, so the pin is about offline behaviour, not quality.
 
 ## Wrong endpoint returns 400
 
@@ -189,17 +156,6 @@ All working versions produce identical scores, so the pin is about offline behav
 **Cause**: the container runs with `JINA_LICENSE_MODE=enforce`, and the key is missing, invalid, scoped to another model, or expired past its grace window. The default `warn` mode never returns this.
 
 **Fix**: read `code`, or `license.reason` in `/health`, against [Licensing -> Reason codes](Licensing#reason-codes). Then set a key that covers this image, or run in the default `warn` mode if this is not a time-boxed trial.
-
-## Empty / NaN embeddings on Qwen3 reranker
-
-**Symptom**: reranker scores are all 0.5 or all NaN.
-
-**Cause**: Qwen3-based rerankers need `pad_token = eos_token`. The server sets this automatically. If you're loading the model with the SentenceTransformers SDK directly:
-
-```python
-model = CrossEncoder(...)  # NOT SentenceTransformer
-model.tokenizer.pad_token = model.tokenizer.eos_token
-```
 
 ## Verifying the air gap
 
@@ -221,9 +177,9 @@ Use `-p 8080:8080` for the deployment you actually run, and `--network none` plu
 
 ## Bundle build fails pulling the base image
 
-**Symptom**: the build stops at a `FROM` line with `401 Unauthorized` from `docker.elastic.co`, or at `apk add` unable to reach `apk.cgr.dev`.
+**Symptom**: the build stops at a `FROM` line with `401 Unauthorized`, or at `apk add` unable to reach `apk.cgr.dev`.
 
-**Cause**: the Dockerfiles carry two bases. The default builds on `cgr.dev/chainguard/wolfi-base` and installs Python from `apk.cgr.dev`, both anonymous. The other, selected by `--build-arg BASE=official`, is the base the prebuilt images use and needs an Elastic login. A Docker build without BuildKit also pulls it, because the legacy builder builds every stage in the file rather than only the ones the image needs.
+**Cause**: the default base is `cgr.dev/chainguard/wolfi-base`, with Python installed from `apk.cgr.dev`, both anonymous. A `401` comes from building without BuildKit: the legacy builder pulls every stage in the Dockerfile rather than only the ones the image needs, including one whose base needs registry credentials.
 
 **Fix**: build with `python jina-on-prem.py bundle`, which uses the default base and turns BuildKit on. Behind a proxy or firewall, allow `cgr.dev` and `apk.cgr.dev` alongside the Python package indexes and Hugging Face. See [Bundling Guide -> Base image](Bundling-Guide#base-image).
 
@@ -231,7 +187,7 @@ Use `-p 8080:8080` for the deployment you actually run, and `--network none` plu
 
 **Symptom**: `no space left on device` after building two or three bundles.
 
-**Cause**: each bundle leaves the BuildKit cache, the built image, and the `.tar.gz` - ~10-20 GB cumulative per model.
+**Cause**: each bundle leaves the BuildKit cache, the built image, and the `.tar.gz`; see [Sizing & Hardware -> Disk planning](Sizing-And-Hardware#disk-planning).
 
 **Fix**:
 
@@ -244,11 +200,4 @@ docker system df               # see what's left
 
 ## Got something else?
 
-Please [file an issue](https://github.com/jina-ai/jina-on-prem/issues/new) with:
-
-- `docker --version` and `nvidia-smi` if GPU
-- The full command you ran
-- `docker logs <container>` if a container started but failed
-- Last 50 lines of bundle log if a build failed
-
-Where to send it, and what not to put in a public tracker: [Support](Support).
+See [Support](Support) for where to report it, what to include, and what not to put in a public tracker.

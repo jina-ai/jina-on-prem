@@ -183,7 +183,7 @@ Timing is reported in the `X-Jina-Elapsed-Ms` and `X-Jina-Tok-Per-S` response he
 
 ## Multimodal inputs (omni / clip / v4 / vlm)
 
-Multimodal models accept images, audio, and video alongside text. Media can be sent as inline base64, as a `data:` URL, or as an `http(s)` URL that the server fetches under a size cap, a timeout and a redirect limit, the constants at the top of `server/media.py`. In an air-gapped network a URL fetch fails, so send media inline there. Max 10 MB per input.
+Multimodal models accept images, audio, and video alongside text. Media can be sent as inline base64, as a `data:` URL, or as an `http(s)` URL that the server fetches under a size cap, a timeout and a redirect limit, the constants at the top of `server/media.py`. In an air-gapped network a URL fetch fails, so send media inline there. 10 MB per input by default; a model whose catalog entry sets `max_media_bytes` allows that much instead.
 
 ```bash
 # Image-only embedding

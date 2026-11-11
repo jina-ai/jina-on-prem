@@ -3,7 +3,7 @@ Common questions with short answers.
 ## Business / licensing
 
 **Do we need to buy a license?**
-For most production use yes - Jina v5 and v3 models are CC-BY-NC-4.0, whose "NC" forbids commercial use without a license, and v4 is under the Qwen Research License. The Apache-2.0 models, free for any use, are the v2 text embeddings (`jina-embeddings-v2-base-*`), `jina-clip-v1`, `jina-colbert-v1-en` and the v1 embedding and reranker models; the License column of the [Model Catalog](Model-Catalog) is authoritative. Contact [Elastic sales](https://www.elastic.co/contact). The CLI itself, the toolkit, and the Docker images are Apache-2.0.
+For most production use yes - Jina v5 and v3 models are CC-BY-NC-4.0, whose "NC" forbids commercial use without a license, and v4 is under the Qwen Research License. The Apache-2.0 models, free for any use, are the v2 text embeddings (`jina-embeddings-v2-base-*`), `jina-clip-v1`, `jina-colbert-v1-en` and the v1 embedding and reranker models; the License column of the [Model Catalog](Model-Catalog) is authoritative. Contact [Elastic sales](https://www.elastic.co/contact). The CLI, the toolkit and the Dockerfiles are public on GitHub.
 
 **Can I evaluate without a commercial license?**
 Yes - use any Apache-2.0 model (`jina-embeddings-v2-base-en`, `jina-clip-v1`, `jina-reranker-v1-*`). Quality is older but the deployment workflow is identical. Upgrade to a v5 model when you are ready for production.
@@ -63,7 +63,7 @@ Build a new bundle on the connected machine, transfer it, `docker load`, point t
 `GET /health` for liveness/readiness probes. Any HTTP-level metric (request rate, latency, error code) via your usual stack (Prometheus pull from in front of the LB, or sidecar exporter). The container has no `/metrics` endpoint, but `/health` carries a `throughput` block once it has served a request, and every inference response carries `X-Jina-Elapsed-Ms` and `X-Jina-Tok-Per-S` headers.
 
 **How do I know my embeddings are deterministic across deploys?**
-Same model, same dtype (`gpu_dtype` in catalog), same transformers/torch versions, same input -> same output bit-exact. The bundle pins all of these. Confirm by hashing the response on two replicas.
+Same model, same dtype (`gpu_dtype` in catalog), same transformers/torch versions, same input, same hardware -> same output. The bundle pins all of these. Across GPU types, between `:gpu` and `:gpu-opt`, and with different batch composition, expect tiny floating-point differences; compare with cosine similarity rather than a hash.
 
 **Can I rotate models without downtime?**
 Yes - blue/green at the load balancer. Bring up a second container with the new model on a different port, switch the LB target, then tear down the old.
@@ -80,10 +80,10 @@ Those are great projects for hosted-yourself LLMs. jina-on-prem is specifically 
 You can, and for some models that's a fine path. jina-on-prem's value-add is: pinning the exact transformers/torch versions per model (custom code requires specific versions), wrapping the multi-schema API, and the bundle-and-transfer workflow with documented walkthroughs. ONNX export drops some model-specific code paths (LoRA adapters, custom rerankers) that the maintained Python implementation supports.
 
 **"Can you guarantee it never sends data out?"**
-Yes by design - HF_HUB_OFFLINE=1 + TRANSFORMERS_OFFLINE=1, and the one outbound code path is the media URL fetch, reachable only by a multimodal request that carries an `http(s)` URL. The image and source code on GitHub are auditable. Stronger guarantee: run it on a host with no egress route at all (most air-gapped environments already enforce this).
+Yes by design - HF_HUB_OFFLINE=1 + TRANSFORMERS_OFFLINE=1, and the one outbound code path is the media URL fetch, reachable only by a request that carries an `http(s)` media URL. The image and source code on GitHub are auditable. Stronger guarantee: run it on a host with no egress route at all (most air-gapped environments already enforce this).
 
 **"What's the long-term commitment?"**
-The Apache-2.0 toolkit, Dockerfiles, and CLI are public. If Jina shut down tomorrow, you could keep rebundling existing models from the weights you hold. The CC-BY-NC license on the weights is what a commercial license covers, not the runtime. For the full support/maintenance horizon and what "end of life" means for an air-gapped model, see [Product & Model Lifecycle (EOL)](Product-And-Model-Lifecycle).
+The toolkit, Dockerfiles, and CLI are public. The images you hold keep working, and `serve --local-path` runs a model from a local copy of its weights. The CC-BY-NC license on the weights is what a commercial license covers, not the runtime. For the full support/maintenance horizon and what "end of life" means for an air-gapped model, see [Product & Model Lifecycle (EOL)](Product-And-Model-Lifecycle).
 
 **"Can you patch the model to fix its accuracy on our task, like a software bug?"**
 No. A model's quality is baked into its frozen, trained weights - there is no line of code to change. Better quality on a task only comes from a newer model generation (new weights), which you adopt as a migration on your own schedule. Within a generation we maintain the runtime, dependencies, and quantized builds of the same weights - not the model's learned behaviour. Full explanation: [Product & Model Lifecycle -> Models are not software](Product-And-Model-Lifecycle#models-are-not-software-what-maintenance-really-means).

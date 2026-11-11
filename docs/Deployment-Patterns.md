@@ -108,7 +108,7 @@ That's it. No application code change beyond `base_url`.
 
 **Use**: `jina-clip-v2` (multimodal embeddings, text and image in the same space).
 
-**Hardware**: ~4GB VRAM. L4 minimum if you want < 100ms image embedding.
+**Hardware**: ~4GB VRAM.
 
 **API call** (image + text fused into a single embedding):
 
@@ -153,7 +153,7 @@ curl http://rerank-host:8080/v1/rerank \
   }'
 ```
 
-131K context means you can pass long documents (full pages, transcripts) without chunking.
+The 131K context is shared by the whole request, the query plus every document, so long documents (full pages, transcripts) fit without chunking only as long as the request as a whole does; see [Reranker host memory](Sizing-And-Hardware#reranker-host-memory).
 
 ## Scenario G - Hospital with HIPAA + sovereign data
 
@@ -163,10 +163,10 @@ curl http://rerank-host:8080/v1/rerank \
 
 **Security properties for compliance review**:
 - Model weights and dependencies run on the deployment host. No data or queries leave the environment.
-- The container has `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` baked in, so the model fetches nothing at runtime. The one outbound code path is the media URL fetch, reachable only by a multimodal request that carries an `http(s)` URL.
+- The container has `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` baked in, so the model fetches nothing at runtime. The one outbound code path is the media URL fetch, reachable only by a request that carries an `http(s)` media URL.
 - The image is built once on a connected machine, transferred via the organisation's change-control process, and run on offline machines indefinitely.
 - No license server, no phone-home, no telemetry.
-- Source code is on GitHub (Apache-2.0 for the CLI) and is auditable.
+- Source code is public on GitHub and is auditable.
 
 The full set, with the network behaviour and a hardening checklist, is in [Security & Hardening](Security-And-Hardening).
 
@@ -176,7 +176,7 @@ The full set, with the network behaviour and a hardening checklist, is in [Secur
 
 **Use**: `jina-ocr-v1` to turn each page into Markdown (tables as HTML, formulas as LaTeX), then an embedding model such as `jina-embeddings-v5-text-small` to index the text.
 
-**Hardware**: an L4 or larger; the OCR model has no CPU image. Run it on its own GPU, or lower its memory share with `JINA_GPU_MEMORY_FRACTION` to put the embedding model on the same card. See [Sizing & Hardware -> Document OCR](Sizing-And-Hardware#document-ocr-jina-ocr-v1).
+**Hardware**: a GPU with 24 GB or more, such as an L4; the OCR model has no CPU image. Run it on its own GPU, or, on a card larger than 24 GB, lower its memory share with `JINA_GPU_MEMORY_FRACTION` to put the embedding model on the same card. See [Sizing & Hardware -> Document OCR](Sizing-And-Hardware#document-ocr-jina-ocr-v1).
 
 **Deploy**: render each PDF page to an image first (the model reads one page image per request), send it to the OCR container as [API Reference -> Document OCR](API-Reference#document-ocr-jina-ocr-v1) shows, and index what comes back:
 

@@ -54,7 +54,7 @@ All 30 models supported by jina-on-prem, generated from [`models/catalog.json`](
 
 | Model | Prebuilt | Params | VRAM | Context | Output | Modality | License |
 |---|---|---|---|---|---|---|---|
-| `jina-ocr-v1` | [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-ocr-v1) | 3.4B | ~16GB | 32K | - | multimodal | CC-BY-NC-4.0 |
+| `jina-ocr-v1` | [gpu](https://github.com/orgs/jina-ai/packages/container/package/jina-on-prem%2Fjina-ocr-v1) | 3.4B | ~24GB | 32K | - | multimodal | CC-BY-NC-4.0 |
 
 ## Vision-Language
 

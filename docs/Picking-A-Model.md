@@ -5,7 +5,7 @@ flowchart TD
     A[What is the use case?] --> B{Just text?}
     B -- yes --> C{Multilingual?}
     B -- no --> D{Modalities?}
-    C -- mostly English, latency matters --> M1[jina-embeddings-v5-text-nano
+    C -- smaller host, latency matters --> M1[jina-embeddings-v5-text-nano
 239M, ~2GB VRAM]
     C -- 89 languages, quality matters --> M2[jina-embeddings-v5-text-small
 677M, ~3GB VRAM]
@@ -21,7 +21,7 @@ flowchart TD
     A --> E{Reranking?}
     E -- top quality --> R1[jina-reranker-v3.5
 0.6B, ~3GB VRAM, 131K context]
-    E -- smaller host --> R3[jina-reranker-v3
+    E -- RAM-limited CPU host --> R3[jina-reranker-v3
 597M, ~3GB VRAM]
     E -- fastest --> R2[jina-reranker-v1-turbo-en
 37.8M, CPU OK]
@@ -32,7 +32,7 @@ flowchart TD
 
     A --> G{Scanned pages to text?}
     G -- yes --> OCR1[jina-ocr-v1
-3.4B, GPU only, L4 or larger]
+3.4B, ~24GB VRAM, GPU only]
 ```
 
 ## Quick reference by use case

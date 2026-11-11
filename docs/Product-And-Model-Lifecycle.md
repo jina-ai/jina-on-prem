@@ -1,15 +1,13 @@
-The support, maintenance, and end-of-life (EOL) policy for jina-on-prem, the self-managed, air-gapped deployment of Jina AI models. This page explains, in plain terms, how long a model you deploy will keep working, how long Jina/Elastic maintains it, what "end of life" actually means when the weights live inside your own network, and - importantly - what "maintenance" can and cannot mean for a machine-learning model as opposed to ordinary software. It is the reference for field, support, procurement, security, and audit questions about the lifetime of a jina-on-prem deployment.
+The support, maintenance, and end-of-life (EOL) policy for jina-on-prem, the self-managed, air-gapped deployment of Jina AI models. This page explains, in plain terms, how long a model you deploy will keep working, how Jina/Elastic maintains it, what "end of life" actually means when the weights live inside your own network, and - importantly - what "maintenance" can and cannot mean for a machine-learning model as opposed to ordinary software. It is the reference for support, procurement, security, and audit questions about the lifetime of a jina-on-prem deployment.
 
-> **Read this first.** Hosted-API providers (OpenAI, Cohere, Azure Foundry, Amazon Bedrock) tie "end of life" to a *shutdown date*: after that date the endpoint is switched off and your requests fail. Air-gapped jina-on-prem is different by design. You hold the weights inside your own perimeter, so there is **no technical kill switch, no phone-home, and no date on which the software forces itself to stop** - a deployed model does not go dark because a clock ran out on our side. EOL here is about how long *we* keep maintaining and supporting a model, not about a remote switch that disables it.
->
-> **Two distinct things - do not conflate them:** (1) *Technical continuity* - the bundle keeps running as long as you run it; nothing we operate can remotely disable it. (2) *Commercial right to use* - jina-on-prem is sold as a **term-based subscription**, not a perpetual license. Production use requires a **current, in-term commercial entitlement**, and continued use past the term requires **renewal**, exactly like other Elastic self-managed subscriptions. So the mental model is: **you are not renting *access* from our servers (there is nothing to shut off), but you are subscribing to the *right to use* on a term that must be renewed.** The absence of a technical kill switch is an availability/reliability guarantee, not a grant of perpetual license rights. See [Licensing and the subscription term](#licensing-and-the-subscription-term).
+> **Read this first.** There is no kill switch: a deployed model keeps running for as long as you run it, and end of life here only means we stop maintaining it. Production use still needs a current, in-term commercial subscription; see [Licensing and the subscription term](#licensing-and-the-subscription-term).
 
 ## Contents
 
 - [How the jina-on-prem lifecycle differs from a hosted API](#how-the-jina-on-prem-lifecycle-differs-from-a-hosted-api)
 - [Models are not software: what "maintenance" really means](#models-are-not-software-what-maintenance-really-means)
 - [Lifecycle stages](#lifecycle-stages)
-- [Maintenance term (how long we support a model)](#maintenance-term-how-long-we-support-a-model)
+- [Maintenance term](#maintenance-term)
 - [Support term](#support-term)
 - [Notice and communication](#notice-and-communication)
 - [Determinism and migration guarantees](#determinism-and-migration-guarantees)
@@ -35,7 +33,7 @@ support ends - inference KEEPS RUNNING]:::sm
     end
 ```
 
-| | Hosted API (OpenAI / Cohere / Azure) | jina-on-prem (air-gap) |
+| | Hosted API | jina-on-prem (air-gap) |
 |---|---|---|
 | What EOL takes away | Access to the model (endpoint shut down) | Only our maintenance + support |
 | Does inference stop at EOL? | Yes - requests fail | **No** - your bundle runs indefinitely |
@@ -51,16 +49,14 @@ This is the most common misunderstanding, and getting it wrong leads to unrealis
 
 - **The runtime and server** (`server/`): API compatibility, new schema support, bug fixes in request handling, batching, and I/O.
 - **Dependencies**: patching a CVE in `transformers`, `torch`, or any bundled Python package by pinning to a fixed version and rebundling. See [Versioning & Updates -> Catalog and dependency bumps](Versioning-And-Updates#catalog-and-dependency-bumps).
-- **Packaging**: new base images, CPU/GPU build fixes, quantization variants of the *same* weights (for example an INT8/FP8 build to fit smaller hardware). Quantization is a lossless-to-near-lossless repackaging of the existing weights - it does not retrain them.
+- **Packaging**: new base images, CPU/GPU build fixes, quantization variants of the *same* weights (for example an INT8/FP8 build to fit smaller hardware). Quantization repackages the existing weights; it does not retrain them.
 - **Documentation, sizing, and deployment guidance.**
 
 **What maintenance CANNOT do - because it is physically not how models work:**
 
 - **We cannot "fix" a model's quality on a specific task by patching it.** If a model underperforms on, say, a particular language or domain, there is no code change that repairs it. The only way to change what a model *knows* or *how well it performs* is to **train new weights** - and new weights are, by definition, **a new model generation**, not a patch to the old one.
-- **We do not retrain or alter the weights of a released model.** A shipped generation is frozen. This is a feature, not a limitation: it is exactly what guarantees that the same bundle produces bit-identical output forever (see [determinism](#determinism-and-migration-guarantees)), which is what a regulated environment requires for reproducibility and audit.
+- **We do not retrain or alter the weights of a released model.** A shipped generation is frozen. This is a feature, not a limitation: it keeps a bundle's output stable, the same bundle on the same hardware giving the same output (see [determinism](#determinism-and-migration-guarantees)), which is what a regulated environment requires for reproducibility and audit.
 - **A "quality upgrade" is always a migration to a newer generation, never an in-place fix.** When we release, for example, a v5 text embedding model, that is the successor to v3 - a different model with different weights and different output vectors, not a repaired v3.
-
-> **Rule of thumb.** Treat a model version like a pressed vinyl record, not like a web app. We can fix the turntable (runtime), replace a worn needle (dependencies), and press the same recording onto a lighter disc (quantization). We cannot re-record the music without cutting a new record (a new model generation). Anyone expecting a model to be "hotfixed" on a task the way a software bug is patched is applying the wrong mental model - and will mis-plan their roadmap because of it.
 
 This is why the lifecycle below separates **runtime maintenance** (which we do, on a schedule) from **model quality** (which only ever improves by adopting a new generation, on your timeline).
 
@@ -77,36 +73,11 @@ Every jina-on-prem model generation is in exactly one stage. The stage describes
 
 Note there is deliberately **no "Shutdown" or "Retired" stage**. Those stages only exist for hosted services with a vendor-controlled endpoint. In an air-gap deployment there is nothing for us to retire - the artifact is yours. See [Versioning & Updates -> What a bundle pins](Versioning-And-Updates#what-a-bundle-pins) and [FAQ -> What if the model upstream gets pulled from Hugging Face?](FAQ).
 
-## Maintenance term (how long we support a model)
+## Maintenance term
 
-The **Maintenance Term** is the window during which Jina/Elastic actively maintains a model generation - runtime security patches, critical bug fixes, dependency updates, and packaging support.
-
-Because these are long-lived, on-premise and often air-gapped deployments in regulated environments - where re-certifying a new model is expensive and slow - we commit to a long horizon. For each jina-on-prem model generation, the Maintenance Term runs for **at least the longer of:**
-
-- **36 months (3 years)** from the model generation's GA (initial public release) date, **or**
-- **24 months (2 years)** from the GA date of its **direct replacement** generation,
-
-whichever is later - and in practice we expect to maintain widely deployed generations for **three to four years or more**. As long as Jina/Elastic offers the air-gap product, we intend to keep maintaining the generations that are actually running in production rather than putting a deployed model on a short clock. This is deliberately longer than typical hosted-API windows (OpenAI commits to a 6-month minimum before retirement; Azure Foundry to an 18-month GA lifecycle) because those clocks govern *shutting an endpoint off*, which does not apply here - our clock only governs how long *we* keep shipping fixes.
+The **Maintenance Term** is the window during which Jina/Elastic actively maintains a model generation - runtime security patches, critical bug fixes, dependency updates, and packaging support. For the term that applies to a generation you run, ask your Elastic contact.
 
 Remember what "maintenance" covers here: **runtime, dependencies, packaging, and quantization of the same weights - not model quality.** Improved quality only ever arrives as a new generation, which you adopt on your own schedule (see [Models are not software](#models-are-not-software-what-maintenance-really-means)).
-
-```mermaid
-timeline
-    title Maintenance Term for a model generation
-    GA (T0) : Recommended, full support
-    Replacement generation ships : Overlap window begins (>= 24 months of continued maintenance)
-    T0 + 36mo OR replacement GA + 24mo (whichever later) : Maintenance Term ends
-    After term : End of Life - keeps running for you indefinitely, no further fixes from us
-```
-
-### Worked example
-
-- `jina-embeddings-v3` GA: **2024-09-18**
-- `jina-embeddings-v5-text-*` (its direct replacement) GA: **2026-02-18**
-- Maintenance Term end = later of:
-  - 2024-09-18 + 36 months = 2027-09-18
-  - 2026-02-18 + 24 months = 2028-02-18  ← later
-- So `jina-embeddings-v3` is maintained until at least **2028-02-18** - roughly two full years of overlap with v5 to evaluate, re-certify, and migrate at your own pace. And after that date, any v3 bundle you deployed still runs; it simply stops receiving new fixes from us.
 
 ## Support term
 
@@ -119,16 +90,16 @@ Because nothing is ever force-retired, our notices are there to help you *plan*,
 | Event | Notice we give | Where |
 |---|---|---|
 | New GA generation released (predecessor becomes Legacy) | At release | [Model Catalog](Model-Catalog), release notes, `models/catalog.json` |
-| A generation enters **Maintenance** | At least **6 months** before the Maintenance Term ends | Release notes, this page, your account/support contact |
+| A generation enters **Maintenance** | Ahead of the end of its Maintenance Term | Release notes, this page, your account/support contact |
 | A generation reaches **End of Life** | Announced when the Maintenance Term ends | This page, release notes |
 | Security-critical issue that needs your action | As soon as reasonably possible | Support contact, security advisory |
 
 ## Determinism and migration guarantees
 
-- **A bundle is immutable.** Same bundle + same input = bit-identical output, forever. Reaching EOL does not change this. See [Versioning & Updates -> Embedding determinism](Versioning-And-Updates#embedding-determinism-across-versions). This is a direct consequence of frozen weights (see [Models are not software](#models-are-not-software-what-maintenance-really-means)).
+- **A bundle is immutable.** The same bundle on the same hardware gives the same output; expect tiny floating-point differences across GPU types, between `:gpu` and `:gpu-opt`, and with batch composition. Reaching EOL does not change this. See [Versioning & Updates -> Embedding determinism](Versioning-And-Updates#embedding-determinism-across-versions). This is a direct consequence of frozen weights (see [Models are not software](#models-are-not-software-what-maintenance-really-means)).
 - **Upgrades are always yours to initiate**, using the blue/green pattern in [Versioning & Updates](Versioning-And-Updates). No auto-upgrade, no forced cutover, ever.
 - **Reindex planning**: moving to a newer generation changes the embeddings (that is the point of a better model), so plan a reindex window - see [Versioning & Updates -> Reindex strategy](Versioning-And-Updates#reindex-strategy).
-- **Long-term continuity**: the Apache-2.0 toolkit, Dockerfiles, and CLI are public. Even after a generation reaches EOL, you can re-bundle any model you are licensed for directly from its weights, subject to the model license. See [FAQ -> What's the long-term commitment?](FAQ).
+- **Long-term continuity**: the toolkit, Dockerfiles, and CLI are public. Even after a generation reaches EOL, you can re-bundle any model you are licensed for directly from its weights, subject to the model license. See [FAQ -> What's the long-term commitment?](FAQ).
 
 ## Licensing and the subscription term
 
@@ -145,7 +116,7 @@ These are independent. The absence of a technical kill switch is an availability
 
 The optional built-in [time-bound license key](Licensing) mirrors the term: it carries an expiry and can flag an out-of-term deployment, but by default it is fail-open and never blocks a running deployment, because entitlement is governed by the contract rather than by the software. See [Licensing](Licensing) for how the key works and where its capabilities end.
 
-**Lifecycle stage vs. license are also independent.** Model weights stay under their original license (most current generations are CC-BY-NC-4.0; v1/v2 are Apache-2.0 - see [Model Catalog](Model-Catalog)). A CC-BY-NC-4.0 model in production requires a valid, in-term Elastic commercial subscription at every lifecycle stage. Reaching EOL neither grants new license rights nor extends your subscription term.
+**Lifecycle stage vs. license are also independent.** Model weights stay under their original license (most current generations are CC-BY-NC-4.0; the v2 text embeddings, `jina-clip-v1`, `jina-colbert-v1-en` and the v1 embedding and reranker models are Apache-2.0 - see [Model Catalog](Model-Catalog)). A CC-BY-NC-4.0 model in production requires a valid, in-term Elastic commercial subscription at every lifecycle stage. Reaching EOL neither grants new license rights nor extends your subscription term.
 
 ## Current lifecycle status
 
@@ -153,7 +124,7 @@ Generation-level status. Individual model IDs and per-model licenses are in the 
 
 | Capability | GA (recommended) | Legacy / Maintenance | Notes |
 |---|---|---|---|
-| Text embedding | `jina-embeddings-v5-text-small` / `-nano` (GA 2026-02-18) | `jina-embeddings-v3` (Maintenance, term to >= 2028-02-18) | v2 base models (Apache-2.0) remain available for license-free evaluation |
+| Text embedding | `jina-embeddings-v5-text-small` / `-nano` (GA 2026-02-18) | `jina-embeddings-v3` (Maintenance) | v2 base models (Apache-2.0) remain available for license-free evaluation |
 | Multimodal embedding | `jina-embeddings-v5-omni-small` / `-nano` (GA 2026-05-07) | `jina-embeddings-v4` (Legacy; Qwen Research License), `jina-clip-v2` | omni supersedes v4 multimodal |
 | Code embedding | `jina-code-embeddings-1.5b` / `0.5b` (GA 2025-09-01) | - | |
 | Reranker | `jina-reranker-v3.5` (GA 2026-07-27) | `jina-reranker-v3` (GA 2025-10-01), `jina-reranker-m0` (multimodal), `jina-reranker-v2-base-multilingual` | |
@@ -171,14 +142,11 @@ EOL only means we stop shipping fixes and standard support for that generation -
 **Can you fix the model's accuracy on our specific documents/language without us migrating?**
 No - and this is fundamental, not a policy choice. A model's quality is determined by its trained weights, which are frozen. There is no patch that changes what a model has learned. Better quality on a task comes only from a newer generation (new weights), which you adopt as a migration. What we *can* do within a generation is fix the runtime, patch dependencies, and provide quantized builds of the same weights.
 
-**How long will you really support the model we deploy today?**
-At least 3 years from its GA, and at least 2 years after its replacement ships, whichever is later - and in practice we expect three to four years or more for widely deployed generations. As long as we offer this product, we maintain the generations that are actually deployed.
-
 **What happens to support if Jina/Elastic stops offering the product entirely?**
-Your bundles still run - they are self-contained and yours. Because the toolkit, Dockerfiles, and CLI are Apache-2.0 and public, you (or a third party) can continue to re-bundle and operate any model you are licensed for from its weights. There is no license server or kill switch that could strand you.
+Your bundles still run - they are self-contained and yours, and the toolkit, Dockerfiles, and CLI are public. There is no license server or kill switch that could strand you.
 
 **Is quantization a "change" to the model?**
-It is a repackaging of the *same* trained weights into a more compact numeric format, with quality held to a near-lossless bar. It is not retraining and does not alter what the model knows. We treat it as maintenance/packaging, not a new generation.
+It is a repackaging of the *same* trained weights into a more compact numeric format. It is not retraining and does not alter what the model knows. We treat it as maintenance/packaging, not a new generation.
 
 ## Next
 

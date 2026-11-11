@@ -50,21 +50,9 @@ python3 jina-on-prem.py bundle --model jina-embeddings-v5-text-nano --cpu-only -
 
 ## Optional: bundle on a cloud VM
 
-Same output, different builder. Worth it when your own machine is not Linux x86_64 (macOS builds under emulation and is markedly slower), or is short on the 30-200 GB of disk or on bandwidth for the weight download. The repo ships [`scripts/bootstrap-gcp.sh`](https://github.com/jina-ai/jina-on-prem/blob/main/scripts/bootstrap-gcp.sh), a one-shot provisioner for Google Cloud, which creates an instance with Docker, the NVIDIA Container Toolkit and the repo already cloned. It takes the project from your own `gcloud` configuration; nothing about it is specific to a particular account.
+Same output, different builder. Worth it when your own machine is not Linux x86_64 (macOS builds under emulation and is markedly slower), or is short on disk or on bandwidth for the weight download. Any Linux x86_64 machine with Docker works to bundle, on any cloud or on premises, and nothing in a build needs a GPU. On Google Cloud, [`scripts/bootstrap-gcp.sh`](https://github.com/jina-ai/jina-on-prem/blob/main/scripts/bootstrap-gcp.sh) sets one up in your own project, with Docker, the NVIDIA Container Toolkit and the repo already cloned; its options are described at the top of the script.
 
-Ask for a CPU-only instance. Nothing in a build needs a GPU, and GPU instance types are the ones that run out of capacity:
-
-```bash
-GPU_COUNT=0 MACHINE_TYPE=e2-standard-4 ./scripts/bootstrap-gcp.sh   # CPU-only builder
-./scripts/bootstrap-gcp.sh                                          # defaults, attaches an L4
-./scripts/bootstrap-gcp.sh my-builder us-east4-a                    # different zone
-```
-
-The zone is the second positional argument and defaults to `us-central1-a`; it is not read from your `gcloud` configuration.
-
-> GPU instance types are frequently out of capacity in the busiest zones. If the script reports "does not have enough resources", try another zone. See [Troubleshooting -> L4 stockout](Troubleshooting#l4-stockout).
-
-After provisioning, the script prints the SSH command. From inside:
+The script prints the SSH command when it finishes. From inside the VM:
 
 ```bash
 cd ~/jina-on-prem
@@ -120,8 +108,8 @@ Sizes: under 2 GB for the nano/small text models on CPU and 4-6 GB on GPU; multi
 | Image size | weights plus a CPU-only torch | adds a few GB of CUDA runtime on top; see [Sizing & Hardware](Sizing-And-Hardware#published-image-sizes) |
 | Runs on host with GPU | yes (ignores GPU) | yes |
 | Runs on host without GPU | yes | yes, falls back to CPU (except `jina-ocr-v1`, below) |
-| Inference speed | ~10x slower | full speed |
-| Build wall-clock | ~3-15 min | ~10-30 min |
+| Inference speed (rough estimate) | ~10x slower | full speed |
+| Build wall-clock (rough estimate) | ~3-15 min | ~10 min to most of an hour, mostly downloading the CUDA wheels |
 
 If unsure, build both. The runtime host decides which to load.
 
@@ -131,13 +119,13 @@ If unsure, build both. The runtime host decides which to load.
 
 A bundle builds on Chainguard's `cgr.dev/chainguard/wolfi-base`, which anyone can pull, and installs Python 3.11 from Wolfi's package repository. The base is pinned by digest in `docker/Dockerfile.cpu` and `docker/Dockerfile.gpu`, and so are the `python-3.11` package and the OpenSSL it was built against, by version, to what the prebuilt images carry: a bundle runs the same interpreter as a prebuilt image rather than whatever Wolfi published on the day it is built. Wolfi keeps older package versions available but does not promise to; a pin that no longer resolves fails the build at `apk add`, and the fix is the current Dockerfiles. The build machine needs to reach `cgr.dev` and `apk.cgr.dev`, as well as the Python package indexes, `download.pytorch.org` for the torch wheels, and Hugging Face.
 
-The prebuilt images use the same Dockerfiles on a distroless Wolfi Python base, which needs an Elastic login to pull. `bundle` has no flag for it: selecting it means running `docker build` by hand with `--build-arg BASE=official`. Everything after the base is the same file, so a bundle installs the same Python packages. What differs is the operating system layer: a bundle keeps `wolfi-base`'s shell and `apk`, so an image scanner lists a few more packages in it than in a prebuilt image.
+The prebuilt images use the same Dockerfiles on a distroless variant of the Wolfi Python base. Everything after the base is the same file, so a bundle installs the same Python packages. What differs is the operating system layer: a bundle keeps `wolfi-base`'s shell and `apk`, so an image scanner lists a few more packages in it than in a prebuilt image.
 
-Bundling on this base is supported. At each release, a CPU and a GPU model are built this way and their vectors compared with the prebuilt images.
+Bundling on this base is supported.
 
 ## Bundle wall-clock examples
 
-Measured on `g2-standard-4` (4 vCPU + 1xL4) in `asia-southeast1-a` (May 2026):
+Measured on 4 vCPU, 1x NVIDIA L4:
 
 | Model | Runtime | Build time | Output size |
 |---|---|---|---|

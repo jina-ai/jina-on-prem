@@ -40,7 +40,7 @@ curl http://localhost:8080/health
 | `jina-reranker-v3.5` | top-K reranking, 131K context | 0.6B | ~3GB | yes |
 | `jina-reranker-v3` | top-K reranking, lighter host RAM on `:cpu` | 597M | ~3GB | yes |
 | `jina-clip-v2` | image + text search | 865M | ~4GB | yes |
-| `jina-ocr-v1` | page image to Markdown (render PDF pages to images first); GPU only, served on vLLM | 3.4B | an L4 or larger | yes (`:gpu` only) |
+| `jina-ocr-v1` | page image to Markdown (render PDF pages to images first); GPU only, served on vLLM | 3.4B | ~24GB | yes (`:gpu` only) |
 | `jina-embeddings-v3` | in maintenance; new deployments should prefer `jina-embeddings-v5-text-small` ([Lifecycle](Product-And-Model-Lifecycle#current-lifecycle-status)) | 570M | ~3GB | yes |
 
 Full table: [Model Catalog](Model-Catalog).
@@ -69,23 +69,25 @@ Full table: [Model Catalog](Model-Catalog).
 
 ## License
 
-| License | Models | Commercial use |
-|---|---|---|
-| CC-BY-NC-4.0 | All v5, v3, reranker-v3 / -v3.5 / -m0 / -v2-base-multilingual, clip-v2, colbert-v2, code-embeddings, ReaderLM-v2, reader-lm, vlm, ocr-v1 | needs commercial license - contact [Elastic sales](https://www.elastic.co/contact) |
-| Qwen Research License | v4 | needs commercial license - contact [Elastic sales](https://www.elastic.co/contact) |
-| Apache-2.0 | v2 text embeddings (`jina-embeddings-v2-base-*`), v1 embeddings and rerankers, clip-v1, colbert-v1-en | free for any use |
+Which model is under which license: the License column of the [Model Catalog](Model-Catalog).
+
+| License | Commercial use |
+|---|---|
+| CC-BY-NC-4.0 | needs commercial license - contact [Elastic sales](https://www.elastic.co/contact) |
+| Qwen Research License | needs commercial license - contact [Elastic sales](https://www.elastic.co/contact) |
+| Apache-2.0 | free for any use |
 
 ## Hardware quick rules
 
 - Low sustained QPS → CPU is fine; the cut-over is in [Sizing & Hardware -> Runtime: GPU or CPU?](Sizing-And-Hardware#runtime-gpu-or-cpu)
 - Above that, or low-latency → L4 (24 GB VRAM, handles any single model)
-- More than one L4 can serve → multiple replicas behind an LB, or A10G/A100; plan from [Throughput math](Sizing-And-Hardware#throughput-math)
-- `jina-ocr-v1` → GPU only, an L4 or larger, run with `--shm-size=2g`; see [Sizing & Hardware -> Document OCR](Sizing-And-Hardware#document-ocr-jina-ocr-v1)
+- More than one L4 can serve → multiple replicas behind an LB, or a larger GPU such as an A100; plan from [Throughput math](Sizing-And-Hardware#throughput-math)
+- `jina-ocr-v1` → GPU only, 24 GB or more (an L4), run with `--shm-size=2g`; see [Sizing & Hardware -> Document OCR](Sizing-And-Hardware#document-ocr-jina-ocr-v1)
 
 ## Pre-flight checklist
 
 - [ ] Docker 24+ installed on target host
-- [ ] (GPU) NVIDIA driver >= 525, NVIDIA Container Toolkit, `nvidia-smi` works
+- [ ] (GPU) NVIDIA driver >= 525 (newer for `jina-ocr-v1`; see [Troubleshooting -> CUDA mismatch](Troubleshooting#cuda-mismatch)), NVIDIA Container Toolkit, `nvidia-smi` works
 - [ ] 2-3x bundle size disk free
 - [ ] Port 8080 (or chosen port) open
 - [ ] Channel agreed for transferring the `.tar.gz`
@@ -93,9 +95,9 @@ Full table: [Model Catalog](Model-Catalog).
 
 ## Key technical guarantees
 
-1. Data and queries never leave the deployment host: `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` are baked into the image. The one outbound code path is the media URL fetch, reachable only by a multimodal request that carries an `http(s)` URL; see [Security & Hardening](Security-And-Hardening#the-one-outbound-path).
+1. Data and queries never leave the deployment host: `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` are baked into the image. The one outbound code path is the media URL fetch, reachable only by a request that carries an `http(s)` media URL; see [Security & Hardening](Security-And-Hardening#the-one-outbound-path).
 2. OpenAI-compatible: any client using `openai.OpenAI(base_url=...)` works without code changes.
-3. The air-gap is verifiable: run on a host with no egress route and `docker logs` will be silent on outbound attempts. Source code on GitHub is Apache-2.0 and auditable.
+3. The air-gap is verifiable: run [`verify-offline.sh`](https://github.com/jina-ai/jina-on-prem/blob/main/verify-offline.sh), which serves the image with no network at all and checks that it cannot reach out. The source code is public on GitHub and auditable.
 
 ## Common first-mile errors
 
@@ -105,7 +107,7 @@ Full table: [Model Catalog](Model-Catalog).
 | `Error response: unauthorized` (on `docker pull`) | Not an auth problem - published images pull anonymously. No image exists at that name; check the Prebuilt column of the [Model Catalog](Model-Catalog) |
 | `no matching manifest for linux/arm64/v8` | Apple Silicon: add `--platform linux/amd64` to `pull` and `run` |
 | `bind: address already in use` | Map a different port: `-p 9090:8080` |
-| Container exits with CUDA error | Driver too old: `nvidia-smi` should show >=525 |
+| Container exits with CUDA error | Driver too old: `nvidia-smi` should show >=525, newer for `jina-ocr-v1`; see [Troubleshooting](Troubleshooting#cuda-mismatch) |
 | `OOM` on GPU | Check [Model Catalog](Model-Catalog) VRAM; pick smaller model or bigger GPU |
 
 Full list: [Troubleshooting](Troubleshooting).

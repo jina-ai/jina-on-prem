@@ -33,7 +33,7 @@ with jina-ocr-v1]
 | Quantization story | aggressive (Q4_K_M is default) | bundle ships original precision |
 | Out-of-the-box embeddings | yes, general-purpose models | yes, Jina v5/v4/v3 |
 | Out-of-the-box reranking | no | yes (`/v1/rerank`) |
-| Multi-schema API | OpenAI only | Jina + OpenAI + Cohere + Gemini + Voyage |
+| Multi-schema API | Ollama native + OpenAI-compatible | Jina + OpenAI + Cohere + Gemini + Voyage |
 | Air-gap story | run offline, but you still pull models from ollama.com | full air-gap bundling |
 | Sweet spot | LLM chat at the edge | embeddings + reranking in regulated environments |
 
@@ -45,14 +45,14 @@ with jina-ocr-v1]
 
 | | vLLM | jina-on-prem |
 |---|---|---|
-| Workload | LLM chat at scale | embeddings, reranking, document OCR |
-| Throughput optimization | PagedAttention, continuous batching | batched SentenceTransformer.encode |
+| Workload | LLM chat at scale; also serves some embedding and reranking models | embeddings, reranking, document OCR |
+| Throughput optimization | PagedAttention, continuous batching | batched forward passes, plus a server-side dynamic batcher on `:gpu-opt`; vLLM's continuous batching for `jina-ocr-v1` |
 | Multi-GPU sharding | tensor parallelism, pipeline parallelism | one model per container |
-| OpenAI compat | yes (chat completions) | yes (embeddings) |
+| OpenAI compat | yes (chat completions, embeddings) | yes (embeddings, chat completions) |
 | Air-gap story | works offline if you preload, no toolchain | full bundle-and-transfer toolchain |
 | Multimodal | growing (image-text models) | yes (clip-v2, v4, omni, vlm) |
 
-**Different workloads.** vLLM is for chat at high QPS. jina-on-prem is for the search side of RAG. The one place they meet is `jina-ocr-v1`: jina-on-prem serves it on an in-process vLLM engine, behind the same port, license gate and air-gap bundle as every other model, so you do not run vLLM yourself to get it.
+jina-on-prem serves embeddings and reranking on its own runtime, and adds the multi-schema API, offline bundling and the license gate on top. It uses vLLM only for `jina-ocr-v1`, on an in-process engine behind the same port, license gate and air-gap bundle as every other model, so you do not run vLLM yourself to get it.
 
 ## jina-on-prem vs ONNX export
 
@@ -62,13 +62,13 @@ with jina-ocr-v1]
 |---|---|---|
 | Runtime size | small (no PyTorch) | larger (full PyTorch + deps) |
 | Inference speed | often faster on CPU | comparable to PyTorch |
-| Model fidelity | depends on export quality - LoRA adapters and custom code paths often break | matches HF Hub reference implementation byte-for-byte |
+| Model fidelity | depends on export quality - LoRA adapters and custom code paths often break | runs the upstream reference code unmodified |
 | Quantization | INT8 supported | possible at build time, not the default |
 | Custom code (Jina's modeling_*.py) | usually drops | kept |
 | Multi-schema API wrapping | DIY | included |
 | Update cycle | re-export per upstream | rebundle |
 
-**Use ONNX when you've validated the export matches the reference output and you need the smallest footprint.** Use jina-on-prem when you want guaranteed parity with the published model and don't want to maintain an export pipeline.
+**Use ONNX when you've validated the export matches the reference output and you need the smallest footprint.** Use jina-on-prem when you want the published model's own reference code and don't want to maintain an export pipeline.
 
 ## jina-on-prem vs hosted Jina API (api.jina.ai)
 
@@ -90,7 +90,7 @@ with jina-ocr-v1]
 
 You could build your own Docker image with HF transformers and the model weights. What does jina-on-prem add?
 
-- **Pinned deps per model**, exact rather than ranged, and readable straight out of `models/catalog.json`
+- **Pinned deps per model**, readable straight out of `models/catalog.json`
 - **Multi-schema API** (Jina + OpenAI + Cohere + Gemini + Voyage) - the adapters in `server/adapters/`, error envelopes included, that you don't have to write
 - **Patched custom code** for offline use (delete model repo requirements.txt, monkeypatch `trust_remote_code`)
 - **Tested workflow** for every catalog model including the gnarly ones (omni multimodal, Qwen3-based rerankers, ColBERT, ReaderLM, VLM, OCR on vLLM)

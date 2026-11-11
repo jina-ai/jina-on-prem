@@ -16,11 +16,11 @@ Short definitions for terms used across the wiki.
 
 **CrossEncoder**: a model that takes a (query, document) pair and outputs a relevance score. The architecture pattern behind rerankers.
 
-**CUDA**: NVIDIA's GPU programming platform. Used by the GPU images, which fall back to CPU on a host without one. Our GPU images carry CUDA 12.6 and need driver 525 or newer.
+**CUDA**: NVIDIA's GPU programming platform. Used by the GPU images, which fall back to CPU on a host without one, except a vLLM-served model such as `jina-ocr-v1`, which needs a GPU. The CUDA version an image carries, and so the driver it needs, is in its `ai.jina.cuda.version` label; see [Troubleshooting -> CUDA mismatch](Troubleshooting#cuda-mismatch).
 
 ## D
 
-**Deploy**: Phase 2. `docker load` + `docker run` on the offline machine. Takes seconds. No network needed.
+**Deploy**: Phase 2. `docker load` + `docker run` on the offline machine. No network needed.
 
 **Docker**: the container runtime jina-on-prem targets. Both bundle and deploy phases require Docker.
 
@@ -50,11 +50,11 @@ Short definitions for terms used across the wiki.
 
 ## L
 
-**L4**: NVIDIA's mid-range datacenter GPU (24 GB VRAM). The workhorse for jina-on-prem deployments.
+**L4**: NVIDIA's mid-range datacenter GPU (24 GB VRAM). A common, cost-effective default for jina-on-prem deployments.
 
 ## M
 
-**Maintenance Term**: the window during which a model generation receives runtime security patches, dependency updates, bug fixes, and quantized builds. At least the longer of 36 months from GA or 24 months from its replacement's GA. Covers the runtime and packaging, never the model's trained quality. See [Product & Model Lifecycle](Product-And-Model-Lifecycle).
+**Maintenance Term**: the window during which a model generation receives runtime security patches, dependency updates, bug fixes, and quantized builds. Covers the runtime and packaging, never the model's trained quality. See [Product & Model Lifecycle](Product-And-Model-Lifecycle).
 
 **Matryoshka**: embeddings designed so any prefix is also a valid embedding. Pass `dimensions: 128` to a 1024-dim model to get a smaller vector with no quality cliff. Named after Russian nesting dolls.
 

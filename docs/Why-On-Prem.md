@@ -10,9 +10,9 @@ Those are three different situations, and only the last one is what the industry
 |---|---|---|
 | **Banking / Finance** | Client data, trading signals and internal research cannot leave the network; the regulatory perimeter is hard. | Private VPC, on-prem ES cluster, locked-down inference |
 | **Government / Defense** | Classified or controlled-unclassified data, approved-vendor lists, no SaaS. | SCIF / IL5 environments, no inbound or outbound internet |
-| **Healthcare** | HIPAA, GDPR, patient records that legally cannot transit a third-party API. | Hospital data center, on-prem ES, sometimes isolated clinical research VLANs |
+| **Healthcare** | HIPAA and GDPR obligations on patient records, which many hospitals meet by keeping the data in-house. | Hospital data center, on-prem ES, sometimes isolated clinical research VLANs |
 | **Industrial / OT** | Plant networks isolated from corporate IT, mission-critical with no tolerance for an upstream outage. | Operational tech network, edge inference next to sensors |
-| **Sovereign / localized AI** | Data residency law (EU AI Act, China CSL, India DPDPA) requires the model to run in-country, often in your own data center. | National cloud, your data center, an approved region |
+| **Sovereign / localized AI** | Data residency rules (GDPR transfer restrictions, China CSL, India DPDPA) push the model to run in-country, often in your own data center. | National cloud, your data center, an approved region |
 
 jina-on-prem is a good fit when:
 
