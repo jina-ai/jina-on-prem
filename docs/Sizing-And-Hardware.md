@@ -38,7 +38,7 @@ The latency and throughput rows are rough estimates that vary with model, input 
 | jina-clip-v2 | 4 GB | L4 | text + image |
 | jina-code-embeddings-1.5b | 4 GB | L4 | |
 | ReaderLM-v2 | 4 GB | L4 | 512K context, plan for bigger batches |
-| jina-ocr-v1 | 24 GB | L4 | GPU only; see [Document OCR](#document-ocr-jina-ocr-v1) |
+| jina-ocr-v1 | 24 GB | L4 (minimum); A100 / H100 / RTX PRO 6000 for volume | GPU only; see [Document OCR](#document-ocr-jina-ocr-v1) |
 
 Min VRAM is what the model itself needs; any GPU with at least that much runs it. Recommended GPU is a common, cost-effective card, not a minimum. Full per-model VRAM in the [Model Catalog](Model-Catalog).
 
@@ -48,7 +48,7 @@ Min VRAM is what the model itself needs; any GPU with at least that much runs it
 
 The OCR model is served on an in-process vLLM engine, which sizes differently from the other models:
 
-- **GPU only, 24 GB or more**, such as an L4. There is no `:cpu` image. Its CUDA is vLLM's, newer than the other GPU images', so check the driver as [Troubleshooting -> CUDA mismatch](Troubleshooting#cuda-mismatch) shows.
+- **GPU only, 24 GB or more.** An L4 is the smallest card it runs on; larger cards are faster (table below). There is no `:cpu` image.
 - **It takes most of the card.** vLLM pre-allocates a fixed share of GPU memory at startup (the `gpu_memory_utilization` on the model's catalog entry) and uses it for concurrent requests. To put a second container on the same GPU, lower it with `JINA_GPU_MEMORY_FRACTION`.
 - **Cold start is minutes.** The engine compiles and captures CUDA graphs before `/health` reports ready. Size your orchestrator's start-up probes for it.
 - **It needs shared memory.** Run with `--shm-size=2g`; the shipped compose file and Kubernetes manifest already do.
@@ -279,7 +279,7 @@ To run two models (embed + rerank), copy the Deployment+Service blocks with diff
 Before deploying or transferring a bundle:
 
 - [ ] Host with Docker 24+ installed
-- [ ] (GPU) NVIDIA driver >= 525 (newer for `jina-ocr-v1`, see [Document OCR](#document-ocr-jina-ocr-v1)), CUDA Container Toolkit installed (`nvidia-smi` works in container)
+- [ ] (GPU) NVIDIA driver >= 525 (newer for `jina-ocr-v1`, see [Troubleshooting -> CUDA mismatch](Troubleshooting#cuda-mismatch)), CUDA Container Toolkit installed (`nvidia-smi` works in container)
 - [ ] Disk: 2-3x the bundle size free
 - [ ] Port 8080 (or chosen port) free
 - [ ] Network plan: how does the calling app reach this host? localhost / LAN IP / internal DNS?
